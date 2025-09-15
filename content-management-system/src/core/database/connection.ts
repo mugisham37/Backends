@@ -20,14 +20,20 @@ const createConnectionPool = (): postgres.Sql => {
     maxConnections: config.database.maxConnections,
   });
 
-  return postgres(connectionString, {
+  const options: postgres.Options<{}> = {
     max: config.database.maxConnections,
     idle_timeout: 20,
     connect_timeout: 10,
     prepare: false, // Disable prepared statements for better compatibility
-    onnotice: config.isDevelopment ? console.log : undefined,
     debug: config.isDevelopment,
-  });
+  };
+
+  // Only add onnotice if in development mode
+  if (config.isDevelopment) {
+    options.onnotice = (notice) => console.log(notice);
+  }
+
+  return postgres(connectionString, options);
 };
 
 /**

@@ -10,6 +10,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tenants } from "./tenant.schema";
+import { contents } from "./content.schema";
+import { media } from "./media.schema";
 
 /**
  * User roles enum
@@ -142,8 +144,8 @@ export const userRelations = relations(users, ({ one, many }) => ({
   }),
   sessions: many(userSessions),
   permissions: many(userPermissions),
-  contents: many("contents"),
-  media: many("media"),
+  contents: many(contents),
+  media: many(media),
 }));
 
 export const userSessionRelations = relations(userSessions, ({ one }) => ({

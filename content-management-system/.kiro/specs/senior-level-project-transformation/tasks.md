@@ -34,16 +34,16 @@
     - Implement migration runner and version control
     - _Requirements: 1.3_
 
-- [ ] 3. Create core types and error handling system
+- [x] 3. Create core types and error handling system
 
-  - [ ] 3.1 Implement Result pattern for type-safe error handling
+  - [x] 3.1 Implement Result pattern for type-safe error handling
 
     - Create Result<T, E> type definition
     - Implement base error classes hierarchy
     - Create specific error types (ValidationError, NotFoundError, DatabaseError)
     - _Requirements: 3.6, 8.5_
 
-  - [ ] 3.2 Define global TypeScript types
+  - [x] 3.2 Define global TypeScript types
 
     - Create API request/response types
     - Define database entity types
@@ -51,7 +51,8 @@
     - Implement strict TypeScript configuration
     - _Requirements: 3.7, 8.2_
 
-  - [ ] 3.3 Create custom decorators system
+  - [x] 3.3 Create custom decorators system
+
     - Implement authentication decorator
     - Create validation decorator using Zod
     - Implement caching decorator

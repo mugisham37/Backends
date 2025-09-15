@@ -20,7 +20,6 @@ export const setupDatabase = async (
 ): Promise<void> => {
   const {
     runMigrations = true,
-    validateSchema = true,
     retryAttempts = 3,
     retryDelay = 2000,
   } = options;
@@ -94,12 +93,22 @@ export const healthCheck = async (): Promise<{
     const { checkDatabaseHealth } = await import("./connection.js");
     const health = await checkDatabaseHealth();
 
+    const details: {
+      connection: boolean;
+      latency?: number;
+      error?: string;
+    } = {
+      connection: health.healthy,
+    };
+
+    // Only add latency if it's defined
+    if (health.latency !== undefined) {
+      details.latency = health.latency;
+    }
+
     return {
       healthy: health.healthy,
-      details: {
-        connection: health.healthy,
-        latency: health.latency,
-      },
+      details,
     };
   } catch (error) {
     const errorMessage =

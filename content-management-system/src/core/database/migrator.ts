@@ -41,11 +41,21 @@ export const runMigrations = async (
 
     const db = getDatabase();
 
-    // Run migrations
-    const migrationResult = await migrate(db, {
+    // Prepare migration configuration
+    const migrationConfig: {
+      migrationsFolder: string;
+      migrationsTable?: string;
+    } = {
       migrationsFolder,
-      migrationsTable: config?.migrationsTable,
-    });
+    };
+
+    // Only add migrationsTable if it's defined
+    if (config?.migrationsTable) {
+      migrationConfig.migrationsTable = config.migrationsTable;
+    }
+
+    // Run migrations
+    await migrate(db, migrationConfig);
 
     dbLogger.info("Database migrations completed successfully");
 
@@ -85,7 +95,7 @@ export const checkMigrationStatus = async (): Promise<{
       ) as exists
     `;
 
-    if (!migrationTableExists[0]?.exists) {
+    if (!migrationTableExists[0]?.["exists"]) {
       return {
         pending: true,
         appliedCount: 0,
@@ -97,7 +107,7 @@ export const checkMigrationStatus = async (): Promise<{
       SELECT COUNT(*) as count FROM __drizzle_migrations
     `;
 
-    const appliedCount = Number(appliedMigrations[0]?.count || 0);
+    const appliedCount = Number(appliedMigrations[0]?.["count"] || 0);
 
     dbLogger.info(`Found ${appliedCount} applied migrations`);
 
@@ -187,7 +197,7 @@ export const validateSchema = async (): Promise<{
       AND table_type = 'BASE TABLE'
     `;
 
-    const existingTableNames = existingTables.map((row) => row.table_name);
+    const existingTableNames = existingTables.map((row) => row["table_name"]);
     const missingTables = expectedTables.filter(
       (table) => !existingTableNames.includes(table)
     );

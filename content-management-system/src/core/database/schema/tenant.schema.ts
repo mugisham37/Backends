@@ -9,6 +9,9 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { users } from "./auth.schema";
+import { contents } from "./content.schema";
+import { media } from "./media.schema";
 
 /**
  * Tenants table - Multi-tenancy support
@@ -49,9 +52,9 @@ export const tenants = pgTable(
  * Tenant relations
  */
 export const tenantRelations = relations(tenants, ({ many }) => ({
-  users: many("users"),
-  contents: many("contents"),
-  media: many("media"),
+  users: many(users),
+  contents: many(contents),
+  media: many(media),
 }));
 
 /**
