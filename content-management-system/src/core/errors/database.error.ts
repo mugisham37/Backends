@@ -4,8 +4,8 @@ import { TechnicalError } from "./base.error";
  * Base error for all database-related errors
  */
 export class DatabaseError extends TechnicalError {
-  public readonly code = "DATABASE_ERROR";
-  public readonly statusCode = 500;
+  public override readonly code: string = "DATABASE_ERROR";
+  public override readonly statusCode: number = 500;
 
   constructor(
     message: string,
@@ -42,8 +42,8 @@ export class DatabaseError extends TechnicalError {
  * Error thrown when database connection fails
  */
 export class ConnectionError extends DatabaseError {
-  public readonly code = "DATABASE_CONNECTION_ERROR";
-  public readonly statusCode = 503;
+  public override readonly code = "DATABASE_CONNECTION_ERROR";
+  public override readonly statusCode = 503;
 
   constructor(
     message: string = "Database connection failed",
@@ -80,7 +80,7 @@ export class ConnectionError extends DatabaseError {
  * Error thrown when a database query fails
  */
 export class QueryError extends DatabaseError {
-  public readonly code = "DATABASE_QUERY_ERROR";
+  public override readonly code = "DATABASE_QUERY_ERROR";
 
   constructor(
     message: string,
@@ -125,8 +125,8 @@ export class QueryError extends DatabaseError {
  * Error thrown when a database constraint is violated
  */
 export class ConstraintError extends DatabaseError {
-  public readonly code = "DATABASE_CONSTRAINT_ERROR";
-  public readonly statusCode = 409;
+  public override readonly code = "DATABASE_CONSTRAINT_ERROR";
+  public override readonly statusCode = 409;
 
   constructor(
     message: string,
@@ -199,7 +199,7 @@ export class ConstraintError extends DatabaseError {
  * Error thrown when a database transaction fails
  */
 export class TransactionError extends DatabaseError {
-  public readonly code = "DATABASE_TRANSACTION_ERROR";
+  public override readonly code = "DATABASE_TRANSACTION_ERROR";
 
   constructor(
     message: string,
@@ -252,7 +252,7 @@ export class TransactionError extends DatabaseError {
  * Error thrown when database migration fails
  */
 export class MigrationError extends DatabaseError {
-  public readonly code = "DATABASE_MIGRATION_ERROR";
+  public override readonly code = "DATABASE_MIGRATION_ERROR";
 
   constructor(
     message: string,

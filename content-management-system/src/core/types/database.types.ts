@@ -1,4 +1,4 @@
-import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import type { InferInsertModel, InferSelectModel, Table } from "drizzle-orm";
 import type { Result } from "./result.types";
 
 /**
@@ -393,8 +393,8 @@ export interface Category
 /**
  * Utility types for schema inference
  */
-export type InsertModel<T> = InferInsertModel<T>;
-export type SelectModel<T> = InferSelectModel<T>;
+export type InsertModel<T extends Table> = InferInsertModel<T>;
+export type SelectModel<T extends Table> = InferSelectModel<T>;
 
 /**
  * Database operation result types

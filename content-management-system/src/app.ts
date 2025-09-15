@@ -9,6 +9,10 @@ import compress from "@fastify/compress";
 import { config } from "./config";
 import { connectDatabase, isDatabaseConnected } from "./db/connection";
 import { logger, apiLogger } from "./utils/logger";
+import {
+  initializeApplication,
+  getApplicationStatus,
+} from "./core/container/bootstrap";
 
 export const createApp = async (): Promise<FastifyInstance> => {
   // Fastify server options with proper typing
@@ -41,6 +45,9 @@ export const createApp = async (): Promise<FastifyInstance> => {
   try {
     // Connect to database
     await connectDatabase();
+
+    // Initialize dependency injection container
+    await initializeApplication(app);
 
     // Register compression plugin
     await app.register(compress, {
@@ -91,6 +98,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
 
     // Health check endpoint
     app.get("/health", async (_request, reply) => {
+      const appStatus = getApplicationStatus();
       const healthStatus = {
         status: "ok",
         timestamp: new Date().toISOString(),
@@ -99,6 +107,11 @@ export const createApp = async (): Promise<FastifyInstance> => {
         environment: config.env,
         database: {
           connected: isDatabaseConnected(),
+        },
+        container: {
+          initialized: appStatus.initialized,
+          ready: appStatus.containerReady,
+          services: appStatus.serviceCount,
         },
         memory: process.memoryUsage(),
       };

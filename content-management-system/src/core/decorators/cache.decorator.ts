@@ -67,32 +67,35 @@ export function Cache(options: CacheMetadata = {}): MethodDecorator {
  * @param ttl Time to live in seconds
  * @param key Optional cache key
  */
-export function CacheTTL(ttl: number, key?: string): MethodDecorator {
-  return Cache({ ttl, key });
+export function CacheTTL(
+  ttl: number,
+  key?: string | undefined
+): MethodDecorator {
+  return Cache({ ttl, key: key || undefined });
 }
 
 /**
  * Decorator to cache method results for a short duration (1 minute)
  * @param key Optional cache key
  */
-export function CacheShort(key?: string): MethodDecorator {
-  return Cache({ ttl: 60, key });
+export function CacheShort(key?: string | undefined): MethodDecorator {
+  return Cache({ ttl: 60, key: key || undefined });
 }
 
 /**
  * Decorator to cache method results for a medium duration (5 minutes)
  * @param key Optional cache key
  */
-export function CacheMedium(key?: string): MethodDecorator {
-  return Cache({ ttl: 300, key });
+export function CacheMedium(key?: string | undefined): MethodDecorator {
+  return Cache({ ttl: 300, key: key || undefined });
 }
 
 /**
  * Decorator to cache method results for a long duration (1 hour)
  * @param key Optional cache key
  */
-export function CacheLong(key?: string): MethodDecorator {
-  return Cache({ ttl: 3600, key });
+export function CacheLong(key?: string | undefined): MethodDecorator {
+  return Cache({ ttl: 3600, key: key || undefined });
 }
 
 /**
@@ -100,8 +103,11 @@ export function CacheLong(key?: string): MethodDecorator {
  * @param tags Cache tags for group invalidation
  * @param ttl Optional TTL override
  */
-export function CacheWithTags(tags: string[], ttl?: number): MethodDecorator {
-  return Cache({ tags, ttl });
+export function CacheWithTags(
+  tags: string[],
+  ttl?: number | undefined
+): MethodDecorator {
+  return Cache({ tags, ttl: ttl || undefined });
 }
 
 /**
@@ -233,7 +239,7 @@ export class CacheKeyGenerator {
   /**
    * JSON replacer to handle circular references and functions
    */
-  private static replacer(key: string, value: any): any {
+  private static replacer(_key: string, value: any): any {
     if (typeof value === "function") {
       return "[Function]";
     }

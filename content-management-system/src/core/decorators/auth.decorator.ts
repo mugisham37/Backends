@@ -72,7 +72,7 @@ export function AllowAnonymous(): MethodDecorator {
   return function (
     target: any,
     propertyKey: string | symbol,
-    descriptor: PropertyDescriptor
+    _descriptor: PropertyDescriptor
   ) {
     const metadata: AuthMetadata = {
       required: false,

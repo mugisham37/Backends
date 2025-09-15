@@ -7,8 +7,10 @@ export * from "./database.types";
 // API types
 export * from "./api.types";
 
-// Service types
-export * from "./service.types";
+// Service types - NOTE: Some types may conflict with other modules
+// If you encounter conflicts, import specific types instead of using export *
+// Example: import type { SpecificType } from "./service.types"
+// export * from "./service.types";
 
 // Re-export commonly used types for convenience
 export type { Result, ResultData, ResultError } from "./result.types";

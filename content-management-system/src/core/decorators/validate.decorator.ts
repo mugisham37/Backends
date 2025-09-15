@@ -392,14 +392,7 @@ export class ValidationUtils {
    */
   static createListSchema<T extends Record<string, any>>(
     filterSchema?: ZodSchema<T>
-  ): ZodSchema<{
-    page?: number;
-    limit?: number;
-    sortBy?: string;
-    sortOrder?: "asc" | "desc";
-    search?: string;
-    filters?: T;
-  }> {
+  ) {
     return z.object({
       ...CommonSchemas.pagination.shape,
       ...CommonSchemas.sort.shape,

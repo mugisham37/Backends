@@ -21,7 +21,7 @@ export abstract class BaseError extends Error {
   /**
    * Additional context or metadata about the error
    */
-  public readonly context?: Record<string, unknown>;
+  public readonly context: Record<string, unknown> | undefined;
 
   /**
    * Timestamp when the error occurred
@@ -29,13 +29,13 @@ export abstract class BaseError extends Error {
   public readonly timestamp: Date;
 
   constructor(
-    message: string,
-    public readonly cause?: unknown,
-    context?: Record<string, unknown>
+    override readonly message: string,
+    public override readonly cause?: unknown,
+    context?: Record<string, unknown> | undefined
   ) {
     super(message);
     this.name = this.constructor.name;
-    this.context = context;
+    this.context = context || undefined;
     this.timestamp = new Date();
 
     // Ensure proper prototype chain for instanceof checks
@@ -59,7 +59,7 @@ export abstract class BaseError extends Error {
       isOperational: this.isOperational,
       timestamp: this.timestamp.toISOString(),
       context: this.context,
-      ...(process.env.NODE_ENV === "development" && {
+      ...(process.env["NODE_ENV"] === "development" && {
         stack: this.stack,
         cause: this.cause,
       }),
@@ -69,7 +69,7 @@ export abstract class BaseError extends Error {
   /**
    * Convert error to string representation
    */
-  toString(): string {
+  override toString(): string {
     return `${this.name} [${this.code}]: ${this.message}`;
   }
 
@@ -95,14 +95,14 @@ export abstract class BaseError extends Error {
  * Error for client-side errors (4xx status codes)
  */
 export abstract class ClientError extends BaseError {
-  public readonly isOperational = true;
+  public override readonly isOperational = true;
 }
 
 /**
  * Error for server-side errors (5xx status codes)
  */
 export abstract class ServerError extends BaseError {
-  public readonly isOperational = false;
+  public override readonly isOperational = false;
 }
 
 /**

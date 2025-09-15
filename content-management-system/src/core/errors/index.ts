@@ -8,6 +8,9 @@ export * from "./database.error";
 export * from "./auth.error";
 export * from "./business.error";
 
+// Import for use in functions
+import { BaseError } from "./base.error";
+
 // Re-export for convenience
 export {
   BaseError,
@@ -59,21 +62,21 @@ export function isOperationalError(error: unknown): boolean {
 export function extractErrorInfo(error: unknown): {
   name: string;
   message: string;
-  code?: string;
-  statusCode?: number;
+  code?: string | undefined;
+  statusCode?: number | undefined;
   isOperational: boolean;
-  context?: Record<string, unknown>;
-  stack?: string;
+  context?: Record<string, unknown> | undefined;
+  stack?: string | undefined;
 } {
   if (isBaseError(error)) {
     return {
       name: error.name,
       message: error.message,
-      code: error.code,
-      statusCode: error.statusCode,
+      code: error.code || undefined,
+      statusCode: error.statusCode || undefined,
       isOperational: error.isOperational,
-      context: error.context,
-      stack: error.stack,
+      context: error.context || undefined,
+      stack: error.stack || undefined,
     };
   }
 
@@ -82,7 +85,7 @@ export function extractErrorInfo(error: unknown): {
       name: error.name,
       message: error.message,
       isOperational: false,
-      stack: error.stack,
+      stack: error.stack || undefined,
     };
   }
 
