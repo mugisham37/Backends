@@ -1,53 +1,82 @@
-import mongoose from "mongoose"
-import { config } from "../config"
-import { logger } from "../utils/logger"
+import { config } from "../config";
+import { dbLogger } from "../utils/logger";
 
-// Connect to MongoDB
-export const connectDatabase = async (): Promise<void> => {
-  try {
-    logger.info("Connecting to MongoDB...")
+// Database connection interface for future implementation
+export interface DatabaseConnection {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  isConnected(): boolean;
+}
 
-    // Set mongoose options
-    mongoose.set("strictQuery", true)
+// Placeholder database connection (will be replaced with Drizzle in task 2)
+class DatabaseManager implements DatabaseConnection {
+  private connected = false;
 
-    // Connect to the database
-    await mongoose.connect(config.mongodb.uri)
+  async connect(): Promise<void> {
+    try {
+      dbLogger.info("Initializing database connection...");
 
-    logger.info("MongoDB connected successfully")
+      // For now, just simulate connection
+      // This will be replaced with actual Drizzle PostgreSQL connection in task 2
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Handle connection events
-    mongoose.connection.on("error", (err) => {
-      logger.error("MongoDB connection error:", err)
-    })
+      this.connected = true;
+      dbLogger.info("Database connection initialized (placeholder)");
+    } catch (error) {
+      dbLogger.error("Failed to connect to database:", error);
+      throw error;
+    }
+  }
 
-    mongoose.connection.on("disconnected", () => {
-      logger.warn("MongoDB disconnected")
-    })
-
-    // Handle process termination
-    process.on("SIGINT", async () => {
-      try {
-        await mongoose.connection.close()
-        logger.info("MongoDB connection closed due to app termination")
-        process.exit(0)
-      } catch (err) {
-        logger.error("Error closing MongoDB connection:", err)
-        process.exit(1)
+  async disconnect(): Promise<void> {
+    try {
+      if (this.connected) {
+        dbLogger.info("Closing database connection...");
+        this.connected = false;
+        dbLogger.info("Database connection closed");
       }
-    })
-  } catch (error) {
-    logger.error("Failed to connect to MongoDB:", error)
-    throw error
+    } catch (error) {
+      dbLogger.error("Error disconnecting from database:", error);
+      throw error;
+    }
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 }
 
-// Disconnect from MongoDB
+// Create database manager instance
+const databaseManager = new DatabaseManager();
+
+// Export connection functions
+export const connectDatabase = async (): Promise<void> => {
+  await databaseManager.connect();
+};
+
 export const disconnectDatabase = async (): Promise<void> => {
+  await databaseManager.disconnect();
+};
+
+export const isDatabaseConnected = (): boolean => {
+  return databaseManager.isConnected();
+};
+
+// Handle graceful shutdown
+process.on("SIGINT", async () => {
   try {
-    await mongoose.connection.close()
-    logger.info("MongoDB disconnected")
-  } catch (error) {
-    logger.error("Error disconnecting from MongoDB:", error)
-    throw error
+    await disconnectDatabase();
+    dbLogger.info("Database connection closed due to app termination");
+  } catch (err) {
+    dbLogger.error("Error closing database connection:", err);
   }
-}
+});
+
+process.on("SIGTERM", async () => {
+  try {
+    await disconnectDatabase();
+    dbLogger.info("Database connection closed due to app termination");
+  } catch (err) {
+    dbLogger.error("Error closing database connection:", err);
+  }
+});

@@ -1,50 +1,99 @@
-import { createApp } from "./app"
-import { logger } from "./utils/logger"
-import { config } from "./config"
+import { createApp } from "./app";
+import { logger } from "./utils/logger";
+import { config } from "./config";
+import { disconnectDatabase } from "./db/connection";
 
-async function startServer() {
+async function startServer(): Promise<void> {
+  let app: Awaited<ReturnType<typeof createApp>> | null = null;
+
   try {
-    const app = await createApp()
+    // Create and configure the application
+    app = await createApp();
 
-    const server = app.listen(config.port, () => {
-      logger.info(`Server running on port ${config.port}`)
-      logger.info(`Environment: ${config.env}`)
-      logger.info(`API documentation available at http://localhost:${config.port}/api-docs`)
-    })
+    // Start the Fastify server
+    const address = await app.listen({
+      port: config.port,
+      host: "0.0.0.0",
+    });
+
+    logger.info(`Server running on ${address}`);
+    logger.info(`Environment: ${config.env}`);
+    logger.info(`Process ID: ${process.pid}`);
 
     // Handle graceful shutdown
-    const gracefulShutdown = async (signal: string) => {
-      logger.info(`${signal} received. Shutting down gracefully...`)
+    const gracefulShutdown = async (signal: string): Promise<void> => {
+      logger.info(`${signal} received. Shutting down gracefully...`);
 
-      server.close(() => {
-        logger.info("HTTP server closed")
-        process.exit(0)
-      })
+      try {
+        // Close the server first
+        if (app) {
+          await app.close();
+          logger.info("Fastify server closed");
+        }
 
-      // Force shutdown after 10 seconds
-      setTimeout(() => {
-        logger.error("Could not close connections in time, forcefully shutting down")
-        process.exit(1)
-      }, 10000)
-    }
+        // Close database connections
+        await disconnectDatabase();
 
-    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"))
-    process.on("SIGINT", () => gracefulShutdown("SIGINT"))
+        logger.info("Graceful shutdown completed");
+        process.exit(0);
+      } catch (error) {
+        logger.error("Error during shutdown:", error);
+        process.exit(1);
+      }
+    };
+
+    // Register shutdown handlers
+    process.on("SIGTERM", () => {
+      void gracefulShutdown("SIGTERM");
+    });
+
+    process.on("SIGINT", () => {
+      void gracefulShutdown("SIGINT");
+    });
 
     // Handle uncaught exceptions and rejections
     process.on("uncaughtException", (err) => {
-      logger.error("Uncaught exception:", err)
-      gracefulShutdown("Uncaught exception")
-    })
+      logger.error("Uncaught exception:", err);
+      void gracefulShutdown("Uncaught exception");
+    });
 
-    process.on("unhandledRejection", (reason) => {
-      logger.error("Unhandled rejection:", reason)
-      gracefulShutdown("Unhandled rejection")
-    })
+    process.on("unhandledRejection", (reason, promise) => {
+      logger.error("Unhandled rejection at:", promise, "reason:", reason);
+      void gracefulShutdown("Unhandled rejection");
+    });
+
+    // Handle warnings
+    process.on("warning", (warning) => {
+      logger.warn("Process warning:", {
+        name: warning.name,
+        message: warning.message,
+        stack: warning.stack,
+      });
+    });
   } catch (error) {
-    logger.error("Error starting server:", error)
-    process.exit(1)
+    logger.error("Error starting server:", error);
+
+    // Attempt cleanup
+    if (app) {
+      try {
+        await app.close();
+      } catch (closeError) {
+        logger.error(
+          "Error closing server during startup failure:",
+          closeError
+        );
+      }
+    }
+
+    try {
+      await disconnectDatabase();
+    } catch (dbError) {
+      logger.error("Error closing database during startup failure:", dbError);
+    }
+
+    process.exit(1);
   }
 }
 
-startServer()
+// Start the server
+void startServer();

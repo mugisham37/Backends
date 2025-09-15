@@ -1,66 +1,69 @@
-import winston from "winston"
-import { config } from "../config"
+import pino from "pino";
+import { config } from "../config";
 
-// Define log format
-const logFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.errors({ stack: true }),
-  winston.format.json(),
-)
-
-// Create logger instance
-export const logger = winston.createLogger({
+// Create Pino logger instance (optimized for Fastify)
+export const logger = pino({
   level: config.logging.level,
-  silent: config.logging.silent,
-  format: logFormat,
-  defaultMeta: { service: "cms-api" },
-  transports: [
-    // Write logs to console
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.printf(({ timestamp, level, message, ...meta }) => {
-          const metaString = Object.keys(meta).length ? JSON.stringify(meta) : ""
-          return `${timestamp} [${level}]: ${message} ${metaString}`
-        }),
-      ),
-    }),
-  ],
-})
-
-// Add file transports in production
-if (config.isProduction) {
-  logger.add(new winston.transports.File({ filename: "logs/error.log", level: "error" }))
-  logger.add(new winston.transports.File({ filename: "logs/combined.log" }))
-}
-
-// Create a stream object for Morgan
-export const logStream = {
-  write: (message: string) => {
-    logger.http(message.trim())
+  ...(config.logging.prettyPrint && {
+    transport: {
+      target: "pino-pretty",
+      options: {
+        colorize: true,
+        translateTime: "HH:MM:ss Z",
+        ignore: "pid,hostname",
+        singleLine: true,
+      },
+    },
+  }),
+  serializers: {
+    req: pino.stdSerializers.req,
+    res: pino.stdSerializers.res,
+    err: pino.stdSerializers.err,
   },
-}
+  base: {
+    service: "cms-api",
+    version: process.env["npm_package_version"] || "1.0.0",
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
 
-// Export a simplified logger for use in development
+// Create child loggers for different modules
+export const createModuleLogger = (module: string) => {
+  return logger.child({ module });
+};
+
+// Database logger
+export const dbLogger = createModuleLogger("database");
+
+// Auth logger
+export const authLogger = createModuleLogger("auth");
+
+// API logger
+export const apiLogger = createModuleLogger("api");
+
+// Cache logger
+export const cacheLogger = createModuleLogger("cache");
+
+// Export logger for backward compatibility and development
 export const devLogger = {
-  info: (...args: any[]) => {
+  info: (...args: unknown[]) => {
     if (config.isDevelopment) {
-      console.info(...args)
+      logger.info(...args);
     }
   },
-  error: (...args: any[]) => {
+  error: (...args: unknown[]) => {
     if (config.isDevelopment) {
-      console.error(...args)
+      logger.error(...args);
     }
   },
-  warn: (...args: any[]) => {
+  warn: (...args: unknown[]) => {
     if (config.isDevelopment) {
-      console.warn(...args)
+      logger.warn(...args);
     }
   },
-  debug: (...args: any[]) => {
+  debug: (...args: unknown[]) => {
     if (config.isDevelopment) {
-      console.debug(...args)
+      logger.debug(...args);
     }
   },
-}
+};
