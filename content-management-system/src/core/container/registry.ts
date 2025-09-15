@@ -116,6 +116,7 @@ export function registerServices(): void {
     { token: "QueueService", path: "../../services/queue.service" },
     { token: TOKENS.WebhookService, path: "../../services/webhook.service" },
     { token: TOKENS.AuditService, path: "../../services/audit.service" },
+    { token: "MonitoringService", path: "../../services/monitoring.service" },
   ];
 
   for (const service of services) {

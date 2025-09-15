@@ -1,233 +1,326 @@
-import type { Request, Response, NextFunction } from "express"
-import { auditService } from "../services/audit.service"
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { container } from "tsyringe";
+import { AuditService } from "../services/audit.service";
+import { logger } from "../utils/logger";
 
 /**
- * Create audit middleware
+ * Enhanced audit middleware for Fastify with comprehensive logging
+ */
+export const auditMiddleware = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
+
+  // Add request ID to request context
+  (request as any).requestId = requestId;
+
+  // Get audit service
+  const auditService = container.resolve(AuditService);
+
+  // Get user information from request context
+  const user = (request as any).user;
+  const userId = user?.id;
+  const tenantId = user?.tenantId;
+  const sessionId = (request as any).sessionId;
+
+  // Get request information
+  const ip = request.ip;
+  const userAgent = request.headers["user-agent"];
+  const method = request.method;
+  const url = request.url;
+
+  // Log request start
+  request.log.info("Request started", {
+    requestId,
+    method,
+    url,
+    userId,
+    tenantId,
+    ip,
+    userAgent,
+  } as any);
+
+  // Hook into response to log completion
+  reply.addHook("onSend", async (request: any, reply: any, payload: any) => {
+    const responseTime = Date.now() - startTime;
+    const statusCode = reply.statusCode;
+
+    // Log API request to audit service
+    await auditService.logApiRequest({
+      method,
+      url,
+      statusCode,
+      responseTime,
+      userId,
+      tenantId,
+      sessionId,
+      ip,
+      userAgent: userAgent || undefined,
+      requestId,
+      requestSize: request.headers["content-length"]
+        ? parseInt(request.headers["content-length"] as string, 10)
+        : undefined,
+      responseSize: typeof payload === "string" ? payload.length : undefined,
+    });
+
+    // Log request completion
+    request.log.info("Request completed", {
+      requestId,
+      method,
+      url,
+      statusCode,
+      responseTime,
+      userId,
+      tenantId,
+    });
+
+    return payload;
+  });
+};
+
+/**
+ * Create specific audit middleware for different operations
  */
 export const createAuditMiddleware = (options: {
-  action: string
-  entityType: string
-  getEntityId: (req: Request) => string
+  action: string;
+  resource: string;
+  getEntityId?: (request: FastifyRequest) => string;
+  severity?: "low" | "medium" | "high" | "critical";
 }) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      // Get entity ID
-      const entityId = options.getEntityId(req)
+      const auditService = container.resolve(AuditService);
+      const user = (request as any).user;
 
-      // Get user information
-      const user = (req as any).user
-      const userId = user?._id?.toString()
-      const userEmail = user?.email
+      // Get entity ID if provided
+      const entityId = options.getEntityId
+        ? options.getEntityId(request)
+        : undefined;
 
-      // Get request information
-      const ipAddress = req.ip
-      const userAgent = req.headers["user-agent"]
-
-      // Create audit log
-      await auditService.log({
-        action: options.action,
-        entityType: options.entityType,
-        entityId,
-        userId,
-        userEmail,
-        ipAddress,
-        userAgent,
-        details: {
-          method: req.method,
-          path: req.path,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        },
-      })
-
-      next()
+      // Log user action
+      if (user?.id) {
+        await auditService.logUserAction({
+          userId: user.id,
+          tenantId: user.tenantId,
+          action: options.action,
+          resource: options.resource,
+          details: {
+            method: request.method,
+            url: request.url,
+            entityId,
+            params: request.params,
+            query: request.query,
+            body: request.body,
+          },
+          ip: request.ip,
+          userAgent: request.headers["user-agent"] || undefined,
+        });
+      }
     } catch (error) {
       // Don't block the request if audit logging fails
-      console.error("Audit logging failed:", error)
-      next()
+      logger.warn("Audit logging failed:", error);
     }
-  }
-}
+  };
+};
 
 /**
- * Audit middleware for content operations
+ * Pre-configured audit middleware for common operations
  */
 export const contentAudit = {
   create: createAuditMiddleware({
-    action: "content.create",
-    entityType: "content",
-    getEntityId: (req) => req.body.contentTypeId,
+    action: "create",
+    resource: "content",
+    getEntityId: (req) => (req.body as any)?.title || "unknown",
+    severity: "low",
   }),
   update: createAuditMiddleware({
-    action: "content.update",
-    entityType: "content",
-    getEntityId: (req) => req.params.id,
+    action: "update",
+    resource: "content",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "low",
   }),
   delete: createAuditMiddleware({
-    action: "content.delete",
-    entityType: "content",
-    getEntityId: (req) => req.params.id,
+    action: "delete",
+    resource: "content",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "medium",
   }),
   publish: createAuditMiddleware({
-    action: "content.publish",
-    entityType: "content",
-    getEntityId: (req) => req.params.id,
+    action: "publish",
+    resource: "content",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "medium",
   }),
   unpublish: createAuditMiddleware({
-    action: "content.unpublish",
-    entityType: "content",
-    getEntityId: (req) => req.params.id,
+    action: "unpublish",
+    resource: "content",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "medium",
   }),
-  archive: createAuditMiddleware({
-    action: "content.archive",
-    entityType: "content",
-    getEntityId: (req) => req.params.id,
-  }),
-}
+};
 
-/**
- * Audit middleware for content type operations
- */
-export const contentTypeAudit = {
-  create: createAuditMiddleware({
-    action: "contentType.create",
-    entityType: "contentType",
-    getEntityId: (req) => req.body.name,
-  }),
-  update: createAuditMiddleware({
-    action: "contentType.update",
-    entityType: "contentType",
-    getEntityId: (req) => req.params.id,
-  }),
-  delete: createAuditMiddleware({
-    action: "contentType.delete",
-    entityType: "contentType",
-    getEntityId: (req) => req.params.id,
-  }),
-}
-
-/**
- * Audit middleware for user operations
- */
 export const userAudit = {
   create: createAuditMiddleware({
-    action: "user.create",
-    entityType: "user",
-    getEntityId: (req) => req.body.email,
+    action: "create",
+    resource: "user",
+    getEntityId: (req) => (req.body as any)?.email,
+    severity: "medium",
   }),
   update: createAuditMiddleware({
-    action: "user.update",
-    entityType: "user",
-    getEntityId: (req) => req.params.id,
+    action: "update",
+    resource: "user",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "medium",
   }),
   delete: createAuditMiddleware({
-    action: "user.delete",
-    entityType: "user",
-    getEntityId: (req) => req.params.id,
+    action: "delete",
+    resource: "user",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "high",
   }),
   changeRole: createAuditMiddleware({
-    action: "user.changeRole",
-    entityType: "user",
-    getEntityId: (req) => req.params.id,
+    action: "change_role",
+    resource: "user",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "high",
   }),
-  changePassword: createAuditMiddleware({
-    action: "user.changePassword",
-    entityType: "user",
-    getEntityId: (req) => req.params.id || (req as any).user?._id?.toString(),
-  }),
-}
+};
 
-/**
- * Audit middleware for media operations
- */
 export const mediaAudit = {
   upload: createAuditMiddleware({
-    action: "media.upload",
-    entityType: "media",
-    getEntityId: (req) => req.body.filename || "unknown",
+    action: "upload",
+    resource: "media",
+    getEntityId: (req) => (req.body as any)?.filename || "unknown",
+    severity: "low",
   }),
   update: createAuditMiddleware({
-    action: "media.update",
-    entityType: "media",
-    getEntityId: (req) => req.params.id,
+    action: "update",
+    resource: "media",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "low",
   }),
   delete: createAuditMiddleware({
-    action: "media.delete",
-    entityType: "media",
-    getEntityId: (req) => req.params.id,
+    action: "delete",
+    resource: "media",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "medium",
   }),
-}
+};
 
-/**
- * Audit middleware for webhook operations
- */
-export const webhookAudit = {
-  create: createAuditMiddleware({
-    action: "webhook.create",
-    entityType: "webhook",
-    getEntityId: (req) => req.body.name,
-  }),
-  update: createAuditMiddleware({
-    action: "webhook.update",
-    entityType: "webhook",
-    getEntityId: (req) => req.params.id,
-  }),
-  delete: createAuditMiddleware({
-    action: "webhook.delete",
-    entityType: "webhook",
-    getEntityId: (req) => req.params.id,
-  }),
-}
-
-/**
- * Audit middleware for workflow operations
- */
-export const workflowAudit = {
-  create: createAuditMiddleware({
-    action: "workflow.create",
-    entityType: "workflow",
-    getEntityId: (req) => req.body.name,
-  }),
-  update: createAuditMiddleware({
-    action: "workflow.update",
-    entityType: "workflow",
-    getEntityId: (req) => req.params.id,
-  }),
-  delete: createAuditMiddleware({
-    action: "workflow.delete",
-    entityType: "workflow",
-    getEntityId: (req) => req.params.id,
-  }),
-  transition: createAuditMiddleware({
-    action: "workflow.transition",
-    entityType: "workflow",
-    getEntityId: (req) => req.params.id,
-  }),
-}
-
-/**
- * Audit middleware for authentication operations
- */
 export const authAudit = {
   login: createAuditMiddleware({
-    action: "auth.login",
-    entityType: "user",
-    getEntityId: (req) => req.body.email,
+    action: "login",
+    resource: "auth",
+    getEntityId: (req) => (req.body as any)?.email,
+    severity: "medium",
   }),
   logout: createAuditMiddleware({
-    action: "auth.logout",
-    entityType: "user",
-    getEntityId: (req) => (req as any).user?._id?.toString() || "unknown",
+    action: "logout",
+    resource: "auth",
+    getEntityId: (req) => (req as any).user?.id || "unknown",
+    severity: "low",
   }),
   refreshToken: createAuditMiddleware({
-    action: "auth.refreshToken",
-    entityType: "user",
-    getEntityId: (req) => (req as any).user?._id?.toString() || "unknown",
+    action: "refresh_token",
+    resource: "auth",
+    getEntityId: (req) => (req as any).user?.id || "unknown",
+    severity: "low",
   }),
-  resetPassword: createAuditMiddleware({
-    action: "auth.resetPassword",
-    entityType: "user",
-    getEntityId: (req) => req.body.email || "unknown",
+};
+
+export const webhookAudit = {
+  create: createAuditMiddleware({
+    action: "create",
+    resource: "webhook",
+    getEntityId: (req) => (req.body as any)?.name,
+    severity: "medium",
   }),
-}
+  update: createAuditMiddleware({
+    action: "update",
+    resource: "webhook",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "medium",
+  }),
+  delete: createAuditMiddleware({
+    action: "delete",
+    resource: "webhook",
+    getEntityId: (req) => (req.params as any)?.id,
+    severity: "high",
+  }),
+};
+
+/**
+ * Performance monitoring middleware
+ */
+export const performanceMiddleware = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  const startTime = Date.now();
+  const operation = `${request.method} ${request.url}`;
+
+  reply.addHook("onSend", async () => {
+    const duration = Date.now() - startTime;
+
+    try {
+      const auditService = container.resolve(AuditService);
+      const user = (request as any).user;
+
+      await auditService.logPerformanceMetrics({
+        operation,
+        duration,
+        userId: user?.id,
+        tenantId: user?.tenantId,
+        metadata: {
+          method: request.method,
+          url: request.url,
+          statusCode: reply.statusCode,
+        },
+      });
+    } catch (error) {
+      logger.warn("Performance logging failed:", error);
+    }
+  });
+};
+
+/**
+ * Error tracking middleware
+ */
+export const errorTrackingMiddleware = async (
+  error: Error,
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  try {
+    const auditService = container.resolve(AuditService);
+    const user = (request as any).user;
+
+    // Determine error severity
+    let severity: "low" | "medium" | "high" | "critical" = "medium";
+    if (error.name === "ValidationError") severity = "low";
+    if (error.name === "DatabaseError") severity = "high";
+    if (error.name === "SecurityError") severity = "critical";
+
+    await auditService.logSystemError({
+      error,
+      userId: user?.id,
+      tenantId: user?.tenantId,
+      severity,
+      context: {
+        method: request.method,
+        url: request.url,
+        params: request.params,
+        query: request.query,
+        headers: request.headers,
+        requestId: (request as any).requestId,
+      },
+    });
+  } catch (auditError) {
+    logger.error("Error tracking failed:", auditError);
+  }
+
+  // Continue with normal error handling
+  throw error;
+};
