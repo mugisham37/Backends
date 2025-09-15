@@ -15,6 +15,11 @@ import { db } from "../database/connection";
 
 // Import Redis client (will be created when needed)
 import Redis from "ioredis";
+import { vi } from "vitest";
+import { vi } from "vitest";
+import { vi } from "vitest";
+import { vi } from "vitest";
+import { vi } from "vitest";
 
 /**
  * Register core infrastructure services
@@ -108,6 +113,7 @@ export function registerServices(): void {
     { token: TOKENS.MediaService, path: "../../services/media.service" },
     { token: TOKENS.SearchService, path: "../../services/search.service" },
     { token: TOKENS.CacheService, path: "../../services/cache.service" },
+    { token: "QueueService", path: "../../services/queue.service" },
     { token: TOKENS.WebhookService, path: "../../services/webhook.service" },
     { token: TOKENS.AuditService, path: "../../services/audit.service" },
   ];

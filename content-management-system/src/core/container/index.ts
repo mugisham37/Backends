@@ -29,6 +29,7 @@ export const TOKENS = {
   MediaService: "MediaService",
   SearchService: "SearchService",
   CacheService: "CacheService",
+  QueueService: "QueueService",
   WebhookService: "WebhookService",
   AuditService: "AuditService",
 
