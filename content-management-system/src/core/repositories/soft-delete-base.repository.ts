@@ -1,4 +1,4 @@
-import { eq, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import { BaseRepository } from "./base.repository.js";
 import type {
@@ -20,20 +20,22 @@ export abstract class SoftDeleteBaseRepository<
   extends BaseRepository<T, K>
   implements ISoftDeleteRepository<T, K>
 {
-  constructor(protected readonly table: PgTable) {
+  constructor(protected override readonly table: PgTable) {
     super(table);
   }
 
   /**
    * Override findMany to exclude soft-deleted records by default
    */
-  async findMany(options?: FilterOptions<T>): Promise<Result<T[], Error>> {
+  override async findMany(
+    options?: FilterOptions<T>
+  ): Promise<Result<T[], Error>> {
     const filterWithSoftDelete = {
       ...options,
       where: {
         ...options?.where,
         deletedAt: null,
-      },
+      } as Partial<T>,
     };
 
     return await super.findMany(filterWithSoftDelete);
@@ -42,12 +44,17 @@ export abstract class SoftDeleteBaseRepository<
   /**
    * Override findById to exclude soft-deleted records
    */
-  async findById(id: K): Promise<Result<T | null, Error>> {
+  override async findById(id: K): Promise<Result<T | null, Error>> {
     try {
       const result = await this.db
         .select()
         .from(this.table)
-        .where(and(eq(this.table.id, id as any), isNull(this.table.deletedAt)))
+        .where(
+          and(
+            eq((this.table as any).id, id as any),
+            eq((this.table as any).deletedAt, null)
+          )
+        )
         .limit(1);
 
       return {
@@ -57,7 +64,12 @@ export abstract class SoftDeleteBaseRepository<
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find record by ID", error),
+        error: new DatabaseError(
+          "Failed to find record by ID",
+          "findById",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -65,11 +77,11 @@ export abstract class SoftDeleteBaseRepository<
   /**
    * Override findOne to exclude soft-deleted records
    */
-  async findOne(filter: Partial<T>): Promise<Result<T | null, Error>> {
+  override async findOne(filter: Partial<T>): Promise<Result<T | null, Error>> {
     const filterWithSoftDelete = {
       ...filter,
       deletedAt: null,
-    };
+    } as Partial<T>;
 
     return await super.findOne(filterWithSoftDelete);
   }
@@ -77,11 +89,11 @@ export abstract class SoftDeleteBaseRepository<
   /**
    * Override count to exclude soft-deleted records
    */
-  async count(filter?: Partial<T>): Promise<Result<number, Error>> {
+  override async count(filter?: Partial<T>): Promise<Result<number, Error>> {
     const filterWithSoftDelete = {
       ...filter,
       deletedAt: null,
-    };
+    } as Partial<T>;
 
     return await super.count(filterWithSoftDelete);
   }
@@ -97,13 +109,22 @@ export abstract class SoftDeleteBaseRepository<
           deletedAt: new Date(),
           updatedAt: new Date(),
         } as any)
-        .where(and(eq(this.table.id, id as any), isNull(this.table.deletedAt)))
+        .where(
+          and(
+            eq((this.table as any).id, id as any),
+            eq((this.table as any).deletedAt, null)
+          )
+        )
         .returning();
 
       if (!result) {
         return {
           success: false,
-          error: new DatabaseError("Record not found or already deleted"),
+          error: new DatabaseError(
+            "Record not found or already deleted",
+            "softDelete",
+            this.table._.name
+          ),
         };
       }
 
@@ -111,7 +132,12 @@ export abstract class SoftDeleteBaseRepository<
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to soft delete record", error),
+        error: new DatabaseError(
+          "Failed to soft delete record",
+          "softDelete",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -128,14 +154,21 @@ export abstract class SoftDeleteBaseRepository<
           updatedAt: new Date(),
         } as any)
         .where(
-          and(eq(this.table.id, id as any), isNotNull(this.table.deletedAt))
+          and(
+            eq((this.table as any).id, id as any),
+            isNotNull((this.table as any).deletedAt)
+          )
         )
         .returning();
 
       if (!result) {
         return {
           success: false,
-          error: new DatabaseError("Record not found or not deleted"),
+          error: new DatabaseError(
+            "Record not found or not deleted",
+            "restore",
+            this.table._.name
+          ),
         };
       }
 
@@ -143,7 +176,12 @@ export abstract class SoftDeleteBaseRepository<
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to restore record", error),
+        error: new DatabaseError(
+          "Failed to restore record",
+          "restore",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -170,13 +208,13 @@ export abstract class SoftDeleteBaseRepository<
         );
         if (whereConditions) {
           query = query.where(
-            and(whereConditions, isNotNull(this.table.deletedAt))
-          );
+            and(whereConditions, isNotNull((this.table as any).deletedAt))
+          ) as any;
         } else {
-          query = query.where(isNotNull(this.table.deletedAt));
+          query = query.where(isNotNull((this.table as any).deletedAt)) as any;
         }
       } else {
-        query = query.where(isNotNull(this.table.deletedAt));
+        query = query.where(isNotNull((this.table as any).deletedAt)) as any;
       }
 
       // Apply sorting
@@ -184,14 +222,14 @@ export abstract class SoftDeleteBaseRepository<
         const orderByConditions = options.orderBy.map((sort) =>
           this.buildOrderByCondition(sort)
         );
-        query = query.orderBy(...orderByConditions);
+        query = query.orderBy(...orderByConditions) as any;
       }
 
       // Apply pagination
       if (options?.pagination) {
         const { limit, offset } = options.pagination;
-        if (limit) query = query.limit(limit);
-        if (offset) query = query.offset(offset);
+        if (limit) query = query.limit(limit) as any;
+        if (offset) query = query.offset(offset) as any;
       }
 
       const result = await query;
@@ -200,7 +238,12 @@ export abstract class SoftDeleteBaseRepository<
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find deleted records", error),
+        error: new DatabaseError(
+          "Failed to find deleted records",
+          "findDeleted",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -212,13 +255,17 @@ export abstract class SoftDeleteBaseRepository<
     try {
       const result = await this.db
         .delete(this.table)
-        .where(eq(this.table.id, id as any))
+        .where(eq((this.table as any).id, id as any))
         .returning();
 
       if (result.length === 0) {
         return {
           success: false,
-          error: new DatabaseError("Record not found for permanent deletion"),
+          error: new DatabaseError(
+            "Record not found for permanent deletion",
+            "permanentDelete",
+            this.table._.name
+          ),
         };
       }
 
@@ -226,7 +273,12 @@ export abstract class SoftDeleteBaseRepository<
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to permanently delete record", error),
+        error: new DatabaseError(
+          "Failed to permanently delete record",
+          "permanentDelete",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -234,7 +286,7 @@ export abstract class SoftDeleteBaseRepository<
   /**
    * Override delete to perform soft delete instead of hard delete
    */
-  async delete(id: K): Promise<Result<void, Error>> {
+  override async delete(id: K): Promise<Result<void, Error>> {
     return await this.softDelete(id);
   }
 }

@@ -1,5 +1,5 @@
 import { eq, and, or, count, desc, asc, SQL, sql } from "drizzle-orm";
-import { PgTable } from "drizzle-orm/pg-core";
+import { PgTable, TableConfig } from "drizzle-orm/pg-core";
 import { getDatabase } from "../database/connection.js";
 import type {
   IRepository,
@@ -14,12 +14,14 @@ import { DatabaseError } from "../errors/database.error.js";
  * Base repository implementation with Drizzle ORM
  * Provides common CRUD operations with type safety
  */
-export abstract class BaseRepository<T, K = string>
-  implements IRepository<T, K>
+export abstract class BaseRepository<
+  T extends Record<string, unknown>,
+  K = string
+> implements IRepository<T, K>
 {
   protected readonly db = getDatabase();
 
-  constructor(protected readonly table: PgTable) {}
+  constructor(protected readonly table: PgTable<TableConfig>) {}
 
   /**
    * Create a new record
@@ -37,7 +39,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to create record", error),
+        error: new DatabaseError(
+          "Failed to create record",
+          "create",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -50,7 +57,7 @@ export abstract class BaseRepository<T, K = string>
       const result = await this.db
         .select()
         .from(this.table)
-        .where(eq(this.table.id, id as any))
+        .where(eq((this.table as any).id, id))
         .limit(1);
 
       return {
@@ -60,7 +67,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find record by ID", error),
+        error: new DatabaseError(
+          "Failed to find record by ID",
+          "findById",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -71,13 +83,13 @@ export abstract class BaseRepository<T, K = string>
   async findOne(filter: Partial<T>): Promise<Result<T | null, Error>> {
     try {
       const whereConditions = this.buildWhereConditions(filter);
-      const query = this.db.select().from(this.table).limit(1);
+      let query = this.db.select().from(this.table);
 
       if (whereConditions) {
-        query.where(whereConditions);
+        query = query.where(whereConditions);
       }
 
-      const result = await query;
+      const result = await query.limit(1);
 
       return {
         success: true,
@@ -86,7 +98,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find record", error),
+        error: new DatabaseError(
+          "Failed to find record",
+          "findOne",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -102,7 +119,7 @@ export abstract class BaseRepository<T, K = string>
       if (options?.where) {
         const whereConditions = this.buildWhereConditions(options.where);
         if (whereConditions) {
-          query = query.where(whereConditions);
+          query = query.where(whereConditions) as any;
         }
       }
 
@@ -111,14 +128,14 @@ export abstract class BaseRepository<T, K = string>
         const orderByConditions = options.orderBy.map((sort) =>
           this.buildOrderByCondition(sort)
         );
-        query = query.orderBy(...orderByConditions);
+        query = query.orderBy(...orderByConditions) as any;
       }
 
       // Apply pagination
       if (options?.pagination) {
         const { limit, offset } = options.pagination;
-        if (limit) query = query.limit(limit);
-        if (offset) query = query.offset(offset);
+        if (limit) query = query.limit(limit) as any;
+        if (offset) query = query.offset(offset) as any;
       }
 
       const result = await query;
@@ -127,7 +144,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find records", error),
+        error: new DatabaseError(
+          "Failed to find records",
+          "findMany",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -148,11 +170,12 @@ export abstract class BaseRepository<T, K = string>
       if (options?.where) {
         const whereConditions = this.buildWhereConditions(options.where);
         if (whereConditions) {
-          countQuery = countQuery.where(whereConditions);
+          countQuery = countQuery.where(whereConditions) as any;
         }
       }
 
-      const [{ count: totalCount }] = await countQuery;
+      const countResult = await countQuery;
+      const totalCount = countResult[0]?.count || 0;
 
       // Get data
       const dataResult = await this.findMany({
@@ -183,7 +206,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find paginated records", error),
+        error: new DatabaseError(
+          "Failed to find paginated records",
+          "findManyPaginated",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -201,13 +229,17 @@ export abstract class BaseRepository<T, K = string>
       const [result] = await this.db
         .update(this.table)
         .set(updateData)
-        .where(eq(this.table.id, id as any))
+        .where(eq((this.table as any).id, id))
         .returning();
 
       if (!result) {
         return {
           success: false,
-          error: new DatabaseError("Record not found for update"),
+          error: new DatabaseError(
+            "Record not found for update",
+            "update",
+            this.table._.name
+          ),
         };
       }
 
@@ -215,7 +247,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to update record", error),
+        error: new DatabaseError(
+          "Failed to update record",
+          "update",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -227,13 +264,17 @@ export abstract class BaseRepository<T, K = string>
     try {
       const result = await this.db
         .delete(this.table)
-        .where(eq(this.table.id, id as any))
+        .where(eq((this.table as any).id, id))
         .returning();
 
       if (result.length === 0) {
         return {
           success: false,
-          error: new DatabaseError("Record not found for deletion"),
+          error: new DatabaseError(
+            "Record not found for deletion",
+            "delete",
+            this.table._.name
+          ),
         };
       }
 
@@ -241,7 +282,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to delete record", error),
+        error: new DatabaseError(
+          "Failed to delete record",
+          "delete",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -256,17 +302,23 @@ export abstract class BaseRepository<T, K = string>
       if (filter) {
         const whereConditions = this.buildWhereConditions(filter);
         if (whereConditions) {
-          query = query.where(whereConditions);
+          query = query.where(whereConditions) as any;
         }
       }
 
-      const [{ count: totalCount }] = await query;
+      const result = await query;
+      const totalCount = result[0]?.count || 0;
 
       return { success: true, data: totalCount };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to count records", error),
+        error: new DatabaseError(
+          "Failed to count records",
+          "count",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -285,7 +337,12 @@ export abstract class BaseRepository<T, K = string>
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to check record existence", error),
+        error: new DatabaseError(
+          "Failed to check record existence",
+          "exists",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -332,7 +389,7 @@ export abstract class BaseRepository<T, K = string>
     for (const [key, value] of Object.entries(filter)) {
       if (key.startsWith("_") || value === undefined) continue;
 
-      const column = this.table[key as keyof typeof this.table];
+      const column = (this.table as any)[key];
       if (column) {
         conditions.push(eq(column, value));
       }
@@ -345,7 +402,7 @@ export abstract class BaseRepository<T, K = string>
    * Build ORDER BY condition from sort options
    */
   protected buildOrderByCondition(sort: SortOptions<T>): SQL {
-    const column = this.table[sort.field as keyof typeof this.table];
+    const column = (this.table as any)[sort.field];
     return sort.direction === "desc" ? desc(column) : asc(column);
   }
 }

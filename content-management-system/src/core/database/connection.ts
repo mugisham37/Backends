@@ -83,6 +83,12 @@ export const getDatabase = () => {
 };
 
 /**
+ * Export the db instance directly for injection
+ * This allows the db instance to be injected into services
+ */
+export { db };
+
+/**
  * Get the raw PostgreSQL connection pool
  */
 export const getConnectionPool = () => {

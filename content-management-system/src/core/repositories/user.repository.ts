@@ -420,4 +420,215 @@ export class UserRepository extends TenantBaseRepository<User> {
       };
     }
   }
+
+  /**
+   * Create user session
+   */
+  async createSession(sessionData: {
+    userId: string;
+    tokenHash: string;
+    refreshTokenHash: string;
+    deviceInfo?: any;
+    expiresAt: Date;
+  }): Promise<Result<UserSession, Error>> {
+    try {
+      const [result] = await this.db
+        .insert(userSessions)
+        .values({
+          userId: sessionData.userId,
+          tokenHash: sessionData.tokenHash,
+          refreshTokenHash: sessionData.refreshTokenHash,
+          deviceInfo: sessionData.deviceInfo,
+          expiresAt: sessionData.expiresAt,
+          isActive: true,
+        })
+        .returning();
+
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to create session", error),
+      };
+    }
+  }
+
+  /**
+   * Find session by token hash
+   */
+  async findSessionByToken(
+    tokenHash: string
+  ): Promise<Result<UserSession | null, Error>> {
+    try {
+      const result = await this.db
+        .select()
+        .from(userSessions)
+        .where(eq(userSessions.tokenHash, tokenHash))
+        .limit(1);
+
+      return {
+        success: true,
+        data: result.length > 0 ? result[0] : null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to find session by token", error),
+      };
+    }
+  }
+
+  /**
+   * Find session by refresh token hash
+   */
+  async findSessionByRefreshToken(
+    refreshTokenHash: string
+  ): Promise<Result<UserSession | null, Error>> {
+    try {
+      const result = await this.db
+        .select()
+        .from(userSessions)
+        .where(eq(userSessions.refreshTokenHash, refreshTokenHash))
+        .limit(1);
+
+      return {
+        success: true,
+        data: result.length > 0 ? result[0] : null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to find session by refresh token",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Invalidate session
+   */
+  async invalidateSession(sessionId: string): Promise<Result<void, Error>> {
+    try {
+      await this.db
+        .update(userSessions)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSessions.id, sessionId));
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to invalidate session", error),
+      };
+    }
+  }
+
+  /**
+   * Invalidate all user sessions
+   */
+  async invalidateUserSessions(userId: string): Promise<Result<void, Error>> {
+    try {
+      await this.db
+        .update(userSessions)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSessions.userId, userId));
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to invalidate user sessions", error),
+      };
+    }
+  }
+
+  /**
+   * Find user by password reset token
+   */
+  async findByPasswordResetToken(
+    tokenHash: string
+  ): Promise<Result<User | null, Error>> {
+    try {
+      const result = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.passwordResetToken, tokenHash))
+        .limit(1);
+
+      return {
+        success: true,
+        data: result.length > 0 ? result[0] : null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to find user by reset token", error),
+      };
+    }
+  }
+
+  /**
+   * Reset password and clear reset token
+   */
+  async resetPassword(
+    userId: string,
+    passwordHash: string
+  ): Promise<Result<void, Error>> {
+    try {
+      await this.db
+        .update(users)
+        .set({
+          passwordHash,
+          passwordResetToken: null,
+          passwordResetExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to reset password", error),
+      };
+    }
+  }
+
+  /**
+   * Check if user has specific permission
+   */
+  async hasPermission(
+    userId: string,
+    resource: string,
+    action: string
+  ): Promise<Result<boolean, Error>> {
+    try {
+      const result = await this.db
+        .select()
+        .from(userPermissions)
+        .where(
+          and(
+            eq(userPermissions.userId, userId),
+            eq(userPermissions.resource, resource),
+            eq(userPermissions.action, action)
+          )
+        )
+        .limit(1);
+
+      return { success: true, data: result.length > 0 };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError("Failed to check user permission", error),
+      };
+    }
+  }
 }

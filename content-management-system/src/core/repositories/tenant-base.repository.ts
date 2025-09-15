@@ -18,7 +18,7 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
   extends BaseRepository<T, K>
   implements ITenantRepository<T, K>
 {
-  constructor(protected readonly table: PgTable) {
+  constructor(protected override readonly table: PgTable) {
     super(table);
   }
 
@@ -35,14 +35,19 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         where: {
           ...options?.where,
           tenantId,
-        },
+        } as Partial<T>,
       };
 
       return await this.findMany(tenantFilter);
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find records by tenant", error),
+        error: new DatabaseError(
+          "Failed to find records by tenant",
+          "findByTenant",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -60,7 +65,7 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         where: {
           ...options?.where,
           tenantId,
-        },
+        } as Partial<T>,
       };
 
       return await this.findManyPaginated(tenantFilter);
@@ -69,6 +74,8 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         success: false,
         error: new DatabaseError(
           "Failed to find paginated records by tenant",
+          "findByTenantPaginated",
+          this.table._.name,
           error
         ),
       };
@@ -86,13 +93,18 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
       const tenantFilter = {
         ...filter,
         tenantId,
-      };
+      } as Partial<T>;
 
       return await this.count(tenantFilter);
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to count records by tenant", error),
+        error: new DatabaseError(
+          "Failed to count records by tenant",
+          "countByTenant",
+          this.table._.name,
+          error
+        ),
       };
     }
   }
@@ -100,16 +112,18 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
   /**
    * Create record with tenant ID validation
    */
-  async create(
+  override async create(
     data: Omit<T, "id" | "createdAt" | "updatedAt">
   ): Promise<Result<T, Error>> {
     try {
       // Ensure tenantId is provided
-      if (!("tenantId" in data) || !data.tenantId) {
+      if (!("tenantId" in data) || !(data as any).tenantId) {
         return {
           success: false,
           error: new DatabaseError(
-            "Tenant ID is required for tenant-scoped entities"
+            "Tenant ID is required for tenant-scoped entities",
+            "create",
+            this.table._.name
           ),
         };
       }
@@ -120,6 +134,8 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         success: false,
         error: new DatabaseError(
           "Failed to create tenant-scoped record",
+          "create",
+          this.table._.name,
           error
         ),
       };
@@ -138,7 +154,10 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         .select()
         .from(this.table)
         .where(
-          and(eq(this.table.id, id as any), eq(this.table.tenantId, tenantId))
+          and(
+            eq((this.table as any).id, id as any),
+            eq((this.table as any).tenantId, tenantId)
+          )
         )
         .limit(1);
 
@@ -151,6 +170,8 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         success: false,
         error: new DatabaseError(
           "Failed to find record by ID in tenant scope",
+          "findByIdInTenant",
+          this.table._.name,
           error
         ),
       };
@@ -175,7 +196,10 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         .update(this.table)
         .set(updateData)
         .where(
-          and(eq(this.table.id, id as any), eq(this.table.tenantId, tenantId))
+          and(
+            eq((this.table as any).id, id as any),
+            eq((this.table as any).tenantId, tenantId)
+          )
         )
         .returning();
 
@@ -183,7 +207,9 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         return {
           success: false,
           error: new DatabaseError(
-            "Record not found in tenant scope for update"
+            "Record not found in tenant scope for update",
+            "updateInTenant",
+            this.table._.name
           ),
         };
       }
@@ -194,6 +220,8 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         success: false,
         error: new DatabaseError(
           "Failed to update record in tenant scope",
+          "updateInTenant",
+          this.table._.name,
           error
         ),
       };
@@ -208,7 +236,10 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
       const result = await this.db
         .delete(this.table)
         .where(
-          and(eq(this.table.id, id as any), eq(this.table.tenantId, tenantId))
+          and(
+            eq((this.table as any).id, id as any),
+            eq((this.table as any).tenantId, tenantId)
+          )
         )
         .returning();
 
@@ -216,7 +247,9 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         return {
           success: false,
           error: new DatabaseError(
-            "Record not found in tenant scope for deletion"
+            "Record not found in tenant scope for deletion",
+            "deleteInTenant",
+            this.table._.name
           ),
         };
       }
@@ -227,6 +260,8 @@ export abstract class TenantBaseRepository<T extends TenantEntity, K = string>
         success: false,
         error: new DatabaseError(
           "Failed to delete record in tenant scope",
+          "deleteInTenant",
+          this.table._.name,
           error
         ),
       };

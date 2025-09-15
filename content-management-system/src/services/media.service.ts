@@ -1,366 +1,722 @@
-import path from "path"
-import fs from "fs/promises"
-import { v4 as uuidv4 } from "uuid"
-import { MediaRepository } from "../db/repositories/media.repository"
-import { ApiError } from "../utils/errors"
-import { MediaType } from "../db/models/media.model"
-import { config } from "../config"
-import { logger } from "../utils/logger"
+import { injectable, inject } from "tsyringe";
+import path from "path";
+import fs from "fs/promises";
+import crypto from "crypto";
+import { MediaRepository } from "../core/repositories/media.repository";
+import { CacheService } from "./cache.service";
+import { AuditService } from "./audit.service";
+import type { Result } from "../core/types/result.types";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  BusinessRuleError,
+} from "../core/errors";
+import type {
+  Media,
+  NewMedia,
+  MediaType,
+  MediaFolder,
+  MediaTransformation,
+  StorageProvider,
+} from "../core/database/schema/media.schema";
+import { config } from "../config";
+import { logger } from "../utils/logger";
 
+/**
+ * File upload and management service with CDN integration
+ * Handles file processing, transformations, and metadata extraction
+ */
+@injectable()
 export class MediaService {
-  private mediaRepository: MediaRepository
-  private uploadDir: string
+  private uploadDir: string;
 
-  constructor() {
-    this.mediaRepository = new MediaRepository()
-    this.uploadDir = path.resolve(process.cwd(), config.upload.directory || "uploads")
-    this.ensureUploadDirExists()
+  constructor(
+    @inject("MediaRepository") private mediaRepository: MediaRepository,
+    @inject("CacheService") private cacheService: CacheService,
+    @inject("AuditService") private auditService: AuditService
+  ) {
+    this.uploadDir = path.resolve(
+      process.cwd(),
+      config.upload?.directory || "uploads"
+    );
+    this.ensureUploadDirExists();
   }
 
   /**
-   * Get all media items
+   * Upload media file
    */
-  async getAllMedia(
-    filter: {
-      type?: MediaType
-      search?: string
-      mimeType?: string
-      folder?: string
-      tags?: string[]
-      createdBy?: string
-      createdAt?: { from?: Date; to?: Date }
+  async uploadFile(
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
+    options: {
+      folderId?: string;
+      alt?: string;
+      caption?: string;
+      description?: string;
+      tags?: string[];
+      isPublic?: boolean;
+      metadata?: Record<string, unknown>;
     } = {},
-    sort: {
-      field?: string
-      direction?: "asc" | "desc"
-    } = {},
-    pagination: {
-      page?: number
-      limit?: number
-    } = {},
-  ): Promise<{
-    media: any[]
-    totalCount: number
-    page: number
-    totalPages: number
-  }> {
-    // Build filter
-    const filterQuery: any = {}
-
-    if (filter.type) {
-      filterQuery.type = filter.type
-    }
-
-    if (filter.mimeType) {
-      // Handle MIME type patterns (e.g., "image/*")
-      if (filter.mimeType.includes("*")) {
-        const pattern = filter.mimeType.replace("*", ".*")
-        filterQuery.mimeType = { $regex: new RegExp(`^${pattern}$`) }
-      } else {
-        filterQuery.mimeType = filter.mimeType
+    tenantId: string,
+    uploaderId: string
+  ): Promise<Result<Media, Error>> {
+    try {
+      // Validate file
+      const validationResult = this.validateFile(file);
+      if (!validationResult.isValid) {
+        return {
+          success: false,
+          error: new ValidationError("File validation failed", {
+            file: validationResult.errors,
+          }),
+        };
       }
-    }
 
-    if (filter.folder) {
-      filterQuery.folder = filter.folder
-    }
+      // Generate file hash for deduplication
+      const fileHash = crypto
+        .createHash("sha256")
+        .update(file.buffer)
+        .digest("hex");
 
-    if (filter.tags && filter.tags.length > 0) {
-      filterQuery.tags = { $in: filter.tags }
-    }
-
-    if (filter.createdBy) {
-      filterQuery.createdBy = filter.createdBy
-    }
-
-    if (filter.createdAt?.from || filter.createdAt?.to) {
-      filterQuery.createdAt = {}
-      if (filter.createdAt.from) {
-        filterQuery.createdAt.$gte = filter.createdAt.from
+      // Check for duplicate files
+      const existingFile = await this.mediaRepository.findByHash(
+        fileHash,
+        tenantId
+      );
+      if (existingFile.success && existingFile.data) {
+        return {
+          success: true,
+          data: existingFile.data,
+        };
       }
-      if (filter.createdAt.to) {
-        filterQuery.createdAt.$lte = filter.createdAt.to
+
+      // Determine media type
+      const mediaType = this.getMediaType(file.mimetype);
+
+      // Generate unique filename
+      const extension = path.extname(file.originalname);
+      const filename = `${crypto.randomUUID()}${extension}`;
+
+      // Determine storage path
+      const folderPath = await this.getFolderPath(options.folderId, tenantId);
+      const relativePath = path.join(folderPath, filename);
+      const fullPath = path.join(this.uploadDir, relativePath);
+
+      // Ensure directory exists
+      await this.ensureFolderExists(path.dirname(fullPath));
+
+      // Save file
+      await fs.writeFile(fullPath, file.buffer);
+
+      // Extract metadata
+      const metadata = await this.extractMetadata(file, mediaType);
+
+      // Get image dimensions if applicable
+      let width: number | undefined;
+      let height: number | undefined;
+      let duration: number | undefined;
+
+      if (mediaType === "image") {
+        const dimensions = await this.getImageDimensions(file.buffer);
+        width = dimensions.width;
+        height = dimensions.height;
+      } else if (mediaType === "video") {
+        const videoInfo = await this.getVideoInfo(file.buffer);
+        width = videoInfo.width;
+        height = videoInfo.height;
+        duration = videoInfo.duration;
+      } else if (mediaType === "audio") {
+        const audioInfo = await this.getAudioInfo(file.buffer);
+        duration = audioInfo.duration;
       }
-    }
 
-    if (filter.search) {
-      const regex = new RegExp(filter.search, "i")
-      filterQuery.$or = [
-        { filename: regex },
-        { originalFilename: regex },
-        { title: regex },
-        { description: regex },
-        { alt: regex },
-        { tags: regex },
-      ]
-    }
+      // Generate URLs
+      const url = this.generateFileUrl(relativePath);
+      const cdnUrl = this.generateCdnUrl(relativePath);
 
-    // Build sort
-    const sortQuery: any = {}
-    if (sort.field) {
-      sortQuery[sort.field] = sort.direction === "desc" ? -1 : 1
-    } else {
-      sortQuery.createdAt = -1 // Default sort by creation date descending
-    }
+      // Create media record
+      const mediaData: NewMedia = {
+        filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        mediaType,
+        size: file.size,
+        width,
+        height,
+        duration,
+        hash: fileHash,
+        path: relativePath,
+        url,
+        cdnUrl,
+        storageProvider: "local" as StorageProvider,
+        isPublic: options.isPublic || false,
+        uploaderId,
+        tenantId,
+        folderId: options.folderId,
+        alt: options.alt,
+        caption: options.caption,
+        description: options.description,
+        tags: options.tags,
+        metadata: {
+          ...metadata,
+          ...options.metadata,
+        },
+      };
 
-    // Get paginated results with populated references
-    const result = await this.mediaRepository.paginate(filterQuery, {
-      page: pagination.page,
-      limit: pagination.limit,
-      sort: sortQuery,
-      populate: ["createdBy"],
-    })
+      const result = await this.mediaRepository.create(mediaData);
+      if (!result.success) {
+        // Clean up file if database insert failed
+        await fs.unlink(fullPath).catch(() => {});
+        return result;
+      }
 
-    return {
-      media: result.docs,
-      totalCount: result.totalDocs,
-      page: result.page,
-      totalPages: result.totalPages,
+      // Generate thumbnails for images
+      if (mediaType === "image") {
+        await this.generateThumbnails(result.data.id, fullPath);
+      }
+
+      // Log media upload
+      await this.auditService.logMediaEvent({
+        mediaId: result.data.id,
+        tenantId,
+        userId: uploaderId,
+        event: "media_uploaded",
+        details: {
+          filename: file.originalname,
+          size: file.size,
+          mediaType,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Media uploaded: ${file.originalname} (${result.data.id})`);
+
+      return result;
+    } catch (error) {
+      logger.error("Error uploading media:", error);
+      return {
+        success: false,
+        error: new Error("Failed to upload media"),
+      };
     }
   }
 
   /**
    * Get media by ID
    */
-  async getMediaById(id: string): Promise<any> {
-    const media = await this.mediaRepository.findByIdOrThrow(id)
+  async getMediaById(
+    id: string,
+    tenantId: string
+  ): Promise<Result<Media, NotFoundError>> {
+    try {
+      // Check cache first
+      const cacheKey = `media:${id}`;
+      const cachedMedia = await this.cacheService.get(cacheKey);
+      if (cachedMedia) {
+        return { success: true, data: cachedMedia };
+      }
 
-    // Populate references
-    await media.populate({ path: "createdBy", select: "-password" })
+      const result = await this.mediaRepository.findByIdInTenant(id, tenantId);
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          error: new NotFoundError("Media not found"),
+        };
+      }
 
-    return media
+      // Cache media for 10 minutes
+      await this.cacheService.set(cacheKey, result.data, 10 * 60);
+
+      return result as Result<Media, NotFoundError>;
+    } catch (error) {
+      logger.error(`Error getting media by ID ${id}:`, error);
+      return {
+        success: false,
+        error: new NotFoundError("Media not found"),
+      };
+    }
   }
 
   /**
-   * Upload media
+   * Get all media with filtering and pagination
    */
-  async uploadMedia(
-    file: {
-      buffer: Buffer
-      originalname: string
-      mimetype: string
-      size: number
-    },
-    options: {
-      folder?: string
-      metadata?: any
-      alt?: string
-      title?: string
-      description?: string
-      tags?: string[]
+  async getAllMedia(
+    tenantId: string,
+    filter: {
+      mediaType?: MediaType;
+      folderId?: string;
+      search?: string;
+      tags?: string[];
+      uploaderId?: string;
+      isPublic?: boolean;
+      createdAt?: { from?: Date; to?: Date };
     } = {},
-    userId?: string,
-  ): Promise<any> {
-    // Validate file
-    this.validateFile(file)
+    sort: {
+      field?: string;
+      direction?: "asc" | "desc";
+    } = {},
+    pagination: {
+      page?: number;
+      limit?: number;
+    } = {}
+  ): Promise<
+    Result<
+      {
+        media: Media[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+      },
+      Error
+    >
+  > {
+    try {
+      const { page = 1, limit = 20 } = pagination;
 
-    // Determine media type
-    const type = this.getMediaType(file.mimetype)
+      // Build filter conditions
+      const filterConditions: any = { tenantId };
 
-    // Generate unique filename
-    const extension = path.extname(file.originalname)
-    const filename = `${uuidv4()}${extension}`
+      if (filter.mediaType) {
+        filterConditions.mediaType = filter.mediaType;
+      }
 
-    // Determine folder path
-    const folder = options.folder || "/"
-    const folderPath = path.join(this.uploadDir, folder)
+      if (filter.folderId) {
+        filterConditions.folderId = filter.folderId;
+      }
 
-    // Ensure folder exists
-    await this.ensureFolderExists(folderPath)
+      if (filter.uploaderId) {
+        filterConditions.uploaderId = filter.uploaderId;
+      }
 
-    // Save file
-    const filePath = path.join(folderPath, filename)
-    await fs.writeFile(filePath, file.buffer)
+      if (filter.isPublic !== undefined) {
+        filterConditions.isPublic = filter.isPublic;
+      }
 
-    // Generate URLs
-    const url = this.getFileUrl(folder, filename)
-    let thumbnailUrl: string | undefined
+      // Date range filters
+      if (filter.createdAt?.from || filter.createdAt?.to) {
+        filterConditions.createdAt = {};
+        if (filter.createdAt.from) {
+          filterConditions.createdAt._gte = filter.createdAt.from;
+        }
+        if (filter.createdAt.to) {
+          filterConditions.createdAt._lte = filter.createdAt.to;
+        }
+      }
 
-    // Generate thumbnail for images
-    if (type === MediaType.IMAGE) {
-      thumbnailUrl = await this.generateThumbnail(filePath, folder, filename)
+      // Search functionality
+      if (filter.search) {
+        filterConditions._or = [
+          { filename: { _ilike: `%${filter.search}%` } },
+          { originalName: { _ilike: `%${filter.search}%` } },
+          { alt: { _ilike: `%${filter.search}%` } },
+          { caption: { _ilike: `%${filter.search}%` } },
+          { description: { _ilike: `%${filter.search}%` } },
+        ];
+      }
+
+      // Build sort options
+      const sortOptions = [];
+      if (sort.field) {
+        sortOptions.push({
+          field: sort.field,
+          direction: sort.direction || "asc",
+        });
+      } else {
+        sortOptions.push({ field: "createdAt", direction: "desc" as const });
+      }
+
+      const result = await this.mediaRepository.findManyPaginated({
+        where: filterConditions,
+        orderBy: sortOptions,
+        pagination: { page, limit },
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Filter by tags if specified (could be optimized with proper JSONB queries)
+      let mediaData = result.data.data;
+      if (filter.tags && filter.tags.length > 0) {
+        mediaData = mediaData.filter(
+          (media) =>
+            media.tags && media.tags.some((tag) => filter.tags!.includes(tag))
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          media: mediaData,
+          pagination: result.data.pagination,
+        },
+      };
+    } catch (error) {
+      logger.error("Error getting all media:", error);
+      return {
+        success: false,
+        error: new Error("Failed to get media"),
+      };
     }
-
-    // Extract metadata
-    const metadata = await this.extractMetadata(file, type, options.metadata)
-
-    // Create media record
-    const media = await this.mediaRepository.create({
-      filename,
-      originalFilename: file.originalname,
-      mimeType: file.mimetype,
-      type,
-      size: file.size,
-      url,
-      thumbnailUrl,
-      metadata,
-      alt: options.alt,
-      title: options.title || file.originalname,
-      description: options.description,
-      tags: options.tags,
-      folder,
-      createdBy: userId,
-    })
-
-    // Populate references
-    if (userId) {
-      await media.populate({ path: "createdBy", select: "-password" })
-    }
-
-    return media
   }
 
   /**
-   * Update media
+   * Update media metadata
    */
   async updateMedia(
     id: string,
     data: {
-      alt?: string
-      title?: string
-      description?: string
-      tags?: string[]
-      folder?: string
+      alt?: string;
+      caption?: string;
+      description?: string;
+      tags?: string[];
+      folderId?: string;
+      isPublic?: boolean;
+      metadata?: Record<string, unknown>;
     },
-  ): Promise<any> {
-    // Get media
-    const media = await this.mediaRepository.findByIdOrThrow(id)
+    tenantId: string,
+    userId: string
+  ): Promise<Result<Media, Error>> {
+    try {
+      // Check if media exists
+      const existingMedia = await this.getMediaById(id, tenantId);
+      if (!existingMedia.success) {
+        return existingMedia;
+      }
 
-    // If folder is being changed, move the file
-    if (data.folder && data.folder !== media.folder) {
-      await this.moveMediaFile(media, data.folder)
+      // Validate folder if being changed
+      if (data.folderId && data.folderId !== existingMedia.data.folderId) {
+        const folderExists = await this.mediaRepository.folderExists(
+          data.folderId,
+          tenantId
+        );
+        if (!folderExists.success || !folderExists.data) {
+          return {
+            success: false,
+            error: new NotFoundError("Folder not found"),
+          };
+        }
+      }
+
+      // Update media
+      const result = await this.mediaRepository.update(id, data);
+      if (!result.success) {
+        return result;
+      }
+
+      // Clear cache
+      await this.cacheService.delete(`media:${id}`);
+
+      // Log media update
+      await this.auditService.logMediaEvent({
+        mediaId: id,
+        tenantId,
+        userId,
+        event: "media_updated",
+        details: {
+          changes: data,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Media updated: ${existingMedia.data.originalName} (${id})`);
+
+      return result;
+    } catch (error) {
+      logger.error(`Error updating media ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to update media"),
+      };
     }
-
-    // Update media
-    const updatedMedia = await this.mediaRepository.updateByIdOrThrow(id, data)
-
-    // Populate references
-    await updatedMedia.populate({ path: "createdBy", select: "-password" })
-
-    return updatedMedia
   }
 
   /**
    * Delete media
    */
-  async deleteMedia(id: string): Promise<void> {
-    // Get media
-    const media = await this.mediaRepository.findByIdOrThrow(id)
-
-    // Delete file
-    const filePath = path.join(this.uploadDir, media.folder, media.filename)
+  async deleteMedia(
+    id: string,
+    tenantId: string,
+    userId: string
+  ): Promise<Result<void, Error>> {
     try {
-      await fs.unlink(filePath)
-    } catch (error) {
-      logger.warn(`Failed to delete file: ${filePath}`, error)
-    }
-
-    // Delete thumbnail if exists
-    if (media.thumbnailUrl) {
-      const thumbnailPath = this.getFilePathFromUrl(media.thumbnailUrl)
-      try {
-        await fs.unlink(thumbnailPath)
-      } catch (error) {
-        logger.warn(`Failed to delete thumbnail: ${thumbnailPath}`, error)
+      // Check if media exists
+      const existingMedia = await this.getMediaById(id, tenantId);
+      if (!existingMedia.success) {
+        return {
+          success: false,
+          error: existingMedia.error,
+        };
       }
-    }
 
-    // Delete media record
-    await this.mediaRepository.deleteByIdOrThrow(id)
-  }
+      // Check if media is being used
+      const usageResult = await this.mediaRepository.getUsage(id);
+      if (usageResult.success && usageResult.data.length > 0) {
+        return {
+          success: false,
+          error: new BusinessRuleError(
+            "Cannot delete media that is currently in use"
+          ),
+        };
+      }
 
-  /**
-   * Create folder
-   */
-  async createFolder(name: string, parentFolder = "/"): Promise<string> {
-    // Validate folder name
-    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-      throw ApiError.badRequest("Folder name can only contain alphanumeric characters, underscores, and hyphens")
-    }
+      // Delete file from storage
+      const filePath = path.join(this.uploadDir, existingMedia.data.path);
+      await fs.unlink(filePath).catch(() => {
+        logger.warn(`Failed to delete file: ${filePath}`);
+      });
 
-    // Normalize parent folder path
-    const normalizedParent = parentFolder.endsWith("/") ? parentFolder : `${parentFolder}/`
+      // Delete transformations
+      const transformations = await this.mediaRepository.getTransformations(id);
+      if (transformations.success) {
+        for (const transformation of transformations.data) {
+          const transformationPath = path.join(
+            this.uploadDir,
+            transformation.path
+          );
+          await fs.unlink(transformationPath).catch(() => {
+            logger.warn(
+              `Failed to delete transformation: ${transformationPath}`
+            );
+          });
+        }
+      }
 
-    // Create folder path
-    const folderPath = path.join(normalizedParent, name)
+      // Delete media record
+      const result = await this.mediaRepository.delete(id);
+      if (!result.success) {
+        return result;
+      }
 
-    // Create folder in filesystem
-    const fullPath = path.join(this.uploadDir, folderPath)
-    await this.ensureFolderExists(fullPath)
+      // Clear cache
+      await this.cacheService.delete(`media:${id}`);
 
-    return folderPath
-  }
+      // Log media deletion
+      await this.auditService.logMediaEvent({
+        mediaId: id,
+        tenantId,
+        userId,
+        event: "media_deleted",
+        details: {
+          filename: existingMedia.data.originalName,
+          timestamp: new Date(),
+        },
+      });
 
-  /**
-   * Delete folder
-   */
-  async deleteFolder(folderPath: string): Promise<void> {
-    // Prevent deleting root folder
-    if (folderPath === "/" || !folderPath) {
-      throw ApiError.forbidden("Cannot delete root folder")
-    }
+      logger.info(`Media deleted: ${existingMedia.data.originalName} (${id})`);
 
-    // Check if folder exists
-    const fullPath = path.join(this.uploadDir, folderPath)
-    try {
-      await fs.access(fullPath)
+      return { success: true, data: undefined };
     } catch (error) {
-      throw ApiError.notFound(`Folder not found: ${folderPath}`)
+      logger.error(`Error deleting media ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to delete media"),
+      };
     }
-
-    // Check if folder is empty
-    const files = await fs.readdir(fullPath)
-    if (files.length > 0) {
-      throw ApiError.conflict("Cannot delete non-empty folder")
-    }
-
-    // Delete folder
-    await fs.rmdir(fullPath)
   }
 
   /**
-   * List folders
+   * Create media folder
    */
-  async listFolders(parentFolder = "/"): Promise<string[]> {
-    const fullPath = path.join(this.uploadDir, parentFolder)
-
+  async createFolder(
+    data: {
+      name: string;
+      slug?: string;
+      description?: string;
+      parentId?: string;
+      isPublic?: boolean;
+    },
+    tenantId: string,
+    userId: string
+  ): Promise<Result<MediaFolder, Error>> {
     try {
-      // Get all items in the directory
-      const items = await fs.readdir(fullPath, { withFileTypes: true })
+      // Generate slug if not provided
+      let slug = data.slug;
+      if (!slug) {
+        slug = this.generateSlug(data.name);
+      }
 
-      // Filter for directories only
-      const folders = items.filter((item) => item.isDirectory()).map((item) => item.name)
+      // Validate slug format
+      if (!this.isValidSlug(slug)) {
+        return {
+          success: false,
+          error: new ValidationError("Invalid slug format", {
+            slug: [
+              "Slug must contain only lowercase letters, numbers, and hyphens",
+            ],
+          }),
+        };
+      }
 
-      return folders
+      // Check if slug is unique within parent folder
+      const existingFolder = await this.mediaRepository.findFolderBySlug(
+        slug,
+        tenantId,
+        data.parentId
+      );
+      if (existingFolder.success && existingFolder.data) {
+        return {
+          success: false,
+          error: new ConflictError("Folder with this slug already exists"),
+        };
+      }
+
+      // Generate folder path
+      const folderPath = await this.generateFolderPath(
+        data.parentId,
+        slug,
+        tenantId
+      );
+
+      const result = await this.mediaRepository.createFolder({
+        name: data.name,
+        slug,
+        description: data.description,
+        parentId: data.parentId,
+        tenantId,
+        path: folderPath,
+        isPublic: data.isPublic || false,
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Create physical directory
+      const physicalPath = path.join(this.uploadDir, folderPath);
+      await this.ensureFolderExists(physicalPath);
+
+      // Log folder creation
+      await this.auditService.logMediaEvent({
+        tenantId,
+        userId,
+        event: "media_folder_created",
+        details: {
+          folderName: data.name,
+          folderPath,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Media folder created: ${data.name} (${result.data.id})`);
+
+      return result;
     } catch (error) {
-      throw ApiError.notFound(`Folder not found: ${parentFolder}`)
+      logger.error("Error creating media folder:", error);
+      return {
+        success: false,
+        error: new Error("Failed to create media folder"),
+      };
     }
   }
 
   /**
-   * Validate file
+   * Get media transformations
    */
-  private validateFile(file: { mimetype: string; size: number }): void {
+  async getTransformations(
+    mediaId: string,
+    tenantId: string
+  ): Promise<Result<MediaTransformation[], Error>> {
+    try {
+      // Verify media exists and belongs to tenant
+      const mediaExists = await this.getMediaById(mediaId, tenantId);
+      if (!mediaExists.success) {
+        return {
+          success: false,
+          error: mediaExists.error,
+        };
+      }
+
+      const result = await this.mediaRepository.getTransformations(mediaId);
+      return result;
+    } catch (error) {
+      logger.error(
+        `Error getting transformations for media ${mediaId}:`,
+        error
+      );
+      return {
+        success: false,
+        error: new Error("Failed to get media transformations"),
+      };
+    }
+  }
+
+  /**
+   * Generate CDN URL for media
+   */
+  generateCdnUrl(
+    mediaId: string,
+    transformation?: string
+  ): Result<string, Error> {
+    try {
+      const baseUrl = config.cdn?.baseUrl || config.app?.baseUrl || "";
+      let url = `${baseUrl}/media/${mediaId}`;
+
+      if (transformation) {
+        url += `/${transformation}`;
+      }
+
+      return { success: true, data: url };
+    } catch (error) {
+      return {
+        success: false,
+        error: new Error("Failed to generate CDN URL"),
+      };
+    }
+  }
+
+  /**
+   * Validate uploaded file
+   */
+  private validateFile(file: {
+    buffer: Buffer;
+    originalname: string;
+    mimetype: string;
+    size: number;
+  }): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
     // Check file size
-    if (file.size > config.upload.maxSize) {
-      throw ApiError.badRequest(`File size exceeds the limit of ${config.upload.maxSize / 1024 / 1024}MB`)
+    const maxSize = config.upload?.maxSize || 10 * 1024 * 1024; // 10MB default
+    if (file.size > maxSize) {
+      errors.push(`File size exceeds the limit of ${maxSize / 1024 / 1024}MB`);
     }
 
     // Check MIME type
-    const allowedMimeTypes = config.upload.allowedMimeTypes
+    const allowedMimeTypes = config.upload?.allowedMimeTypes || [];
     if (allowedMimeTypes.length > 0) {
       const isAllowed = allowedMimeTypes.some((allowed) => {
         if (allowed.endsWith("/*")) {
-          const prefix = allowed.slice(0, -1)
-          return file.mimetype.startsWith(prefix)
+          const prefix = allowed.slice(0, -1);
+          return file.mimetype.startsWith(prefix);
         }
-        return file.mimetype === allowed
-      })
+        return file.mimetype === allowed;
+      });
 
       if (!isAllowed) {
-        throw ApiError.badRequest(`File type not allowed: ${file.mimetype}`)
+        errors.push(`File type not allowed: ${file.mimetype}`);
       }
     }
+
+    // Check filename
+    if (!file.originalname || file.originalname.length > 255) {
+      errors.push("Invalid filename");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
   }
 
   /**
@@ -368,58 +724,80 @@ export class MediaService {
    */
   private getMediaType(mimeType: string): MediaType {
     if (mimeType.startsWith("image/")) {
-      return MediaType.IMAGE
+      return "image";
     } else if (mimeType.startsWith("video/")) {
-      return MediaType.VIDEO
+      return "video";
     } else if (mimeType.startsWith("audio/")) {
-      return MediaType.AUDIO
+      return "audio";
     } else if (
       mimeType === "application/pdf" ||
       mimeType.startsWith("application/vnd.openxmlformats-officedocument.") ||
-      mimeType.startsWith("application/vnd.ms-")
+      mimeType.startsWith("application/vnd.ms-") ||
+      mimeType === "text/plain" ||
+      mimeType === "application/msword"
     ) {
-      return MediaType.DOCUMENT
+      return "document";
+    } else if (
+      mimeType === "application/zip" ||
+      mimeType === "application/x-rar-compressed" ||
+      mimeType === "application/x-7z-compressed"
+    ) {
+      return "archive";
     } else {
-      return MediaType.OTHER
+      return "other";
     }
   }
 
   /**
-   * Get file URL
+   * Generate file URL
    */
-  private getFileUrl(folder: string, filename: string): string {
-    const normalizedFolder = folder.startsWith("/") ? folder : `/${folder}`
-    const folderPath = normalizedFolder.endsWith("/") ? normalizedFolder : `${normalizedFolder}/`
-    return `${config.upload.baseUrl || ""}${folderPath}${filename}`
+  private generateFileUrl(relativePath: string): string {
+    const baseUrl = config.app?.baseUrl || "";
+    return `${baseUrl}/uploads/${relativePath}`;
   }
 
   /**
-   * Get file path from URL
+   * Generate CDN URL
    */
-  private getFilePathFromUrl(url: string): string {
-    const baseUrl = config.upload.baseUrl || ""
-    const relativePath = url.replace(baseUrl, "")
-    return path.join(this.uploadDir, relativePath)
+  private generateCdnUrl(relativePath: string): string | undefined {
+    const cdnBaseUrl = config.cdn?.baseUrl;
+    if (!cdnBaseUrl) return undefined;
+    return `${cdnBaseUrl}/${relativePath}`;
   }
 
   /**
-   * Generate thumbnail
+   * Get folder path
    */
-  private async generateThumbnail(filePath: string, folder: string, filename: string): Promise<string | undefined> {
-    try {
-      // In a real implementation, you would use a library like sharp to generate thumbnails
-      // For this example, we'll just return undefined
-      // const thumbnailFilename = `thumb_${filename}`;
-      // const thumbnailPath = path.join(this.uploadDir, folder, thumbnailFilename);
-      // await sharp(filePath)
-      //   .resize(200, 200, { fit: 'inside' })
-      //   .toFile(thumbnailPath);
-      // return this.getFileUrl(folder, thumbnailFilename);
-      return undefined
-    } catch (error) {
-      logger.warn("Failed to generate thumbnail", error)
-      return undefined
+  private async getFolderPath(
+    folderId: string | undefined,
+    tenantId: string
+  ): Promise<string> {
+    if (!folderId) {
+      return tenantId; // Use tenant ID as root folder
     }
+
+    const folder = await this.mediaRepository.getFolder(folderId);
+    if (folder.success && folder.data) {
+      return folder.data.path;
+    }
+
+    return tenantId;
+  }
+
+  /**
+   * Generate folder path
+   */
+  private async generateFolderPath(
+    parentId: string | undefined,
+    slug: string,
+    tenantId: string
+  ): Promise<string> {
+    if (!parentId) {
+      return `${tenantId}/${slug}`;
+    }
+
+    const parentPath = await this.getFolderPath(parentId, tenantId);
+    return `${parentPath}/${slug}`;
   }
 
   /**
@@ -427,57 +805,92 @@ export class MediaService {
    */
   private async extractMetadata(
     file: { buffer: Buffer; mimetype: string; size: number },
-    type: MediaType,
-    customMetadata?: any,
-  ): Promise<any> {
-    // In a real implementation, you would use libraries like sharp, exif-parser, etc.
-    // to extract metadata from different file types
-    const metadata: any = {
+    mediaType: MediaType
+  ): Promise<Record<string, unknown>> {
+    const metadata: Record<string, unknown> = {
       size: file.size,
-    }
+      mimeType: file.mimetype,
+    };
 
-    // Merge with custom metadata
-    if (customMetadata) {
-      Object.assign(metadata, customMetadata)
-    }
+    // In a real implementation, you would use libraries like:
+    // - sharp for image metadata
+    // - exif-parser for EXIF data
+    // - ffprobe for video/audio metadata
+    // - file-type for file type detection
 
-    return metadata
+    return metadata;
   }
 
   /**
-   * Move media file to a different folder
+   * Get image dimensions
    */
-  private async moveMediaFile(media: any, newFolder: string): Promise<void> {
-    // Create source and destination paths
-    const sourcePath = path.join(this.uploadDir, media.folder, media.filename)
-    const destFolder = path.join(this.uploadDir, newFolder)
-    const destPath = path.join(destFolder, media.filename)
+  private async getImageDimensions(
+    buffer: Buffer
+  ): Promise<{ width?: number; height?: number }> {
+    // In a real implementation, use sharp or similar library
+    // const sharp = require('sharp');
+    // const metadata = await sharp(buffer).metadata();
+    // return { width: metadata.width, height: metadata.height };
 
-    // Ensure destination folder exists
-    await this.ensureFolderExists(destFolder)
+    return {}; // Placeholder
+  }
 
-    // Move file
-    await fs.rename(sourcePath, destPath)
+  /**
+   * Get video info
+   */
+  private async getVideoInfo(buffer: Buffer): Promise<{
+    width?: number;
+    height?: number;
+    duration?: number;
+  }> {
+    // In a real implementation, use ffprobe or similar
+    return {}; // Placeholder
+  }
 
-    // Update URL
-    media.url = this.getFileUrl(newFolder, media.filename)
+  /**
+   * Get audio info
+   */
+  private async getAudioInfo(buffer: Buffer): Promise<{ duration?: number }> {
+    // In a real implementation, use ffprobe or similar
+    return {}; // Placeholder
+  }
 
-    // Move thumbnail if exists
-    if (media.thumbnailUrl) {
-      const thumbnailFilename = path.basename(media.thumbnailUrl)
-      const thumbnailSourcePath = path.join(this.uploadDir, media.folder, thumbnailFilename)
-      const thumbnailDestPath = path.join(destFolder, thumbnailFilename)
+  /**
+   * Generate thumbnails for images
+   */
+  private async generateThumbnails(
+    mediaId: string,
+    filePath: string
+  ): Promise<void> {
+    // In a real implementation, use sharp to generate thumbnails
+    // const thumbnailSizes = [
+    //   { name: 'thumbnail', width: 150, height: 150 },
+    //   { name: 'small', width: 300, height: 300 },
+    //   { name: 'medium', width: 600, height: 600 },
+    //   { name: 'large', width: 1200, height: 1200 }
+    // ];
+    // for (const size of thumbnailSizes) {
+    //   await this.generateThumbnail(mediaId, filePath, size);
+    // }
+  }
 
-      try {
-        await fs.rename(thumbnailSourcePath, thumbnailDestPath)
-        media.thumbnailUrl = this.getFileUrl(newFolder, thumbnailFilename)
-      } catch (error) {
-        logger.warn(`Failed to move thumbnail: ${thumbnailSourcePath}`, error)
-      }
-    }
+  /**
+   * Generate slug from name
+   */
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+  }
 
-    // Update folder
-    media.folder = newFolder
+  /**
+   * Validate slug format
+   */
+  private isValidSlug(slug: string): boolean {
+    return /^[a-z0-9-]+$/.test(slug) && slug.length >= 2 && slug.length <= 100;
   }
 
   /**
@@ -485,9 +898,9 @@ export class MediaService {
    */
   private async ensureUploadDirExists(): Promise<void> {
     try {
-      await fs.access(this.uploadDir)
+      await fs.access(this.uploadDir);
     } catch (error) {
-      await fs.mkdir(this.uploadDir, { recursive: true })
+      await fs.mkdir(this.uploadDir, { recursive: true });
     }
   }
 
@@ -496,9 +909,9 @@ export class MediaService {
    */
   private async ensureFolderExists(folderPath: string): Promise<void> {
     try {
-      await fs.access(folderPath)
+      await fs.access(folderPath);
     } catch (error) {
-      await fs.mkdir(folderPath, { recursive: true })
+      await fs.mkdir(folderPath, { recursive: true });
     }
   }
 }

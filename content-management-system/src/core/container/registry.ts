@@ -33,9 +33,10 @@ export function registerInfrastructure(): void {
 
   // Register Redis client factory
   containerConfig.registerFactory(TOKENS.RedisClient, () => {
-    return new Redis(config.redis.url, {
-      maxRetriesPerRequest: config.redis.maxRetriesPerRequest || 3,
-      retryDelayOnFailover: 100,
+    return new Redis(config.redis.uri, {
+      password: config.redis.password,
+      db: config.redis.db,
+      maxRetriesPerRequest: config.redis.maxRetriesPerRequest,
       enableReadyCheck: false,
       lazyConnect: true,
     });
@@ -199,11 +200,11 @@ export function registerTestServices(): void {
 
   // Register mock services
   containerConfig.registerInstance(TOKENS.RedisClient, {
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-    exists: jest.fn(),
-    expire: jest.fn(),
+    get: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
+    exists: vi.fn(),
+    expire: vi.fn(),
   });
 
   // Configure the container

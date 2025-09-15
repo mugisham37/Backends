@@ -1,185 +1,252 @@
-import { ContentRepository } from "../db/repositories/content.repository"
-import { ContentTypeRepository } from "../db/repositories/content-type.repository"
-import { ApiError } from "../utils/errors"
-import { ContentStatus } from "../db/models/content.model"
-import { FieldType } from "../db/models/content-type.model"
-import { slugify } from "../utils/helpers"
+import { injectable, inject } from "tsyringe";
+import { ContentRepository } from "../core/repositories/content.repository";
+import { CacheService } from "./cache.service";
+import { AuditService } from "./audit.service";
+import { SearchService } from "./search.service";
+import type { Result } from "../core/types/result.types";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  BusinessRuleError,
+} from "../core/errors";
+import type {
+  Content,
+  NewContent,
+  ContentStatus,
+  ContentType,
+  ContentVersion,
+} from "../core/database/schema/content.schema";
+import { logger } from "../utils/logger";
 
+/**
+ * Content management service with versioning and publishing
+ * Handles content CRUD operations, versioning, and publishing workflows
+ */
+@injectable()
 export class ContentService {
-  private contentRepository: ContentRepository
-  private contentTypeRepository: ContentTypeRepository
-
-  constructor() {
-    this.contentRepository = new ContentRepository()
-    this.contentTypeRepository = new ContentTypeRepository()
-  }
+  constructor(
+    @inject("ContentRepository") private contentRepository: ContentRepository,
+    @inject("CacheService") private cacheService: CacheService,
+    @inject("AuditService") private auditService: AuditService,
+    @inject("SearchService") private searchService: SearchService
+  ) {}
 
   /**
-   * Get all content items
+   * Get all content items with filtering and pagination
    */
   async getAllContent(
+    tenantId: string,
     filter: {
-      contentTypeId?: string
-      status?: ContentStatus
-      locale?: string
-      search?: string
-      createdBy?: string
-      updatedBy?: string
-      publishedBy?: string
-      createdAt?: { from?: Date; to?: Date }
-      updatedAt?: { from?: Date; to?: Date }
-      publishedAt?: { from?: Date; to?: Date }
+      contentType?: ContentType;
+      status?: ContentStatus;
+      search?: string;
+      authorId?: string;
+      tags?: string[];
+      categories?: string[];
+      createdAt?: { from?: Date; to?: Date };
+      updatedAt?: { from?: Date; to?: Date };
+      publishedAt?: { from?: Date; to?: Date };
     } = {},
     sort: {
-      field?: string
-      direction?: "asc" | "desc"
+      field?: string;
+      direction?: "asc" | "desc";
     } = {},
     pagination: {
-      page?: number
-      limit?: number
-    } = {},
-  ): Promise<{
-    content: any[]
-    totalCount: number
-    page: number
-    totalPages: number
-  }> {
-    // Build filter
-    const filterQuery: any = {}
+      page?: number;
+      limit?: number;
+    } = {}
+  ): Promise<
+    Result<
+      {
+        content: Content[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+      },
+      Error
+    >
+  > {
+    try {
+      const { page = 1, limit = 20 } = pagination;
 
-    if (filter.contentTypeId) {
-      filterQuery.contentType = filter.contentTypeId
-    }
+      // Build filter conditions
+      const filterConditions: any = {
+        tenantId,
+        isLatestVersion: true, // Only get latest versions
+      };
 
-    if (filter.status) {
-      filterQuery.status = filter.status
-    }
-
-    if (filter.locale) {
-      filterQuery.locale = filter.locale
-    }
-
-    if (filter.createdBy) {
-      filterQuery.createdBy = filter.createdBy
-    }
-
-    if (filter.updatedBy) {
-      filterQuery.updatedBy = filter.updatedBy
-    }
-
-    if (filter.publishedBy) {
-      filterQuery.publishedBy = filter.publishedBy
-    }
-
-    if (filter.createdAt?.from || filter.createdAt?.to) {
-      filterQuery.createdAt = {}
-      if (filter.createdAt.from) {
-        filterQuery.createdAt.$gte = filter.createdAt.from
+      if (filter.contentType) {
+        filterConditions.contentType = filter.contentType;
       }
-      if (filter.createdAt.to) {
-        filterQuery.createdAt.$lte = filter.createdAt.to
-      }
-    }
 
-    if (filter.updatedAt?.from || filter.updatedAt?.to) {
-      filterQuery.updatedAt = {}
-      if (filter.updatedAt.from) {
-        filterQuery.updatedAt.$gte = filter.updatedAt.from
+      if (filter.status) {
+        filterConditions.status = filter.status;
       }
-      if (filter.updatedAt.to) {
-        filterQuery.updatedAt.$lte = filter.updatedAt.to
-      }
-    }
 
-    if (filter.publishedAt?.from || filter.publishedAt?.to) {
-      filterQuery.publishedAt = {}
-      if (filter.publishedAt.from) {
-        filterQuery.publishedAt.$gte = filter.publishedAt.from
+      if (filter.authorId) {
+        filterConditions.authorId = filter.authorId;
       }
-      if (filter.publishedAt.to) {
-        filterQuery.publishedAt.$lte = filter.publishedAt.to
+
+      // Date range filters
+      if (filter.createdAt?.from || filter.createdAt?.to) {
+        filterConditions.createdAt = {};
+        if (filter.createdAt.from) {
+          filterConditions.createdAt._gte = filter.createdAt.from;
+        }
+        if (filter.createdAt.to) {
+          filterConditions.createdAt._lte = filter.createdAt.to;
+        }
       }
-    }
 
-    if (filter.search) {
-      // Simple search implementation
-      // For production, consider using MongoDB text indexes or Elasticsearch
-      const regex = new RegExp(filter.search, "i")
-      filterQuery.$or = [
-        { "data.title": regex },
-        { "data.name": regex },
-        { "data.description": regex },
-        { slug: regex },
-      ]
-    }
+      if (filter.updatedAt?.from || filter.updatedAt?.to) {
+        filterConditions.updatedAt = {};
+        if (filter.updatedAt.from) {
+          filterConditions.updatedAt._gte = filter.updatedAt.from;
+        }
+        if (filter.updatedAt.to) {
+          filterConditions.updatedAt._lte = filter.updatedAt.to;
+        }
+      }
 
-    // Build sort
-    const sortQuery: any = {}
-    if (sort.field) {
-      // Handle sorting by data fields
-      if (sort.field.startsWith("data.")) {
-        sortQuery[sort.field] = sort.direction === "desc" ? -1 : 1
+      if (filter.publishedAt?.from || filter.publishedAt?.to) {
+        filterConditions.publishedAt = {};
+        if (filter.publishedAt.from) {
+          filterConditions.publishedAt._gte = filter.publishedAt.from;
+        }
+        if (filter.publishedAt.to) {
+          filterConditions.publishedAt._lte = filter.publishedAt.to;
+        }
+      }
+
+      // Search functionality
+      if (filter.search) {
+        filterConditions._or = [
+          { title: { _ilike: `%${filter.search}%` } },
+          { excerpt: { _ilike: `%${filter.search}%` } },
+          { body: { _ilike: `%${filter.search}%` } },
+          { slug: { _ilike: `%${filter.search}%` } },
+        ];
+      }
+
+      // Build sort options
+      const sortOptions = [];
+      if (sort.field) {
+        sortOptions.push({
+          field: sort.field,
+          direction: sort.direction || "asc",
+        });
       } else {
-        sortQuery[sort.field] = sort.direction === "desc" ? -1 : 1
+        sortOptions.push({ field: "updatedAt", direction: "desc" as const });
       }
-    } else {
-      sortQuery.updatedAt = -1 // Default sort by update date descending
-    }
 
-    // Get paginated results with populated references
-    const result = await this.contentRepository.paginate(filterQuery, {
-      page: pagination.page,
-      limit: pagination.limit,
-      sort: sortQuery,
-      populate: ["contentType", "createdBy", "updatedBy", "publishedBy"],
-    })
+      const result = await this.contentRepository.findManyPaginated({
+        where: filterConditions,
+        orderBy: sortOptions,
+        pagination: { page, limit },
+      });
 
-    return {
-      content: result.docs,
-      totalCount: result.totalDocs,
-      page: result.page,
-      totalPages: result.totalPages,
+      if (!result.success) {
+        return result;
+      }
+
+      return {
+        success: true,
+        data: {
+          content: result.data.data,
+          pagination: result.data.pagination,
+        },
+      };
+    } catch (error) {
+      logger.error("Error getting all content:", error);
+      return {
+        success: false,
+        error: new Error("Failed to get content"),
+      };
     }
   }
 
   /**
    * Get content by ID
    */
-  async getContentById(id: string): Promise<any> {
-    const content = await this.contentRepository.findById(id)
-    if (!content) {
-      throw ApiError.notFound(`Content not found with ID: ${id}`)
+  async getContentById(
+    id: string,
+    tenantId: string
+  ): Promise<Result<Content, NotFoundError>> {
+    try {
+      // Check cache first
+      const cacheKey = `content:${id}`;
+      const cachedContent = await this.cacheService.get(cacheKey);
+      if (cachedContent) {
+        return { success: true, data: cachedContent };
+      }
+
+      const result = await this.contentRepository.findByIdInTenant(
+        id,
+        tenantId
+      );
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          error: new NotFoundError("Content not found"),
+        };
+      }
+
+      // Cache content for 5 minutes
+      await this.cacheService.set(cacheKey, result.data, 5 * 60);
+
+      return result as Result<Content, NotFoundError>;
+    } catch (error) {
+      logger.error(`Error getting content by ID ${id}:`, error);
+      return {
+        success: false,
+        error: new NotFoundError("Content not found"),
+      };
     }
-
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
-
-    return content
   }
 
   /**
    * Get content by slug
    */
-  async getContentBySlug(contentTypeId: string, slug: string, locale = "en"): Promise<any> {
-    const content = await this.contentRepository.findBySlug(contentTypeId, slug, locale)
-    if (!content) {
-      throw ApiError.notFound(`Content not found with slug: ${slug}`)
+  async getContentBySlug(
+    slug: string,
+    tenantId: string
+  ): Promise<Result<Content, NotFoundError>> {
+    try {
+      // Check cache first
+      const cacheKey = `content:slug:${tenantId}:${slug}`;
+      const cachedContent = await this.cacheService.get(cacheKey);
+      if (cachedContent) {
+        return { success: true, data: cachedContent };
+      }
+
+      const result = await this.contentRepository.findBySlugInTenant(
+        slug,
+        tenantId
+      );
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          error: new NotFoundError("Content not found"),
+        };
+      }
+
+      // Cache content for 5 minutes
+      await this.cacheService.set(cacheKey, result.data, 5 * 60);
+
+      return result as Result<Content, NotFoundError>;
+    } catch (error) {
+      logger.error(`Error getting content by slug ${slug}:`, error);
+      return {
+        success: false,
+        error: new NotFoundError("Content not found"),
+      };
     }
-
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
-
-    return content
   }
 
   /**
@@ -187,54 +254,131 @@ export class ContentService {
    */
   async createContent(
     data: {
-      contentTypeId: string
-      data: any
-      status?: ContentStatus
-      locale?: string
-      slug?: string
+      title: string;
+      slug?: string;
+      excerpt?: string;
+      body?: string;
+      contentType?: ContentType;
+      status?: ContentStatus;
+      seoTitle?: string;
+      seoDescription?: string;
+      seoKeywords?: string;
+      featuredImage?: string;
+      tags?: string[];
+      categories?: string[];
+      customFields?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      scheduledAt?: Date;
     },
-    userId?: string,
-  ): Promise<any> {
-    // Get content type
-    const contentType = await this.contentTypeRepository.findByIdOrThrow(data.contentTypeId)
-
-    // Validate data against content type
-    const validatedData = await this.validateData(data.data, contentType)
-
-    // Generate slug if not provided
-    let slug = data.slug
-    if (!slug && (validatedData.title || validatedData.name)) {
-      slug = slugify(validatedData.title || validatedData.name)
-    }
-
-    // Check if slug is unique for this content type and locale
-    if (slug) {
-      const existingContent = await this.contentRepository.findBySlug(data.contentTypeId, slug, data.locale || "en")
-      if (existingContent) {
-        // Append a unique identifier to make the slug unique
-        slug = `${slug}-${Date.now().toString().slice(-6)}`
+    tenantId: string,
+    authorId: string
+  ): Promise<Result<Content, Error>> {
+    try {
+      // Generate slug if not provided
+      let slug = data.slug;
+      if (!slug) {
+        slug = this.generateSlug(data.title);
       }
+
+      // Validate slug format
+      if (!this.isValidSlug(slug)) {
+        return {
+          success: false,
+          error: new ValidationError("Invalid slug format", {
+            slug: [
+              "Slug must contain only lowercase letters, numbers, and hyphens",
+            ],
+          }),
+        };
+      }
+
+      // Check if slug is unique within tenant
+      const existingContent = await this.contentRepository.findBySlugInTenant(
+        slug,
+        tenantId
+      );
+      if (existingContent.success && existingContent.data) {
+        return {
+          success: false,
+          error: new ConflictError("Content with this slug already exists"),
+        };
+      }
+
+      // Calculate metadata
+      const metadata = {
+        ...data.metadata,
+        wordCount: this.calculateWordCount(data.body || ""),
+        readTime: this.calculateReadTime(data.body || ""),
+      };
+
+      // Create content
+      const contentData: NewContent = {
+        title: data.title,
+        slug,
+        excerpt: data.excerpt,
+        body: data.body,
+        contentType: data.contentType || "article",
+        status: data.status || "draft",
+        version: 1,
+        isLatestVersion: true,
+        authorId,
+        tenantId,
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription,
+        seoKeywords: data.seoKeywords,
+        featuredImage: data.featuredImage,
+        tags: data.tags,
+        categories: data.categories,
+        customFields: data.customFields,
+        metadata,
+        scheduledAt: data.scheduledAt,
+      };
+
+      const result = await this.contentRepository.create(contentData);
+      if (!result.success) {
+        return result;
+      }
+
+      // Create initial version
+      await this.contentRepository.createVersion({
+        contentId: result.data.id,
+        version: 1,
+        title: data.title,
+        body: data.body,
+        excerpt: data.excerpt,
+        status: data.status || "draft",
+        authorId,
+        changeLog: "Initial version",
+        customFields: data.customFields,
+        metadata,
+      });
+
+      // Index content for search
+      await this.searchService.indexContent(result.data);
+
+      // Log content creation
+      await this.auditService.logContentEvent({
+        contentId: result.data.id,
+        tenantId,
+        userId: authorId,
+        event: "content_created",
+        details: {
+          title: data.title,
+          contentType: data.contentType || "article",
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Content created: ${data.title} (${result.data.id})`);
+
+      return result;
+    } catch (error) {
+      logger.error("Error creating content:", error);
+      return {
+        success: false,
+        error: new Error("Failed to create content"),
+      };
     }
-
-    // Create content
-    const content = await this.contentRepository.create({
-      contentType: data.contentTypeId,
-      data: validatedData,
-      status: data.status || ContentStatus.DRAFT,
-      locale: data.locale || "en",
-      slug,
-      createdBy: userId,
-      updatedBy: userId,
-    })
-
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-    ])
-
-    return content
   }
 
   /**
@@ -243,449 +387,485 @@ export class ContentService {
   async updateContent(
     id: string,
     data: {
-      data?: any
-      status?: ContentStatus
-      slug?: string
-      comment?: string
+      title?: string;
+      slug?: string;
+      excerpt?: string;
+      body?: string;
+      contentType?: ContentType;
+      status?: ContentStatus;
+      seoTitle?: string;
+      seoDescription?: string;
+      seoKeywords?: string;
+      featuredImage?: string;
+      tags?: string[];
+      categories?: string[];
+      customFields?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      scheduledAt?: Date;
+      changeLog?: string;
     },
-    userId?: string,
-  ): Promise<any> {
-    // Get content
-    const content = await this.contentRepository.findByIdOrThrow(id)
-
-    // Get content type
-    const contentType = await this.contentTypeRepository.findByIdOrThrow(content.contentType.toString())
-
-    // Prepare update data
-    const updateData: any = {
-      updatedBy: userId,
-    }
-
-    // Validate and update data if provided
-    if (data.data) {
-      updateData.data = await this.validateData(data.data, contentType, content.data)
-    }
-
-    // Update status if provided
-    if (data.status) {
-      updateData.status = data.status
-    }
-
-    // Update slug if provided
-    if (data.slug) {
-      // Check if slug is unique for this content type and locale
-      const existingContent = await this.contentRepository.findBySlug(
-        content.contentType.toString(),
-        data.slug,
-        content.locale,
-      )
-      if (existingContent && existingContent._id.toString() !== id) {
-        throw ApiError.conflict(`Content with slug '${data.slug}' already exists for this content type and locale`)
+    tenantId: string,
+    editorId: string
+  ): Promise<Result<Content, Error>> {
+    try {
+      // Check if content exists
+      const existingContent = await this.getContentById(id, tenantId);
+      if (!existingContent.success) {
+        return existingContent;
       }
-      updateData.slug = data.slug
+
+      // Check slug uniqueness if being updated
+      if (data.slug && data.slug !== existingContent.data.slug) {
+        if (!this.isValidSlug(data.slug)) {
+          return {
+            success: false,
+            error: new ValidationError("Invalid slug format", {
+              slug: [
+                "Slug must contain only lowercase letters, numbers, and hyphens",
+              ],
+            }),
+          };
+        }
+
+        const existingSlug = await this.contentRepository.findBySlugInTenant(
+          data.slug,
+          tenantId
+        );
+        if (existingSlug.success && existingSlug.data) {
+          return {
+            success: false,
+            error: new ConflictError("Content with this slug already exists"),
+          };
+        }
+      }
+
+      // Calculate updated metadata
+      const updatedMetadata = {
+        ...existingContent.data.metadata,
+        ...data.metadata,
+      };
+
+      if (data.body) {
+        updatedMetadata.wordCount = this.calculateWordCount(data.body);
+        updatedMetadata.readTime = this.calculateReadTime(data.body);
+      }
+
+      // Increment version
+      const newVersion = existingContent.data.version + 1;
+
+      // Update content
+      const updateData: Partial<Content> = {
+        ...data,
+        version: newVersion,
+        editorId,
+        metadata: updatedMetadata,
+      };
+
+      const result = await this.contentRepository.update(id, updateData);
+      if (!result.success) {
+        return result;
+      }
+
+      // Create new version
+      await this.contentRepository.createVersion({
+        contentId: id,
+        version: newVersion,
+        title: data.title || existingContent.data.title,
+        body: data.body || existingContent.data.body,
+        excerpt: data.excerpt || existingContent.data.excerpt,
+        status: data.status || existingContent.data.status,
+        authorId: editorId,
+        changeLog: data.changeLog || "Content updated",
+        customFields: data.customFields || existingContent.data.customFields,
+        metadata: updatedMetadata,
+      });
+
+      // Clear cache
+      await this.cacheService.delete(`content:${id}`);
+      await this.cacheService.delete(
+        `content:slug:${tenantId}:${existingContent.data.slug}`
+      );
+
+      // Update search index
+      await this.searchService.updateContent(result.data);
+
+      // Log content update
+      await this.auditService.logContentEvent({
+        contentId: id,
+        tenantId,
+        userId: editorId,
+        event: "content_updated",
+        details: {
+          changes: data,
+          version: newVersion,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Content updated: ${result.data.title} (${id})`);
+
+      return result;
+    } catch (error) {
+      logger.error(`Error updating content ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to update content"),
+      };
     }
-
-    // Update content
-    const updatedContent = await this.contentRepository.updateByIdOrThrow(id, updateData)
-
-    // Add comment to the latest version if provided
-    if (data.comment && updatedContent.versions.length > 0) {
-      const latestVersion = updatedContent.versions[updatedContent.versions.length - 1]
-      latestVersion.comment = data.comment
-      await updatedContent.save()
-    }
-
-    // Populate references
-    await updatedContent.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
-
-    return updatedContent
   }
 
   /**
    * Delete content
    */
-  async deleteContent(id: string): Promise<void> {
-    await this.contentRepository.deleteByIdOrThrow(id)
+  async deleteContent(
+    id: string,
+    tenantId: string,
+    userId: string
+  ): Promise<Result<void, Error>> {
+    try {
+      // Check if content exists
+      const existingContent = await this.getContentById(id, tenantId);
+      if (!existingContent.success) {
+        return {
+          success: false,
+          error: existingContent.error,
+        };
+      }
+
+      // Delete content
+      const result = await this.contentRepository.delete(id);
+      if (!result.success) {
+        return result;
+      }
+
+      // Clear cache
+      await this.cacheService.delete(`content:${id}`);
+      await this.cacheService.delete(
+        `content:slug:${tenantId}:${existingContent.data.slug}`
+      );
+
+      // Remove from search index
+      await this.searchService.removeContent(id);
+
+      // Log content deletion
+      await this.auditService.logContentEvent({
+        contentId: id,
+        tenantId,
+        userId,
+        event: "content_deleted",
+        details: {
+          title: existingContent.data.title,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Content deleted: ${existingContent.data.title} (${id})`);
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error(`Error deleting content ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to delete content"),
+      };
+    }
   }
 
   /**
    * Publish content
    */
-  async publishContent(id: string, userId?: string, scheduledAt?: Date): Promise<any> {
-    const content = await this.contentRepository.publish(id, userId, scheduledAt)
+  async publishContent(
+    id: string,
+    tenantId: string,
+    userId: string,
+    scheduledAt?: Date
+  ): Promise<Result<Content, Error>> {
+    try {
+      // Check if content exists
+      const existingContent = await this.getContentById(id, tenantId);
+      if (!existingContent.success) {
+        return existingContent;
+      }
 
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
+      // Validate content is ready for publishing
+      if (!existingContent.data.title || !existingContent.data.body) {
+        return {
+          success: false,
+          error: new ValidationError(
+            "Content must have title and body to be published"
+          ),
+        };
+      }
 
-    return content
+      const updateData: Partial<Content> = {
+        status: "published",
+        publishedAt: scheduledAt || new Date(),
+        scheduledAt: scheduledAt,
+      };
+
+      const result = await this.contentRepository.update(id, updateData);
+      if (!result.success) {
+        return result;
+      }
+
+      // Clear cache
+      await this.cacheService.delete(`content:${id}`);
+      await this.cacheService.delete(
+        `content:slug:${tenantId}:${existingContent.data.slug}`
+      );
+
+      // Update search index
+      await this.searchService.updateContent(result.data);
+
+      // Log content publishing
+      await this.auditService.logContentEvent({
+        contentId: id,
+        tenantId,
+        userId,
+        event: "content_published",
+        details: {
+          title: existingContent.data.title,
+          publishedAt: updateData.publishedAt,
+          scheduledAt: updateData.scheduledAt,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Content published: ${existingContent.data.title} (${id})`);
+
+      return result;
+    } catch (error) {
+      logger.error(`Error publishing content ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to publish content"),
+      };
+    }
   }
 
   /**
    * Unpublish content
    */
-  async unpublishContent(id: string): Promise<any> {
-    const content = await this.contentRepository.unpublish(id)
+  async unpublishContent(
+    id: string,
+    tenantId: string,
+    userId: string
+  ): Promise<Result<Content, Error>> {
+    try {
+      // Check if content exists
+      const existingContent = await this.getContentById(id, tenantId);
+      if (!existingContent.success) {
+        return existingContent;
+      }
 
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
+      const updateData: Partial<Content> = {
+        status: "draft",
+        publishedAt: null,
+        scheduledAt: null,
+      };
 
-    return content
+      const result = await this.contentRepository.update(id, updateData);
+      if (!result.success) {
+        return result;
+      }
+
+      // Clear cache
+      await this.cacheService.delete(`content:${id}`);
+      await this.cacheService.delete(
+        `content:slug:${tenantId}:${existingContent.data.slug}`
+      );
+
+      // Update search index
+      await this.searchService.updateContent(result.data);
+
+      // Log content unpublishing
+      await this.auditService.logContentEvent({
+        contentId: id,
+        tenantId,
+        userId,
+        event: "content_unpublished",
+        details: {
+          title: existingContent.data.title,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Content unpublished: ${existingContent.data.title} (${id})`);
+
+      return result;
+    } catch (error) {
+      logger.error(`Error unpublishing content ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to unpublish content"),
+      };
+    }
   }
 
   /**
-   * Archive content
+   * Get content versions
    */
-  async archiveContent(id: string): Promise<any> {
-    const content = await this.contentRepository.archive(id)
+  async getContentVersions(
+    contentId: string,
+    tenantId: string
+  ): Promise<Result<ContentVersion[], Error>> {
+    try {
+      // Verify content exists and belongs to tenant
+      const contentExists = await this.getContentById(contentId, tenantId);
+      if (!contentExists.success) {
+        return {
+          success: false,
+          error: contentExists.error,
+        };
+      }
 
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
-
-    return content
-  }
-
-  /**
-   * Get content version
-   */
-  async getContentVersion(contentId: string, versionId: string): Promise<any> {
-    const content = await this.contentRepository.findByIdOrThrow(contentId)
-
-    // Find the version
-    const version = content.versions.find((v) => v._id.toString() === versionId)
-    if (!version) {
-      throw ApiError.notFound(`Version not found with ID: ${versionId}`)
+      const result = await this.contentRepository.getVersions(contentId);
+      return result;
+    } catch (error) {
+      logger.error(`Error getting content versions for ${contentId}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to get content versions"),
+      };
     }
-
-    // Populate creator if available
-    if (version.createdBy) {
-      await version.populate({ path: "createdBy", select: "-password" })
-    }
-
-    return version
   }
 
   /**
    * Restore content version
    */
-  async restoreVersion(contentId: string, versionId: string, userId?: string): Promise<any> {
-    // Restore the version
-    const content = await this.contentRepository.restoreVersion(contentId, versionId)
-
-    // Update the updatedBy field
-    if (userId) {
-      content.updatedBy = userId
-      await content.save()
-    }
-
-    // Populate references
-    await content.populate([
-      { path: "contentType" },
-      { path: "createdBy", select: "-password" },
-      { path: "updatedBy", select: "-password" },
-      { path: "publishedBy", select: "-password" },
-    ])
-
-    return content
-  }
-
-  /**
-   * Validate data against content type
-   */
-  private async validateData(data: any, contentType: any, existingData: any = {}): Promise<any> {
-    const validatedData = { ...existingData, ...data }
-    const errors: any = {}
-
-    // Validate each field
-    for (const field of contentType.fields) {
-      const fieldName = field.name
-      const fieldValue = data[fieldName]
-
-      // Skip validation for fields not in the input data (unless required)
-      if (fieldValue === undefined && !field.validation?.required) {
-        continue
-      }
-
-      // Check required fields
-      if (field.validation?.required && (fieldValue === undefined || fieldValue === null || fieldValue === "")) {
-        errors[fieldName] = `Field '${field.displayName}' is required`
-        continue
-      }
-
-      // Skip further validation if field is not provided
-      if (fieldValue === undefined) {
-        continue
-      }
-
-      // Validate field based on type
-      try {
-        validatedData[fieldName] = await this.validateField(fieldValue, field)
-      } catch (error: any) {
-        errors[fieldName] = error.message
-      }
-    }
-
-    // If there are validation errors, throw an error
-    if (Object.keys(errors).length > 0) {
-      throw ApiError.validationError("Content validation failed", errors)
-    }
-
-    return validatedData
-  }
-
-  /**
-   * Validate a field value based on its type and validation rules
-   */
-  private async validateField(value: any, field: any): Promise<any> {
-    const { type, validation = {} } = field
-
-    // Handle null values
-    if (value === null) {
-      if (validation.required) {
-        throw new Error(`Field '${field.displayName}' is required`)
-      }
-      return null
-    }
-
-    // Validate based on field type
-    switch (type) {
-      case FieldType.STRING:
-      case FieldType.TEXT:
-      case FieldType.RICH_TEXT:
-        return this.validateStringField(value, field)
-
-      case FieldType.NUMBER:
-        return this.validateNumberField(value, field)
-
-      case FieldType.BOOLEAN:
-        return this.validateBooleanField(value)
-
-      case FieldType.DATE:
-      case FieldType.DATETIME:
-        return this.validateDateField(value, field)
-
-      case FieldType.EMAIL:
-        return this.validateEmailField(value, field)
-
-      case FieldType.URL:
-        return this.validateUrlField(value, field)
-
-      case FieldType.REFERENCE:
-        return this.validateReferenceField(value, field)
-
-      case FieldType.JSON:
-        return this.validateJsonField(value)
-
-      case FieldType.ARRAY:
-        return this.validateArrayField(value, field)
-
-      default:
-        // For other types (like IMAGE, FILE), just return the value
-        return value
-    }
-  }
-
-  /**
-   * Validate string fields
-   */
-  private validateStringField(value: any, field: any): string {
-    if (typeof value !== "string") {
-      throw new Error(`Field '${field.displayName}' must be a string`)
-    }
-
-    const { validation = {} } = field
-
-    // Check min length
-    if (validation.minLength !== undefined && value.length < validation.minLength) {
-      throw new Error(`Field '${field.displayName}' must be at least ${validation.minLength} characters long`)
-    }
-
-    // Check max length
-    if (validation.maxLength !== undefined && value.length > validation.maxLength) {
-      throw new Error(`Field '${field.displayName}' must be at most ${validation.maxLength} characters long`)
-    }
-
-    // Check pattern
-    if (validation.pattern && !new RegExp(validation.pattern).test(value)) {
-      throw new Error(`Field '${field.displayName}' does not match the required pattern`)
-    }
-
-    // Check enum values
-    if (validation.enum && !validation.enum.includes(value)) {
-      throw new Error(`Field '${field.displayName}' must be one of: ${validation.enum.join(", ")}`)
-    }
-
-    return value
-  }
-
-  /**
-   * Validate number fields
-   */
-  private validateNumberField(value: any, field: any): number {
-    // Convert string to number if possible
-    const numValue = typeof value === "string" ? Number(value) : value
-
-    if (typeof numValue !== "number" || isNaN(numValue)) {
-      throw new Error(`Field '${field.displayName}' must be a number`)
-    }
-
-    const { validation = {} } = field
-
-    // Check min value
-    if (validation.min !== undefined && numValue < validation.min) {
-      throw new Error(`Field '${field.displayName}' must be at least ${validation.min}`)
-    }
-
-    // Check max value
-    if (validation.max !== undefined && numValue > validation.max) {
-      throw new Error(`Field '${field.displayName}' must be at most ${validation.max}`)
-    }
-
-    return numValue
-  }
-
-  /**
-   * Validate boolean fields
-   */
-  private validateBooleanField(value: any): boolean {
-    // Convert string to boolean if possible
-    if (value === "true") return true
-    if (value === "false") return false
-
-    if (typeof value !== "boolean") {
-      throw new Error("Field must be a boolean")
-    }
-
-    return value
-  }
-
-  /**
-   * Validate date fields
-   */
-  private validateDateField(value: any, field: any): Date {
-    let dateValue: Date
-
-    // Convert string to date if necessary
-    if (typeof value === "string") {
-      dateValue = new Date(value)
-    } else if (value instanceof Date) {
-      dateValue = value
-    } else {
-      throw new Error(`Field '${field.displayName}' must be a valid date`)
-    }
-
-    // Check if date is valid
-    if (isNaN(dateValue.getTime())) {
-      throw new Error(`Field '${field.displayName}' must be a valid date`)
-    }
-
-    return dateValue
-  }
-
-  /**
-   * Validate email fields
-   */
-  private validateEmailField(value: any, field: any): string {
-    if (typeof value !== "string") {
-      throw new Error(`Field '${field.displayName}' must be a string`)
-    }
-
-    // Simple email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(value)) {
-      throw new Error(`Field '${field.displayName}' must be a valid email address`)
-    }
-
-    return value
-  }
-
-  /**
-   * Validate URL fields
-   */
-  private validateUrlField(value: any, field: any): string {
-    if (typeof value !== "string") {
-      throw new Error(`Field '${field.displayName}' must be a string`)
-    }
-
-    // Simple URL validation
+  async restoreVersion(
+    contentId: string,
+    versionNumber: number,
+    tenantId: string,
+    userId: string
+  ): Promise<Result<Content, Error>> {
     try {
-      new URL(value)
+      // Check if content exists
+      const existingContent = await this.getContentById(contentId, tenantId);
+      if (!existingContent.success) {
+        return existingContent;
+      }
+
+      // Get the version to restore
+      const versionResult = await this.contentRepository.getVersion(
+        contentId,
+        versionNumber
+      );
+      if (!versionResult.success || !versionResult.data) {
+        return {
+          success: false,
+          error: new NotFoundError("Version not found"),
+        };
+      }
+
+      const version = versionResult.data;
+
+      // Create new version with restored content
+      const newVersion = existingContent.data.version + 1;
+      const updateData: Partial<Content> = {
+        title: version.title,
+        body: version.body,
+        excerpt: version.excerpt,
+        status: version.status,
+        version: newVersion,
+        editorId: userId,
+        customFields: version.customFields,
+        metadata: version.metadata,
+      };
+
+      const result = await this.contentRepository.update(contentId, updateData);
+      if (!result.success) {
+        return result;
+      }
+
+      // Create version record
+      await this.contentRepository.createVersion({
+        contentId,
+        version: newVersion,
+        title: version.title,
+        body: version.body,
+        excerpt: version.excerpt,
+        status: version.status,
+        authorId: userId,
+        changeLog: `Restored from version ${versionNumber}`,
+        customFields: version.customFields,
+        metadata: version.metadata,
+      });
+
+      // Clear cache
+      await this.cacheService.delete(`content:${contentId}`);
+      await this.cacheService.delete(
+        `content:slug:${tenantId}:${existingContent.data.slug}`
+      );
+
+      // Update search index
+      await this.searchService.updateContent(result.data);
+
+      // Log version restoration
+      await this.auditService.logContentEvent({
+        contentId,
+        tenantId,
+        userId,
+        event: "content_version_restored",
+        details: {
+          restoredVersion: versionNumber,
+          newVersion,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(
+        `Content version restored: ${contentId} version ${versionNumber}`
+      );
+
+      return result;
     } catch (error) {
-      throw new Error(`Field '${field.displayName}' must be a valid URL`)
+      logger.error(
+        `Error restoring content version ${contentId}:${versionNumber}:`,
+        error
+      );
+      return {
+        success: false,
+        error: new Error("Failed to restore content version"),
+      };
     }
-
-    return value
   }
 
   /**
-   * Validate reference fields
+   * Generate slug from title
    */
-  private async validateReferenceField(value: any, field: any): Promise<string> {
-    // Reference fields should be MongoDB ObjectIDs
-    if (typeof value !== "string" || !/^[0-9a-fA-F]{24}$/.test(value)) {
-      throw new Error(`Field '${field.displayName}' must be a valid reference ID`)
-    }
-
-    // In a real implementation, you might want to check if the referenced document exists
-    // This would depend on the field settings specifying which collection to reference
-
-    return value
+  private generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
   }
 
   /**
-   * Validate JSON fields
+   * Validate slug format
    */
-  private validateJsonField(value: any): any {
-    // For JSON fields, we accept any valid JSON object or array
-    if (typeof value !== "object") {
-      throw new Error("Field must be a valid JSON object or array")
-    }
-
-    return value
+  private isValidSlug(slug: string): boolean {
+    return /^[a-z0-9-]+$/.test(slug) && slug.length >= 2 && slug.length <= 255;
   }
 
   /**
-   * Validate array fields
+   * Calculate word count
    */
-  private validateArrayField(value: any, field: any): any[] {
-    if (!Array.isArray(value)) {
-      throw new Error(`Field '${field.displayName}' must be an array`)
-    }
+  private calculateWordCount(text: string): number {
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
+  }
 
-    const { validation = {} } = field
-
-    // Check min length
-    if (validation.minLength !== undefined && value.length < validation.minLength) {
-      throw new Error(`Field '${field.displayName}' must have at least ${validation.minLength} items`)
-    }
-
-    // Check max length
-    if (validation.maxLength !== undefined && value.length > validation.maxLength) {
-      throw new Error(`Field '${field.displayName}' must have at most ${validation.maxLength} items`)
-    }
-
-    // In a real implementation, you might want to validate each item in the array
-    // based on the field settings
-
-    return value
+  /**
+   * Calculate estimated read time in minutes
+   */
+  private calculateReadTime(text: string): number {
+    const wordsPerMinute = 200;
+    const wordCount = this.calculateWordCount(text);
+    return Math.ceil(wordCount / wordsPerMinute);
   }
 }

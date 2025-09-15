@@ -1,253 +1,317 @@
-import mongoose, { Schema, type Document } from "mongoose"
-import { logger } from "../utils/logger"
+import { injectable } from "tsyringe";
+import type { Result } from "../core/types/result.types";
+import { logger } from "../utils/logger";
 
-// Audit log interface
-interface IAuditLog extends Document {
-  action: string
-  entityType: string
-  entityId: string
-  userId?: string
-  userEmail?: string
-  details?: any
-  ipAddress?: string
-  userAgent?: string
-  timestamp: Date
-}
-
-// Audit log schema
-const auditLogSchema = new Schema<IAuditLog>(
-  {
-    action: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    entityType: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    entityId: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    userId: {
-      type: String,
-      index: true,
-    },
-    userEmail: {
-      type: String,
-      index: true,
-    },
-    details: {
-      type: Schema.Types.Mixed,
-    },
-    ipAddress: {
-      type: String,
-    },
-    userAgent: {
-      type: String,
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-      index: true,
-    },
-  },
-  {
-    timestamps: false,
-  },
-)
-
-// Create model
-const AuditLogModel = mongoose.model<IAuditLog>("AuditLog", auditLogSchema)
-
+/**
+ * Audit service for comprehensive logging and monitoring
+ * Handles request/response logging, security events, and system monitoring
+ */
+@injectable()
 export class AuditService {
   /**
-   * Log an audit event
+   * Log authentication attempt
    */
-  async log(data: {
-    action: string
-    entityType: string
-    entityId: string
-    userId?: string
-    userEmail?: string
-    details?: any
-    ipAddress?: string
-    userAgent?: string
-  }): Promise<IAuditLog> {
+  async logAuthAttempt(data: {
+    userId?: string;
+    email: string;
+    success: boolean;
+    reason?: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<Result<void, Error>> {
     try {
-      const auditLog = new AuditLogModel({
-        ...data,
+      logger.info("Auth attempt", {
+        type: "auth_attempt",
+        userId: data.userId,
+        email: data.email,
+        success: data.success,
+        reason: data.reason,
+        ip: data.ip,
+        userAgent: data.userAgent,
         timestamp: new Date(),
-      })
+      });
 
-      await auditLog.save()
-      return auditLog
+      return { success: true, data: undefined };
     } catch (error) {
-      logger.error("Failed to create audit log:", error)
-      throw error
-    }
-  }
-
-  /**
-   * Get audit logs with filtering and pagination
-   */
-  async getAuditLogs(
-    filter: {
-      action?: string
-      entityType?: string
-      entityId?: string
-      userId?: string
-      userEmail?: string
-      startDate?: Date
-      endDate?: Date
-    } = {},
-    pagination: {
-      page?: number
-      limit?: number
-    } = {},
-  ): Promise<{
-    logs: IAuditLog[]
-    totalCount: number
-    page: number
-    totalPages: number
-  }> {
-    try {
-      const page = pagination.page || 1
-      const limit = pagination.limit || 20
-      const skip = (page - 1) * limit
-
-      // Build query
-      const query: any = {}
-
-      if (filter.action) {
-        query.action = filter.action
-      }
-
-      if (filter.entityType) {
-        query.entityType = filter.entityType
-      }
-
-      if (filter.entityId) {
-        query.entityId = filter.entityId
-      }
-
-      if (filter.userId) {
-        query.userId = filter.userId
-      }
-
-      if (filter.userEmail) {
-        query.userEmail = filter.userEmail
-      }
-
-      if (filter.startDate || filter.endDate) {
-        query.timestamp = {}
-        if (filter.startDate) {
-          query.timestamp.$gte = filter.startDate
-        }
-        if (filter.endDate) {
-          query.timestamp.$lte = filter.endDate
-        }
-      }
-
-      // Execute query
-      const [logs, totalCount] = await Promise.all([
-        AuditLogModel.find(query).sort({ timestamp: -1 }).skip(skip).limit(limit),
-        AuditLogModel.countDocuments(query),
-      ])
-
-      const totalPages = Math.ceil(totalCount / limit)
-
+      logger.error("Failed to log auth attempt:", error);
       return {
-        logs,
-        totalCount,
-        page,
-        totalPages,
-      }
-    } catch (error) {
-      logger.error("Failed to get audit logs:", error)
-      throw error
+        success: false,
+        error: new Error("Failed to log auth attempt"),
+      };
     }
   }
 
   /**
-   * Get audit logs for a specific entity
+   * Log security event
    */
-  async getEntityAuditLogs(
-    entityType: string,
-    entityId: string,
-    pagination: {
-      page?: number
-      limit?: number
-    } = {},
-  ): Promise<{
-    logs: IAuditLog[]
-    totalCount: number
-    page: number
-    totalPages: number
-  }> {
-    return this.getAuditLogs(
-      {
-        entityType,
-        entityId,
-      },
-      pagination,
-    )
-  }
-
-  /**
-   * Get audit logs for a specific user
-   */
-  async getUserAuditLogs(
-    userId: string,
-    pagination: {
-      page?: number
-      limit?: number
-    } = {},
-  ): Promise<{
-    logs: IAuditLog[]
-    totalCount: number
-    page: number
-    totalPages: number
-  }> {
-    return this.getAuditLogs(
-      {
-        userId,
-      },
-      pagination,
-    )
-  }
-
-  /**
-   * Get recent audit logs
-   */
-  async getRecentAuditLogs(limit = 20): Promise<IAuditLog[]> {
+  async logSecurityEvent(data: {
+    userId?: string;
+    event: string;
+    details: Record<string, unknown>;
+    ip?: string;
+  }): Promise<Result<void, Error>> {
     try {
-      return AuditLogModel.find().sort({ timestamp: -1 }).limit(limit)
+      logger.warn("Security event", {
+        type: "security_event",
+        userId: data.userId,
+        event: data.event,
+        details: data.details,
+        ip: data.ip,
+        timestamp: new Date(),
+      });
+
+      return { success: true, data: undefined };
     } catch (error) {
-      logger.error("Failed to get recent audit logs:", error)
-      throw error
+      logger.error("Failed to log security event:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log security event"),
+      };
     }
   }
 
   /**
-   * Delete old audit logs
+   * Log tenant event
    */
-  async deleteOldAuditLogs(olderThan: Date): Promise<number> {
+  async logTenantEvent(data: {
+    tenantId: string;
+    userId?: string;
+    event: string;
+    details: Record<string, unknown>;
+  }): Promise<Result<void, Error>> {
     try {
-      const result = await AuditLogModel.deleteMany({
-        timestamp: { $lt: olderThan },
-      })
+      logger.info("Tenant event", {
+        type: "tenant_event",
+        tenantId: data.tenantId,
+        userId: data.userId,
+        event: data.event,
+        details: data.details,
+        timestamp: new Date(),
+      });
 
-      return result.deletedCount || 0
+      return { success: true, data: undefined };
     } catch (error) {
-      logger.error("Failed to delete old audit logs:", error)
-      throw error
+      logger.error("Failed to log tenant event:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log tenant event"),
+      };
+    }
+  }
+
+  /**
+   * Log content event
+   */
+  async logContentEvent(data: {
+    contentId: string;
+    tenantId: string;
+    userId: string;
+    event: string;
+    details: Record<string, unknown>;
+  }): Promise<Result<void, Error>> {
+    try {
+      logger.info("Content event", {
+        type: "content_event",
+        contentId: data.contentId,
+        tenantId: data.tenantId,
+        userId: data.userId,
+        event: data.event,
+        details: data.details,
+        timestamp: new Date(),
+      });
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error("Failed to log content event:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log content event"),
+      };
+    }
+  }
+
+  /**
+   * Log media event
+   */
+  async logMediaEvent(data: {
+    mediaId?: string;
+    tenantId: string;
+    userId: string;
+    event: string;
+    details: Record<string, unknown>;
+  }): Promise<Result<void, Error>> {
+    try {
+      logger.info("Media event", {
+        type: "media_event",
+        mediaId: data.mediaId,
+        tenantId: data.tenantId,
+        userId: data.userId,
+        event: data.event,
+        details: data.details,
+        timestamp: new Date(),
+      });
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error("Failed to log media event:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log media event"),
+      };
+    }
+  }
+
+  /**
+   * Log API request
+   */
+  async logApiRequest(data: {
+    method: string;
+    url: string;
+    statusCode: number;
+    responseTime: number;
+    userId?: string;
+    tenantId?: string;
+    ip?: string;
+    userAgent?: string;
+  }): Promise<Result<void, Error>> {
+    try {
+      logger.info("API request", {
+        type: "api_request",
+        method: data.method,
+        url: data.url,
+        statusCode: data.statusCode,
+        responseTime: data.responseTime,
+        userId: data.userId,
+        tenantId: data.tenantId,
+        ip: data.ip,
+        userAgent: data.userAgent,
+        timestamp: new Date(),
+      });
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error("Failed to log API request:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log API request"),
+      };
+    }
+  }
+
+  /**
+   * Log system error
+   */
+  async logSystemError(data: {
+    error: Error;
+    context?: Record<string, unknown>;
+    userId?: string;
+    tenantId?: string;
+  }): Promise<Result<void, Error>> {
+    try {
+      logger.error("System error", {
+        type: "system_error",
+        message: data.error.message,
+        stack: data.error.stack,
+        context: data.context,
+        userId: data.userId,
+        tenantId: data.tenantId,
+        timestamp: new Date(),
+      });
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error("Failed to log system error:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log system error"),
+      };
+    }
+  }
+
+  /**
+   * Log performance metrics
+   */
+  async logPerformanceMetrics(data: {
+    operation: string;
+    duration: number;
+    metadata?: Record<string, unknown>;
+    tenantId?: string;
+  }): Promise<Result<void, Error>> {
+    try {
+      logger.info("Performance metrics", {
+        type: "performance_metrics",
+        operation: data.operation,
+        duration: data.duration,
+        metadata: data.metadata,
+        tenantId: data.tenantId,
+        timestamp: new Date(),
+      });
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error("Failed to log performance metrics:", error);
+      return {
+        success: false,
+        error: new Error("Failed to log performance metrics"),
+      };
+    }
+  }
+
+  /**
+   * Get audit logs with filtering
+   */
+  async getAuditLogs(filter: {
+    type?: string;
+    userId?: string;
+    tenantId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<Result<any[], Error>> {
+    try {
+      // In a real implementation, this would query a database or log aggregation service
+      // For now, return empty array
+      return { success: true, data: [] };
+    } catch (error) {
+      logger.error("Failed to get audit logs:", error);
+      return {
+        success: false,
+        error: new Error("Failed to get audit logs"),
+      };
+    }
+  }
+
+  /**
+   * Get system metrics
+   */
+  async getSystemMetrics(timeRange: { start: Date; end: Date }): Promise<
+    Result<
+      {
+        requests: number;
+        errors: number;
+        averageResponseTime: number;
+        uniqueUsers: number;
+      },
+      Error
+    >
+  > {
+    try {
+      // In a real implementation, this would aggregate metrics from logs
+      return {
+        success: true,
+        data: {
+          requests: 0,
+          errors: 0,
+          averageResponseTime: 0,
+          uniqueUsers: 0,
+        },
+      };
+    } catch (error) {
+      logger.error("Failed to get system metrics:", error);
+      return {
+        success: false,
+        error: new Error("Failed to get system metrics"),
+      };
     }
   }
 }
-
-// Export singleton instance
-export const auditService = new AuditService()

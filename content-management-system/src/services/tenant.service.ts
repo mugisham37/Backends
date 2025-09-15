@@ -1,622 +1,606 @@
-import { TenantModel, type ITenant, TenantPlan, TenantStatus, TenantUserRole } from "../db/models/tenant.model"
-import { UserModel } from "../db/models/user.model"
-import { ApiError } from "../utils/errors"
-import { logger } from "../utils/logger"
-import mongoose from "mongoose"
+import { injectable, inject } from "tsyringe";
+import { TenantRepository } from "../core/repositories/tenant.repository";
+import { UserRepository } from "../core/repositories/user.repository";
+import { CacheService } from "./cache.service";
+import { AuditService } from "./audit.service";
+import type { Result } from "../core/types/result.types";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  BusinessRuleError,
+} from "../core/errors";
+import type { Tenant, NewTenant } from "../core/database/schema/tenant.schema";
+import { logger } from "../utils/logger";
 
+/**
+ * Multi-tenancy service with tenant isolation and user management
+ * Handles tenant CRUD operations and user-tenant relationships
+ */
+@injectable()
 export class TenantService {
+  constructor(
+    @inject("TenantRepository") private tenantRepository: TenantRepository,
+    @inject("UserRepository") private userRepository: UserRepository,
+    @inject("CacheService") private cacheService: CacheService,
+    @inject("AuditService") private auditService: AuditService
+  ) {}
+
   /**
    * Create a new tenant
    */
-  public async createTenant(
-    data: {
-      name: string
-      slug?: string
-      description?: string
-      plan?: TenantPlan
-      ownerId: string
-    },
-    options: {
-      skipOwnerCheck?: boolean
-    } = {},
-  ): Promise<ITenant> {
+  async createTenant(data: {
+    name: string;
+    slug?: string;
+    description?: string;
+    domain?: string;
+    subdomain?: string;
+    settings?: any;
+    metadata?: any;
+  }): Promise<Result<Tenant, Error>> {
     try {
-      const { name, slug, description, plan, ownerId } = data
-      const { skipOwnerCheck = false } = options
+      // Generate slug if not provided
+      let slug = data.slug;
+      if (!slug) {
+        slug = this.generateSlug(data.name);
+      }
 
-      // Validate owner exists
-      const owner = await UserModel.findById(ownerId)
-      if (!owner && !skipOwnerCheck) {
-        throw ApiError.badRequest("Owner user does not exist")
+      // Validate slug format
+      if (!this.isValidSlug(slug)) {
+        return {
+          success: false,
+          error: new ValidationError("Invalid slug format", {
+            slug: [
+              "Slug must contain only lowercase letters, numbers, and hyphens",
+            ],
+          }),
+        };
       }
 
       // Check if slug is already taken
-      if (slug) {
-        const existingTenant = await TenantModel.findOne({ slug })
-        if (existingTenant) {
-          throw ApiError.conflict("Tenant slug is already taken")
+      const existingTenant = await this.tenantRepository.findBySlug(slug);
+      if (existingTenant.success && existingTenant.data) {
+        return {
+          success: false,
+          error: new ConflictError("Tenant slug is already taken"),
+        };
+      }
+
+      // Check domain uniqueness if provided
+      if (data.domain) {
+        const existingDomain = await this.tenantRepository.findByDomain(
+          data.domain
+        );
+        if (existingDomain.success && existingDomain.data) {
+          return {
+            success: false,
+            error: new ConflictError("Domain is already taken"),
+          };
         }
       }
 
-      // Set default plan limits based on plan
-      const usageLimits = this.getPlanLimits(plan || TenantPlan.FREE)
+      // Check subdomain uniqueness if provided
+      if (data.subdomain) {
+        const existingSubdomain = await this.tenantRepository.findBySubdomain(
+          data.subdomain
+        );
+        if (existingSubdomain.success && existingSubdomain.data) {
+          return {
+            success: false,
+            error: new ConflictError("Subdomain is already taken"),
+          };
+        }
+      }
 
-      // Create new tenant
-      const tenant = new TenantModel({
-        name,
+      // Create tenant
+      const tenantData: NewTenant = {
+        name: data.name,
         slug,
-        description,
-        plan: plan || TenantPlan.FREE,
-        status: TenantStatus.ACTIVE,
-        users: [
-          {
-            userId: ownerId,
-            role: TenantUserRole.OWNER,
-            addedAt: new Date(),
-            status: "active",
-          },
-        ],
-        usageLimits,
-      })
+        description: data.description,
+        domain: data.domain,
+        subdomain: data.subdomain,
+        settings: data.settings || {},
+        metadata: data.metadata || {},
+        isActive: true,
+      };
 
-      await tenant.save()
+      const result = await this.tenantRepository.create(tenantData);
+      if (!result.success) {
+        return result;
+      }
 
-      logger.info(`Tenant created: ${tenant.name} (${tenant._id})`)
+      // Log tenant creation
+      await this.auditService.logTenantEvent({
+        tenantId: result.data.id,
+        event: "tenant_created",
+        details: {
+          name: data.name,
+          slug,
+          timestamp: new Date(),
+        },
+      });
 
-      return tenant
+      logger.info(`Tenant created: ${data.name} (${result.data.id})`);
+
+      return result;
     } catch (error) {
-      logger.error("Error creating tenant:", error)
-      throw error
+      logger.error("Error creating tenant:", error);
+      return {
+        success: false,
+        error: new Error("Failed to create tenant"),
+      };
     }
   }
 
   /**
    * Get tenant by ID
    */
-  public async getTenantById(id: string): Promise<ITenant> {
+  async getTenantById(id: string): Promise<Result<Tenant, NotFoundError>> {
     try {
-      const tenant = await TenantModel.findById(id)
-
-      if (!tenant) {
-        throw ApiError.notFound("Tenant not found")
+      // Check cache first
+      const cacheKey = `tenant:${id}`;
+      const cachedTenant = await this.cacheService.get(cacheKey);
+      if (cachedTenant) {
+        return { success: true, data: cachedTenant };
       }
 
-      return tenant
+      const result = await this.tenantRepository.findById(id);
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          error: new NotFoundError("Tenant not found"),
+        };
+      }
+
+      // Cache tenant for 10 minutes
+      await this.cacheService.set(cacheKey, result.data, 10 * 60);
+
+      return result as Result<Tenant, NotFoundError>;
     } catch (error) {
-      logger.error(`Error getting tenant by ID ${id}:`, error)
-      throw error
+      logger.error(`Error getting tenant by ID ${id}:`, error);
+      return {
+        success: false,
+        error: new NotFoundError("Tenant not found"),
+      };
     }
   }
 
   /**
    * Get tenant by slug
    */
-  public async getTenantBySlug(slug: string): Promise<ITenant> {
+  async getTenantBySlug(slug: string): Promise<Result<Tenant, NotFoundError>> {
     try {
-      const tenant = await TenantModel.findOne({ slug })
-
-      if (!tenant) {
-        throw ApiError.notFound("Tenant not found")
+      // Check cache first
+      const cacheKey = `tenant:slug:${slug}`;
+      const cachedTenant = await this.cacheService.get(cacheKey);
+      if (cachedTenant) {
+        return { success: true, data: cachedTenant };
       }
 
-      return tenant
+      const result = await this.tenantRepository.findBySlug(slug);
+      if (!result.success || !result.data) {
+        return {
+          success: false,
+          error: new NotFoundError("Tenant not found"),
+        };
+      }
+
+      // Cache tenant for 10 minutes
+      await this.cacheService.set(cacheKey, result.data, 10 * 60);
+
+      return result as Result<Tenant, NotFoundError>;
     } catch (error) {
-      logger.error(`Error getting tenant by slug ${slug}:`, error)
-      throw error
+      logger.error(`Error getting tenant by slug ${slug}:`, error);
+      return {
+        success: false,
+        error: new NotFoundError("Tenant not found"),
+      };
     }
   }
 
   /**
    * Update tenant
    */
-  public async updateTenant(id: string, data: Partial<ITenant>): Promise<ITenant> {
+  async updateTenant(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      domain: string;
+      subdomain: string;
+      settings: any;
+      metadata: any;
+    }>
+  ): Promise<Result<Tenant, Error>> {
     try {
-      // Ensure certain fields cannot be updated directly
-      const safeData = { ...data }
-      delete safeData.users
-      delete safeData.currentUsage
-      delete safeData.createdAt
-      delete safeData.updatedAt
-
-      const tenant = await TenantModel.findByIdAndUpdate(id, safeData, { new: true })
-
-      if (!tenant) {
-        throw ApiError.notFound("Tenant not found")
+      // Check if tenant exists
+      const existingTenant = await this.getTenantById(id);
+      if (!existingTenant.success) {
+        return existingTenant;
       }
 
-      logger.info(`Tenant updated: ${tenant.name} (${tenant._id})`)
+      // Check domain uniqueness if being updated
+      if (data.domain && data.domain !== existingTenant.data.domain) {
+        const existingDomain = await this.tenantRepository.findByDomain(
+          data.domain
+        );
+        if (existingDomain.success && existingDomain.data) {
+          return {
+            success: false,
+            error: new ConflictError("Domain is already taken"),
+          };
+        }
+      }
 
-      return tenant
+      // Check subdomain uniqueness if being updated
+      if (data.subdomain && data.subdomain !== existingTenant.data.subdomain) {
+        const existingSubdomain = await this.tenantRepository.findBySubdomain(
+          data.subdomain
+        );
+        if (existingSubdomain.success && existingSubdomain.data) {
+          return {
+            success: false,
+            error: new ConflictError("Subdomain is already taken"),
+          };
+        }
+      }
+
+      // Update tenant
+      const result = await this.tenantRepository.update(id, data);
+      if (!result.success) {
+        return result;
+      }
+
+      // Clear cache
+      await this.cacheService.delete(`tenant:${id}`);
+      await this.cacheService.delete(`tenant:slug:${existingTenant.data.slug}`);
+
+      // Log tenant update
+      await this.auditService.logTenantEvent({
+        tenantId: id,
+        event: "tenant_updated",
+        details: {
+          changes: data,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Tenant updated: ${result.data.name} (${id})`);
+
+      return result;
     } catch (error) {
-      logger.error(`Error updating tenant ${id}:`, error)
-      throw error
+      logger.error(`Error updating tenant ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to update tenant"),
+      };
     }
   }
 
   /**
-   * Delete tenant
+   * Delete tenant (soft delete by deactivating)
    */
-  public async deleteTenant(id: string): Promise<void> {
+  async deleteTenant(id: string): Promise<Result<void, Error>> {
     try {
-      const tenant = await TenantModel.findById(id)
-
-      if (!tenant) {
-        throw ApiError.notFound("Tenant not found")
+      // Check if tenant exists
+      const existingTenant = await this.getTenantById(id);
+      if (!existingTenant.success) {
+        return {
+          success: false,
+          error: existingTenant.error,
+        };
       }
 
-      // Archive tenant instead of deleting
-      tenant.status = TenantStatus.ARCHIVED
-      await tenant.save()
+      // Check if tenant has active users
+      const userCount = await this.tenantRepository.getUserCount(id);
+      if (userCount.success && userCount.data > 0) {
+        return {
+          success: false,
+          error: new BusinessRuleError(
+            "Cannot delete tenant with active users"
+          ),
+        };
+      }
 
-      logger.info(`Tenant archived: ${tenant.name} (${tenant._id})`)
+      // Deactivate tenant instead of hard delete
+      const result = await this.tenantRepository.update(id, {
+        isActive: false,
+      });
+      if (!result.success) {
+        return {
+          success: false,
+          error: new Error("Failed to deactivate tenant"),
+        };
+      }
+
+      // Clear cache
+      await this.cacheService.delete(`tenant:${id}`);
+      await this.cacheService.delete(`tenant:slug:${existingTenant.data.slug}`);
+
+      // Log tenant deletion
+      await this.auditService.logTenantEvent({
+        tenantId: id,
+        event: "tenant_deleted",
+        details: {
+          name: existingTenant.data.name,
+          timestamp: new Date(),
+        },
+      });
+
+      logger.info(`Tenant deactivated: ${existingTenant.data.name} (${id})`);
+
+      return { success: true, data: undefined };
     } catch (error) {
-      logger.error(`Error deleting tenant ${id}:`, error)
-      throw error
+      logger.error(`Error deleting tenant ${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to delete tenant"),
+      };
     }
   }
 
   /**
    * List tenants with pagination and filtering
    */
-  public async listTenants(options: {
-    page?: number
-    limit?: number
-    status?: TenantStatus
-    search?: string
-    plan?: TenantPlan
-  }): Promise<{
-    tenants: ITenant[]
-    total: number
-    page: number
-    limit: number
-    totalPages: number
-  }> {
+  async listTenants(
+    options: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      isActive?: boolean;
+    } = {}
+  ): Promise<
+    Result<
+      {
+        tenants: Tenant[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+      },
+      Error
+    >
+  > {
     try {
-      const { page = 1, limit = 10, status, search, plan } = options
+      const { page = 1, limit = 20, search, isActive } = options;
 
-      // Build query
-      const query: any = {}
-
-      if (status) {
-        query.status = status
+      // Build filter
+      const filter: any = {};
+      if (isActive !== undefined) {
+        filter.isActive = isActive;
       }
 
-      if (plan) {
-        query.plan = plan
-      }
-
+      // Build search conditions
+      let searchConditions: any = {};
       if (search) {
-        query.$or = [
-          { name: { $regex: search, $options: "i" } },
-          { slug: { $regex: search, $options: "i" } },
-          { description: { $regex: search, $options: "i" } },
-        ]
+        searchConditions = {
+          _or: [
+            { name: { _ilike: `%${search}%` } },
+            { slug: { _ilike: `%${search}%` } },
+            { description: { _ilike: `%${search}%` } },
+          ],
+        };
       }
 
-      // Count total
-      const total = await TenantModel.countDocuments(query)
+      const finalFilter = search ? { ...filter, ...searchConditions } : filter;
 
-      // Get tenants
-      const tenants = await TenantModel.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
+      const result = await this.tenantRepository.findManyPaginated({
+        where: finalFilter,
+        pagination: { page, limit },
+        orderBy: [{ field: "createdAt", direction: "desc" }],
+      });
+
+      if (!result.success) {
+        return result;
+      }
 
       return {
-        tenants,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      }
+        success: true,
+        data: {
+          tenants: result.data.data,
+          pagination: result.data.pagination,
+        },
+      };
     } catch (error) {
-      logger.error("Error listing tenants:", error)
-      throw error
-    }
-  }
-
-  /**
-   * Add user to tenant
-   */
-  public async addUserToTenant(
-    tenantId: string,
-    data: {
-      userId: string
-      role: TenantUserRole
-      invitedBy?: string
-    },
-  ): Promise<ITenant> {
-    try {
-      const { userId, role, invitedBy } = data
-
-      // Validate user exists
-      const user = await UserModel.findById(userId)
-      if (!user) {
-        throw ApiError.badRequest("User does not exist")
-      }
-
-      // Get tenant
-      const tenant = await this.getTenantById(tenantId)
-
-      // Check if user is already in tenant
-      const existingUser = tenant.users.find((u) => u.userId.toString() === userId)
-      if (existingUser) {
-        throw ApiError.conflict("User is already a member of this tenant")
-      }
-
-      // Check if tenant has reached user limit
-      if (tenant.currentUsage.users >= tenant.usageLimits.maxUsers) {
-        throw ApiError.badRequest("Tenant has reached the maximum number of users")
-      }
-
-      // Add user to tenant
-      tenant.users.push({
-        userId: new mongoose.Types.ObjectId(userId),
-        role,
-        addedAt: new Date(),
-        invitedBy: invitedBy ? new mongoose.Types.ObjectId(invitedBy) : undefined,
-        status: "invited",
-      })
-
-      // Update usage
-      tenant.currentUsage.users += 1
-      tenant.currentUsage.lastUpdated = new Date()
-
-      await tenant.save()
-
-      logger.info(`User ${userId} added to tenant ${tenantId} with role ${role}`)
-
-      return tenant
-    } catch (error) {
-      logger.error(`Error adding user to tenant ${tenantId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Update user role in tenant
-   */
-  public async updateUserRole(tenantId: string, userId: string, role: TenantUserRole): Promise<ITenant> {
-    try {
-      const tenant = await this.getTenantById(tenantId)
-
-      // Find user in tenant
-      const userIndex = tenant.users.findIndex((u) => u.userId.toString() === userId)
-      if (userIndex === -1) {
-        throw ApiError.notFound("User is not a member of this tenant")
-      }
-
-      // Check if user is the owner
-      if (tenant.users[userIndex].role === TenantUserRole.OWNER) {
-        throw ApiError.badRequest("Cannot change the role of the tenant owner")
-      }
-
-      // Update role
-      tenant.users[userIndex].role = role
-
-      await tenant.save()
-
-      logger.info(`User ${userId} role updated to ${role} in tenant ${tenantId}`)
-
-      return tenant
-    } catch (error) {
-      logger.error(`Error updating user role in tenant ${tenantId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Remove user from tenant
-   */
-  public async removeUserFromTenant(tenantId: string, userId: string): Promise<ITenant> {
-    try {
-      const tenant = await this.getTenantById(tenantId)
-
-      // Find user in tenant
-      const userIndex = tenant.users.findIndex((u) => u.userId.toString() === userId)
-      if (userIndex === -1) {
-        throw ApiError.notFound("User is not a member of this tenant")
-      }
-
-      // Check if user is the owner
-      if (tenant.users[userIndex].role === TenantUserRole.OWNER) {
-        throw ApiError.badRequest("Cannot remove the tenant owner")
-      }
-
-      // Remove user
-      tenant.users.splice(userIndex, 1)
-
-      // Update usage
-      tenant.currentUsage.users -= 1
-      tenant.currentUsage.lastUpdated = new Date()
-
-      await tenant.save()
-
-      logger.info(`User ${userId} removed from tenant ${tenantId}`)
-
-      return tenant
-    } catch (error) {
-      logger.error(`Error removing user from tenant ${tenantId}:`, error)
-      throw error
+      logger.error("Error listing tenants:", error);
+      return {
+        success: false,
+        error: new Error("Failed to list tenants"),
+      };
     }
   }
 
   /**
    * Get tenants for user
    */
-  public async getUserTenants(userId: string): Promise<ITenant[]> {
+  async getUserTenants(userId: string): Promise<Result<Tenant[], Error>> {
     try {
-      const tenants = await TenantModel.find({
-        "users.userId": userId,
-        status: { $ne: TenantStatus.ARCHIVED },
-      })
-
-      return tenants
-    } catch (error) {
-      logger.error(`Error getting tenants for user ${userId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Check if user is member of tenant
-   */
-  public async isUserMemberOfTenant(tenantId: string, userId: string): Promise<boolean> {
-    try {
-      const tenant = await TenantModel.findOne({
-        _id: tenantId,
-        "users.userId": userId,
-        status: { $ne: TenantStatus.ARCHIVED },
-      })
-
-      return !!tenant
-    } catch (error) {
-      logger.error(`Error checking if user ${userId} is member of tenant ${tenantId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Get user role in tenant
-   */
-  public async getUserRoleInTenant(tenantId: string, userId: string): Promise<TenantUserRole | null> {
-    try {
-      const tenant = await TenantModel.findOne({
-        _id: tenantId,
-        "users.userId": userId,
-        status: { $ne: TenantStatus.ARCHIVED },
-      })
-
-      if (!tenant) {
-        return null
+      // Check cache first
+      const cacheKey = `user:${userId}:tenants`;
+      const cachedTenants = await this.cacheService.get(cacheKey);
+      if (cachedTenants) {
+        return { success: true, data: cachedTenants };
       }
 
-      const user = tenant.users.find((u) => u.userId.toString() === userId)
-      return user ? user.role : null
-    } catch (error) {
-      logger.error(`Error getting user ${userId} role in tenant ${tenantId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Update tenant usage
-   */
-  public async updateTenantUsage(
-    tenantId: string,
-    usage: Partial<{
-      storage: number
-      contentTypes: number
-      contents: number
-      apiRequests: number
-      webhooks: number
-      workflows: number
-    }>,
-  ): Promise<ITenant> {
-    try {
-      const tenant = await this.getTenantById(tenantId)
-
-      // Update usage
-      if (usage.storage !== undefined) {
-        tenant.currentUsage.storage = usage.storage
-      }
-      if (usage.contentTypes !== undefined) {
-        tenant.currentUsage.contentTypes = usage.contentTypes
-      }
-      if (usage.contents !== undefined) {
-        tenant.currentUsage.contents = usage.contents
-      }
-      if (usage.apiRequests !== undefined) {
-        tenant.currentUsage.apiRequests = usage.apiRequests
-      }
-      if (usage.webhooks !== undefined) {
-        tenant.currentUsage.webhooks = usage.webhooks
-      }
-      if (usage.workflows !== undefined) {
-        tenant.currentUsage.workflows = usage.workflows
+      const result = await this.tenantRepository.findTenantsForUser(userId);
+      if (!result.success) {
+        return result;
       }
 
-      tenant.currentUsage.lastUpdated = new Date()
+      // Cache for 5 minutes
+      await this.cacheService.set(cacheKey, result.data, 5 * 60);
 
-      await tenant.save()
-
-      logger.info(`Tenant ${tenantId} usage updated`)
-
-      return tenant
+      return result;
     } catch (error) {
-      logger.error(`Error updating tenant ${tenantId} usage:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Increment tenant API request count
-   */
-  public async incrementApiRequestCount(tenantId: string): Promise<void> {
-    try {
-      await TenantModel.updateOne(
-        { _id: tenantId },
-        {
-          $inc: { "currentUsage.apiRequests": 1 },
-          $set: { "currentUsage.lastUpdated": new Date() },
-        },
-      )
-    } catch (error) {
-      logger.error(`Error incrementing API request count for tenant ${tenantId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Reset tenant API request count (e.g., at the beginning of a new billing cycle)
-   */
-  public async resetApiRequestCount(tenantId: string): Promise<void> {
-    try {
-      await TenantModel.updateOne(
-        { _id: tenantId },
-        {
-          $set: {
-            "currentUsage.apiRequests": 0,
-            "currentUsage.lastUpdated": new Date(),
-          },
-        },
-      )
-
-      logger.info(`API request count reset for tenant ${tenantId}`)
-    } catch (error) {
-      logger.error(`Error resetting API request count for tenant ${tenantId}:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Update tenant plan
-   */
-  public async updateTenantPlan(tenantId: string, plan: TenantPlan): Promise<ITenant> {
-    try {
-      const tenant = await this.getTenantById(tenantId)
-
-      // Update plan
-      tenant.plan = plan
-
-      // Update usage limits based on new plan
-      tenant.usageLimits = this.getPlanLimits(plan)
-
-      await tenant.save()
-
-      logger.info(`Tenant ${tenantId} plan updated to ${plan}`)
-
-      return tenant
-    } catch (error) {
-      logger.error(`Error updating tenant ${tenantId} plan:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Update tenant status
-   */
-  public async updateTenantStatus(tenantId: string, status: TenantStatus): Promise<ITenant> {
-    try {
-      const tenant = await this.getTenantById(tenantId)
-
-      // Update status
-      tenant.status = status
-
-      await tenant.save()
-
-      logger.info(`Tenant ${tenantId} status updated to ${status}`)
-
-      return tenant
-    } catch (error) {
-      logger.error(`Error updating tenant ${tenantId} status:`, error)
-      throw error
-    }
-  }
-
-  /**
-   * Check if tenant has reached usage limit
-   */
-  public async checkTenantLimit(
-    tenantId: string,
-    limitType: keyof ITenant["usageLimits"],
-  ): Promise<{
-    hasReachedLimit: boolean
-    currentUsage: number
-    limit: number
-  }> {
-    try {
-      const tenant = await this.getTenantById(tenantId)
-
-      const currentUsage = tenant.currentUsage[limitType as keyof ITenant["currentUsage"]] as number
-      const limit = tenant.usageLimits[limitType]
-
+      logger.error(`Error getting tenants for user ${userId}:`, error);
       return {
-        hasReachedLimit: currentUsage >= limit,
-        currentUsage,
-        limit,
-      }
-    } catch (error) {
-      logger.error(`Error checking tenant ${tenantId} limit for ${limitType}:`, error)
-      throw error
+        success: false,
+        error: new Error("Failed to get user tenants"),
+      };
     }
   }
 
   /**
-   * Get plan limits based on plan type
+   * Check if user belongs to tenant
    */
-  private getPlanLimits(plan: TenantPlan): ITenant["usageLimits"] {
-    switch (plan) {
-      case TenantPlan.FREE:
-        return {
-          maxUsers: 3,
-          maxStorage: 100, // 100 MB
-          maxContentTypes: 5,
-          maxContents: 100,
-          maxApiRequests: 1000,
-          maxWebhooks: 2,
-          maxWorkflows: 1,
-        }
-      case TenantPlan.BASIC:
-        return {
-          maxUsers: 10,
-          maxStorage: 1024, // 1 GB
-          maxContentTypes: 20,
-          maxContents: 1000,
-          maxApiRequests: 10000,
-          maxWebhooks: 10,
-          maxWorkflows: 5,
-        }
-      case TenantPlan.PROFESSIONAL:
-        return {
-          maxUsers: 25,
-          maxStorage: 10240, // 10 GB
-          maxContentTypes: 50,
-          maxContents: 10000,
-          maxApiRequests: 100000,
-          maxWebhooks: 25,
-          maxWorkflows: 15,
-        }
-      case TenantPlan.ENTERPRISE:
-        return {
-          maxUsers: 100,
-          maxStorage: 102400, // 100 GB
-          maxContentTypes: 200,
-          maxContents: 100000,
-          maxApiRequests: 1000000,
-          maxWebhooks: 100,
-          maxWorkflows: 50,
-        }
-      default:
-        return {
-          maxUsers: 3,
-          maxStorage: 100,
-          maxContentTypes: 5,
-          maxContents: 100,
-          maxApiRequests: 1000,
-          maxWebhooks: 2,
-          maxWorkflows: 1,
-        }
+  async isUserMemberOfTenant(
+    tenantId: string,
+    userId: string
+  ): Promise<Result<boolean, Error>> {
+    try {
+      // Check cache first
+      const cacheKey = `user:${userId}:tenant:${tenantId}:member`;
+      const cachedResult = await this.cacheService.get(cacheKey);
+      if (cachedResult !== null) {
+        return { success: true, data: cachedResult };
+      }
+
+      // Check if user exists in tenant
+      const userResult = await this.userRepository.findById(userId);
+      if (!userResult.success || !userResult.data) {
+        return { success: true, data: false };
+      }
+
+      const isMember = userResult.data.tenantId === tenantId;
+
+      // Cache result for 5 minutes
+      await this.cacheService.set(cacheKey, isMember, 5 * 60);
+
+      return { success: true, data: isMember };
+    } catch (error) {
+      logger.error(
+        `Error checking if user ${userId} is member of tenant ${tenantId}:`,
+        error
+      );
+      return {
+        success: false,
+        error: new Error("Failed to check tenant membership"),
+      };
     }
+  }
+
+  /**
+   * Get tenant statistics
+   */
+  async getTenantStats(tenantId: string): Promise<
+    Result<
+      {
+        userCount: number;
+        contentCount: number;
+        mediaCount: number;
+        storageUsed: number;
+      },
+      Error
+    >
+  > {
+    try {
+      // Check cache first
+      const cacheKey = `tenant:${tenantId}:stats`;
+      const cachedStats = await this.cacheService.get(cacheKey);
+      if (cachedStats) {
+        return { success: true, data: cachedStats };
+      }
+
+      // Get statistics
+      const [userCount, contentCount, mediaCount] = await Promise.all([
+        this.tenantRepository.getUserCount(tenantId),
+        this.tenantRepository.getContentCount(tenantId),
+        this.tenantRepository.getMediaCount(tenantId),
+      ]);
+
+      if (!userCount.success || !contentCount.success || !mediaCount.success) {
+        return {
+          success: false,
+          error: new Error("Failed to get tenant statistics"),
+        };
+      }
+
+      const stats = {
+        userCount: userCount.data,
+        contentCount: contentCount.data,
+        mediaCount: mediaCount.data,
+        storageUsed: 0, // TODO: Calculate actual storage usage
+      };
+
+      // Cache for 10 minutes
+      await this.cacheService.set(cacheKey, stats, 10 * 60);
+
+      return { success: true, data: stats };
+    } catch (error) {
+      logger.error(`Error getting tenant stats for ${tenantId}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to get tenant statistics"),
+      };
+    }
+  }
+
+  /**
+   * Update tenant settings
+   */
+  async updateTenantSettings(
+    tenantId: string,
+    settings: any
+  ): Promise<Result<Tenant, Error>> {
+    try {
+      const existingTenant = await this.getTenantById(tenantId);
+      if (!existingTenant.success) {
+        return existingTenant;
+      }
+
+      // Merge settings
+      const updatedSettings = {
+        ...existingTenant.data.settings,
+        ...settings,
+      };
+
+      const result = await this.updateTenant(tenantId, {
+        settings: updatedSettings,
+      });
+      if (!result.success) {
+        return result;
+      }
+
+      // Log settings update
+      await this.auditService.logTenantEvent({
+        tenantId,
+        event: "tenant_settings_updated",
+        details: {
+          changes: settings,
+          timestamp: new Date(),
+        },
+      });
+
+      return result;
+    } catch (error) {
+      logger.error(`Error updating tenant settings for ${tenantId}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to update tenant settings"),
+      };
+    }
+  }
+
+  /**
+   * Generate slug from name
+   */
+  private generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+  }
+
+  /**
+   * Validate slug format
+   */
+  private isValidSlug(slug: string): boolean {
+    return /^[a-z0-9-]+$/.test(slug) && slug.length >= 2 && slug.length <= 50;
   }
 }

@@ -33,7 +33,7 @@ export interface DatabaseHealthCheck {
 /**
  * Base entity interface with common fields
  */
-export interface BaseEntity {
+export interface BaseEntity extends Record<string, unknown> {
   id: string;
   createdAt: Date;
   updatedAt: Date;

@@ -1,10 +1,9 @@
-import { eq, and, ilike, or, desc, count } from "drizzle-orm";
+uimport { eq, and, ilike, or, desc, count } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import { TenantBaseRepository } from "./tenant-base.repository.js";
 import { contents, contentVersions, users } from "../database/schema/index.js";
 import type {
   Content,
-  NewContent,
   ContentVersion,
   NewContentVersion,
   ContentStatus,
@@ -27,7 +26,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
   /**
    * Find content by slug within tenant
    */
-  async findBySlug(
+  async findBySlugInTenant(
     slug: string,
     tenantId: string
   ): Promise<Result<Content | null, Error>> {
@@ -45,7 +44,43 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find content by slug", error),
+        error: new DatabaseError(
+          "Failed to find content by slug",
+          "findBySlug",
+          "contents",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Find content by ID within tenant
+   */
+  async findByIdInTenant(
+    id: string,
+    tenantId: string
+  ): Promise<Result<Content | null, Error>> {
+    try {
+      const result = await this.db
+        .select()
+        .from(contents)
+        .where(and(eq(contents.id, id), eq(contents.tenantId, tenantId)))
+        .limit(1);
+
+      return {
+        success: true,
+        data: result.length > 0 ? result[0] : null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to find content by ID in tenant",
+          "findByIdInTenant",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -71,7 +106,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find published content", error),
+        error: new DatabaseError(
+          "Failed to find published content",
+          "findPublished",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -108,7 +148,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find drafts by author", error),
+        error: new DatabaseError(
+          "Failed to find drafts by author",
+          "findDraftsByAuthor",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -182,7 +227,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to search content", error),
+        error: new DatabaseError(
+          "Failed to search content",
+          "searchContent",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -225,7 +275,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find content by tags", error),
+        error: new DatabaseError(
+          "Failed to find content by tags",
+          "findByTags",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -256,7 +311,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to publish content", error),
+        error: new DatabaseError(
+          "Failed to publish content",
+          "publishContent",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -287,7 +347,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to unpublish content", error),
+        error: new DatabaseError(
+          "Failed to unpublish content",
+          "unpublishContent",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -317,7 +382,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to archive content", error),
+        error: new DatabaseError(
+          "Failed to archive content",
+          "archiveContent",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -326,23 +396,24 @@ export class ContentRepository extends TenantBaseRepository<Content> {
    * Create content version
    */
   async createVersion(
-    contentId: string,
-    versionData: Omit<NewContentVersion, "contentId" | "createdAt">
+    versionData: NewContentVersion
   ): Promise<Result<ContentVersion, Error>> {
     try {
       const [result] = await this.db
         .insert(contentVersions)
-        .values({
-          ...versionData,
-          contentId,
-        })
+        .values(versionData)
         .returning();
 
       return { success: true, data: result };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to create content version", error),
+        error: new DatabaseError(
+          "Failed to create content version",
+          "createVersion",
+          "contentVersions",
+          error
+        ),
       };
     }
   }
@@ -350,7 +421,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
   /**
    * Get content versions
    */
-  async getContentVersions(
+  async getVersions(
     contentId: string
   ): Promise<Result<ContentVersion[], Error>> {
     try {
@@ -364,7 +435,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get content versions", error),
+        error: new DatabaseError(
+          "Failed to get content versions",
+          "getVersions",
+          "contentVersions",
+          error
+        ),
       };
     }
   }
@@ -372,7 +448,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
   /**
    * Get specific content version
    */
-  async getContentVersion(
+  async getVersion(
     contentId: string,
     version: number
   ): Promise<Result<ContentVersion | null, Error>> {
@@ -395,7 +471,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get content version", error),
+        error: new DatabaseError(
+          "Failed to get content version",
+          "getVersion",
+          "contentVersions",
+          error
+        ),
       };
     }
   }
@@ -437,7 +518,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find content with author", error),
+        error: new DatabaseError(
+          "Failed to find content with author",
+          "findWithAuthor",
+          "contents",
+          error
+        ),
       };
     }
   }
@@ -495,7 +581,12 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get content statistics", error),
+        error: new DatabaseError(
+          "Failed to get content statistics",
+          "getContentStats",
+          "contents",
+          error
+        ),
       };
     }
   }
