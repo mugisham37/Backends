@@ -7,12 +7,19 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import compress from "@fastify/compress";
 import { config } from "./config";
-import { connectDatabase, isDatabaseConnected } from "./db/connection";
-import { logger, apiLogger } from "./utils/logger";
+import {
+  initializeDatabase,
+  isDatabaseConnected,
+  checkDatabaseHealth,
+} from "./core/database/connection";
+import { logger } from "./utils/logger";
 import {
   initializeApplication,
   getApplicationStatus,
 } from "./core/container/bootstrap";
+import authPlugin from "./middleware/fastify-auth";
+import validationPlugin from "./middleware/validation";
+import { apiGatewayPlugin } from "./api/gateway";
 
 export const createApp = async (): Promise<FastifyInstance> => {
   // Fastify server options with proper typing
@@ -43,8 +50,8 @@ export const createApp = async (): Promise<FastifyInstance> => {
   const app: FastifyInstance = fastify(serverOptions);
 
   try {
-    // Connect to database
-    await connectDatabase();
+    // Initialize database connection
+    await initializeDatabase();
 
     // Initialize dependency injection container
     await initializeApplication(app);
@@ -96,6 +103,15 @@ export const createApp = async (): Promise<FastifyInstance> => {
       }),
     });
 
+    // Register authentication plugin
+    await app.register(authPlugin);
+
+    // Register validation plugin
+    await app.register(validationPlugin);
+
+    // Register unified API gateway
+    await app.register(apiGatewayPlugin);
+
     // Health check endpoint
     app.get("/health", async (_request, reply) => {
       const appStatus = getApplicationStatus();
@@ -107,6 +123,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
         environment: config.env,
         database: {
           connected: isDatabaseConnected(),
+          health: await checkDatabaseHealth(),
         },
         container: {
           initialized: appStatus.initialized,
@@ -178,7 +195,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
 
     // Add request logging
     app.addHook("onRequest", async (request) => {
-      apiLogger.info(
+      request.log.info(
         {
           method: request.method,
           url: request.url,
@@ -191,7 +208,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
 
     // Add response logging
     app.addHook("onResponse", async (request, reply) => {
-      apiLogger.info(
+      request.log.info(
         {
           method: request.method,
           url: request.url,

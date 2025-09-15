@@ -1,7 +1,7 @@
 import { createApp } from "./app";
 import { logger } from "./utils/logger";
 import { config } from "./config";
-import { disconnectDatabase } from "./db/connection";
+import { closeDatabase } from "./core/database/connection";
 
 async function startServer(): Promise<void> {
   let app: Awaited<ReturnType<typeof createApp>> | null = null;
@@ -32,7 +32,7 @@ async function startServer(): Promise<void> {
         }
 
         // Close database connections
-        await disconnectDatabase();
+        await closeDatabase();
 
         logger.info("Graceful shutdown completed");
         process.exit(0);
@@ -86,7 +86,7 @@ async function startServer(): Promise<void> {
     }
 
     try {
-      await disconnectDatabase();
+      await closeDatabase();
     } catch (dbError) {
       logger.error("Error closing database during startup failure:", dbError);
     }
@@ -95,5 +95,7 @@ async function startServer(): Promise<void> {
   }
 }
 
-// Start the server
-void startServer();
+// Start the server if this file is run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  void startServer();
+}

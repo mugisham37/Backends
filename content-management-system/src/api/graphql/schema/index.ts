@@ -1,71 +1,212 @@
-import { gql } from "graphql-tag"
-import { userTypeDefs } from "./user.schema"
-import { contentTypeTypeDefs } from "./content-type.schema"
-import { contentTypeDefs } from "./content.schema"
-import { mediaTypeDefs } from "./media.schema"
-import { workflowTypeDefs } from "./workflow.schema"
-import { webhookTypeDefs } from "./webhook.schema"
+/**
+ * GraphQL Schema Builder
+ *
+ * Builds the complete GraphQL schema with all types, queries, mutations,
+ * and subscriptions for the Content Management System.
+ */
 
-// Base schema with common types and queries
-const baseTypeDefs = gql`
-  scalar DateTime
-  scalar JSON
-  scalar Upload
+export const buildSchema = (): string => {
+  return `
+    # Scalar types
+    scalar DateTime
+    scalar JSON
+    scalar Upload
 
-  type Query {
-    _: Boolean
-  }
+    # User types
+    type User {
+      id: ID!
+      email: String!
+      role: String!
+      tenantId: ID
+      tenant: Tenant
+      createdAt: DateTime!
+      updatedAt: DateTime!
+    }
 
-  type Mutation {
-    _: Boolean
-  }
+    type AuthPayload {
+      user: User!
+      accessToken: String!
+      refreshToken: String!
+      expiresIn: Int!
+    }
 
-  type Subscription {
-    _: Boolean
-  }
+    # Tenant types
+    type Tenant {
+      id: ID!
+      name: String!
+      slug: String!
+      settings: JSON
+      users: [User!]!
+      contents: [Content!]!
+      createdAt: DateTime!
+      updatedAt: DateTime!
+    }
 
-  type PageInfo {
-    hasNextPage: Boolean!
-    hasPreviousPage: Boolean!
-    startCursor: String
-    endCursor: String
-  }
+    # Content types
+    type Content {
+      id: ID!
+      title: String!
+      slug: String!
+      body: String
+      status: ContentStatus!
+      version: Int!
+      tenantId: ID!
+      tenant: Tenant!
+      authorId: ID!
+      author: User!
+      versions: [ContentVersion!]!
+      createdAt: DateTime!
+      updatedAt: DateTime!
+      publishedAt: DateTime
+    }
 
-  interface Node {
-    id: ID!
-  }
+    type ContentVersion {
+      id: ID!
+      contentId: ID!
+      content: Content!
+      version: Int!
+      title: String!
+      body: String
+      changes: JSON
+      createdAt: DateTime!
+    }
 
-  interface Edge {
-    cursor: String!
-    node: Node!
-  }
+    enum ContentStatus {
+      DRAFT
+      PUBLISHED
+      ARCHIVED
+    }
 
-  interface Connection {
-    edges: [Edge!]!
-    pageInfo: PageInfo!
-    totalCount: Int!
-  }
+    # Media types
+    type Media {
+      id: ID!
+      filename: String!
+      originalName: String!
+      mimeType: String!
+      size: Int!
+      url: String!
+      cdnUrl: String
+      metadata: JSON
+      tenantId: ID!
+      tenant: Tenant!
+      uploadedBy: ID!
+      uploader: User!
+      createdAt: DateTime!
+      updatedAt: DateTime!
+    }
 
-  enum SortDirection {
-    ASC
-    DESC
-  }
+    # Search types
+    type SearchResult {
+      items: [SearchItem!]!
+      total: Int!
+      page: Int!
+      limit: Int!
+      hasMore: Boolean!
+    }
 
-  input PaginationInput {
-    first: Int
-    after: String
-    last: Int
-    before: String
-  }
-`
+    union SearchItem = Content | Media | User
 
-// Combine all type definitions
-export const typeDefs = [
-  baseTypeDefs,
-  userTypeDefs,
-  contentTypeTypeDefs,
-  contentTypeDefs,
-  mediaTypeDefs,
-  workflowTypeDefs,
-  webhookTypeDefs,
-]
+    # Input types
+    input LoginInput {
+      email: String!
+      password: String!
+    }
+
+    input CreateTenantInput {
+      name: String!
+      slug: String!
+      settings: JSON
+    }
+
+    input UpdateTenantInput {
+      name: String
+      settings: JSON
+    }
+
+    input CreateContentInput {
+      title: String!
+      slug: String!
+      body: String
+      status: ContentStatus = DRAFT
+    }
+
+    input UpdateContentInput {
+      title: String
+      slug: String
+      body: String
+      status: ContentStatus
+    }
+
+    input SearchInput {
+      query: String!
+      type: String
+      filters: JSON
+      page: Int = 1
+      limit: Int = 20
+    }
+
+    # Root types
+    type Query {
+      # Authentication
+      me: User
+
+      # Tenants
+      tenant(id: ID!): Tenant
+      tenants(page: Int = 1, limit: Int = 20): [Tenant!]!
+
+      # Content
+      content(id: ID!, version: Int): Content
+      contents(
+        page: Int = 1
+        limit: Int = 20
+        status: ContentStatus
+        authorId: ID
+      ): [Content!]!
+      contentVersions(contentId: ID!): [ContentVersion!]!
+
+      # Media
+      media(id: ID!): Media
+      mediaFiles(
+        page: Int = 1
+        limit: Int = 20
+        mimeType: String
+      ): [Media!]!
+
+      # Search
+      search(input: SearchInput!): SearchResult!
+    }
+
+    type Mutation {
+      # Authentication
+      login(input: LoginInput!): AuthPayload!
+      logout: Boolean!
+      refreshToken(refreshToken: String!): AuthPayload!
+
+      # Tenants
+      createTenant(input: CreateTenantInput!): Tenant!
+      updateTenant(id: ID!, input: UpdateTenantInput!): Tenant!
+      deleteTenant(id: ID!): Boolean!
+
+      # Content
+      createContent(input: CreateContentInput!): Content!
+      updateContent(id: ID!, input: UpdateContentInput!): Content!
+      deleteContent(id: ID!): Boolean!
+      publishContent(id: ID!): Content!
+      unpublishContent(id: ID!): Content!
+
+      # Media
+      uploadMedia(file: Upload!, metadata: JSON): Media!
+      deleteMedia(id: ID!): Boolean!
+    }
+
+    type Subscription {
+      # Content subscriptions
+      contentCreated(tenantId: ID): Content!
+      contentUpdated(contentId: ID): Content!
+      contentPublished(tenantId: ID): Content!
+
+      # Media subscriptions
+      mediaUploaded(tenantId: ID): Media!
+    }
+  `;
+};
