@@ -54,6 +54,7 @@ export class VendorRepository extends BaseRepository<
 > {
   protected table = vendors;
   protected idColumn = vendors.id;
+  protected tableName = "vendors";
 
   constructor(db: Database) {
     super(db);
@@ -179,11 +180,16 @@ export class VendorRepository extends BaseRepository<
       );
     }
 
+    // Execute query directly to avoid type issues
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return this.db
+        .select()
+        .from(vendors)
+        .where(and(...conditions))
+        .orderBy(desc(vendors.createdAt));
+    } else {
+      return this.db.select().from(vendors).orderBy(desc(vendors.createdAt));
     }
-
-    return query.orderBy(desc(vendors.createdAt));
   }
 
   // Check if slug exists
@@ -194,9 +200,10 @@ export class VendorRepository extends BaseRepository<
       .where(eq(vendors.slug, slug));
 
     if (excludeId) {
-      query = query.where(
-        and(eq(vendors.slug, slug), sql`${vendors.id} != ${excludeId}`)
-      );
+      query = this.db
+        .select({ id: vendors.id })
+        .from(vendors)
+        .where(and(eq(vendors.slug, slug), sql`${vendors.id} != ${excludeId}`));
     }
 
     const result = await query.limit(1);
@@ -211,9 +218,12 @@ export class VendorRepository extends BaseRepository<
       .where(eq(vendors.email, email));
 
     if (excludeId) {
-      query = query.where(
-        and(eq(vendors.email, email), sql`${vendors.id} != ${excludeId}`)
-      );
+      query = this.db
+        .select({ id: vendors.id })
+        .from(vendors)
+        .where(
+          and(eq(vendors.email, email), sql`${vendors.id} != ${excludeId}`)
+        );
     }
 
     const result = await query.limit(1);
@@ -346,7 +356,26 @@ export class VendorRepository extends BaseRepository<
   ): Promise<Array<Vendor & { productCount: number }>> {
     const result = await this.db
       .select({
-        ...vendors,
+        id: vendors.id,
+        userId: vendors.userId,
+        businessName: vendors.businessName,
+        slug: vendors.slug,
+        description: vendors.description,
+        businessType: vendors.businessType,
+        email: vendors.email,
+        phoneNumber: vendors.phoneNumber,
+        website: vendors.website,
+        taxId: vendors.taxId,
+        businessLicense: vendors.businessLicense,
+        status: vendors.status,
+        verificationStatus: vendors.verificationStatus,
+        commissionRate: vendors.commissionRate,
+        autoApproveProducts: vendors.autoApproveProducts,
+        allowReviews: vendors.allowReviews,
+        metadata: vendors.metadata,
+        approvedAt: vendors.approvedAt,
+        createdAt: vendors.createdAt,
+        updatedAt: vendors.updatedAt,
         productCount: sql<number>`count(${products.id})::int`,
       })
       .from(vendors)
@@ -355,7 +384,7 @@ export class VendorRepository extends BaseRepository<
       .orderBy(desc(sql`count(${products.id})`))
       .limit(limit);
 
-    return result;
+    return result as Array<Vendor & { productCount: number }>;
   }
 
   // Get vendors by multiple IDs

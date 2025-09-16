@@ -17,6 +17,7 @@ import {
   lte,
 } from "drizzle-orm";
 import { BaseRepository } from "./base.repository.js";
+import type { Database } from "../database/connection.js";
 import {
   notifications,
   notificationPreferences,
@@ -49,7 +50,18 @@ export interface NotificationStats {
   byPriority: Record<string, number>;
 }
 
-export class NotificationRepository extends BaseRepository {
+export class NotificationRepository extends BaseRepository<
+  Notification,
+  NewNotification,
+  Partial<NewNotification>
+> {
+  protected table = notifications;
+  protected idColumn = notifications.id;
+  protected tableName = "notifications";
+
+  constructor(db: Database) {
+    super(db);
+  }
   // Notification CRUD operations
   async create(data: NewNotification): Promise<Notification> {
     const [notification] = await this.db
@@ -107,14 +119,24 @@ export class NotificationRepository extends BaseRepository {
       conditions.push(lte(notifications.createdAt, filters.dateTo));
     }
 
+    // Execute query directly to avoid type issues
     if (conditions.length > 1) {
-      query = query.where(and(...conditions));
+      return this.db
+        .select()
+        .from(notifications)
+        .where(and(...conditions))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit)
+        .offset(offset);
+    } else {
+      return this.db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit)
+        .offset(offset);
     }
-
-    return query
-      .orderBy(desc(notifications.createdAt))
-      .limit(limit)
-      .offset(offset);
   }
 
   async markAsRead(id: string, userId: string): Promise<boolean> {
@@ -214,12 +236,12 @@ export class NotificationRepository extends BaseRepository {
       .groupBy(notifications.priority);
 
     const byType: Record<string, number> = {};
-    typeResults.forEach((result) => {
+    typeResults.forEach((result: any) => {
       byType[result.type] = result.count;
     });
 
     const byPriority: Record<string, number> = {};
-    priorityResults.forEach((result) => {
+    priorityResults.forEach((result: any) => {
       byPriority[result.priority] = result.count;
     });
 
@@ -372,11 +394,11 @@ export class NotificationRepository extends BaseRepository {
 
   // Bulk operations
   async createBulkNotifications(
-    notifications: NewNotification[]
+    notificationData: NewNotification[]
   ): Promise<Notification[]> {
-    if (notifications.length === 0) return [];
+    if (notificationData.length === 0) return [];
 
-    return this.db.insert(notifications).values(notifications).returning();
+    return this.db.insert(notifications).values(notificationData).returning();
   }
 
   async markMultipleAsRead(ids: string[], userId: string): Promise<number> {

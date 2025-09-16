@@ -36,6 +36,7 @@ export class UserRepository extends BaseRepository<
 > {
   protected table = users;
   protected idColumn = users.id;
+  protected tableName = "users";
 
   constructor(db: Database) {
     super(db);
@@ -99,11 +100,15 @@ export class UserRepository extends BaseRepository<
       );
     }
 
+    // Execute query directly to avoid type issues
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return this.db
+        .select()
+        .from(users)
+        .where(and(...conditions));
+    } else {
+      return this.db.select().from(users);
     }
-
-    return query;
   }
 
   // Check if email exists
@@ -114,9 +119,10 @@ export class UserRepository extends BaseRepository<
       .where(eq(users.email, email));
 
     if (excludeId) {
-      query = query.where(
-        and(eq(users.email, email), sql`${users.id} != ${excludeId}`)
-      );
+      query = this.db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.email, email), sql`${users.id} != ${excludeId}`));
     }
 
     const result = await query.limit(1);

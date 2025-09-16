@@ -15,7 +15,11 @@ import {
   lte,
   inArray,
 } from "drizzle-orm";
-import { BaseRepository } from "./base.repository";
+import {
+  BaseRepository,
+  QueryOptions,
+  PaginatedResult,
+} from "./base.repository";
 import { Database } from "../database/connection";
 import {
   products,
@@ -53,11 +57,13 @@ export interface ProductWithRelations extends Product {
     businessName: string;
     slug: string;
   };
-  category?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
+  category?:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+      }
+    | undefined;
   variants?: Array<{
     id: string;
     title: string;
@@ -82,6 +88,7 @@ export class ProductRepository extends BaseRepository<
 > {
   protected table = products;
   protected idColumn = products.id;
+  protected tableName = "products";
 
   constructor(db: Database) {
     super(db);
@@ -203,6 +210,7 @@ export class ProductRepository extends BaseRepository<
 
     return {
       ...result[0],
+      category: result[0].category || undefined,
       variants,
     };
   }
@@ -261,11 +269,16 @@ export class ProductRepository extends BaseRepository<
       );
     }
 
+    // Execute query directly to avoid type issues
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return this.db
+        .select()
+        .from(products)
+        .where(and(...conditions))
+        .orderBy(desc(products.createdAt));
+    } else {
+      return this.db.select().from(products).orderBy(desc(products.createdAt));
     }
-
-    return query.orderBy(desc(products.createdAt));
   }
 
   // Get featured products
@@ -316,9 +329,12 @@ export class ProductRepository extends BaseRepository<
       .where(eq(products.slug, slug));
 
     if (excludeId) {
-      query = query.where(
-        and(eq(products.slug, slug), sql`${products.id} != ${excludeId}`)
-      );
+      query = this.db
+        .select({ id: products.id })
+        .from(products)
+        .where(
+          and(eq(products.slug, slug), sql`${products.id} != ${excludeId}`)
+        );
     }
 
     const result = await query.limit(1);
@@ -333,9 +349,10 @@ export class ProductRepository extends BaseRepository<
       .where(eq(products.sku, sku));
 
     if (excludeId) {
-      query = query.where(
-        and(eq(products.sku, sku), sql`${products.id} != ${excludeId}`)
-      );
+      query = this.db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.sku, sku), sql`${products.id} != ${excludeId}`));
     }
 
     const result = await query.limit(1);
@@ -512,5 +529,117 @@ export class ProductRepository extends BaseRepository<
           ? product.images[0]
           : undefined,
     }));
+  }
+
+  /**
+   * Enhanced search with full-text search capabilities
+   */
+  async searchProducts(
+    searchTerm: string,
+    filters: ProductFilters = {},
+    options: QueryOptions = {}
+  ): Promise<PaginatedResult<Product>> {
+    const { pagination = { page: 1, limit: 20 } } = options;
+    const { page = 1, limit = 20 } = pagination;
+
+    // Build search conditions
+    const conditions = [eq(products.status, "active")];
+
+    if (searchTerm) {
+      const searchCondition = or(
+        ilike(products.name, `%${searchTerm}%`),
+        ilike(products.description, `%${searchTerm}%`),
+        ilike(products.sku, `%${searchTerm}%`)
+      );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    // Apply filters
+    if (filters.vendorId) {
+      conditions.push(eq(products.vendorId, filters.vendorId));
+    }
+
+    if (filters.categoryId) {
+      conditions.push(eq(products.categoryId, filters.categoryId));
+    }
+
+    if (filters.featured !== undefined) {
+      conditions.push(eq(products.featured, filters.featured));
+    }
+
+    if (filters.minPrice !== undefined) {
+      conditions.push(gte(products.price, filters.minPrice.toString()));
+    }
+
+    if (filters.maxPrice !== undefined) {
+      conditions.push(lte(products.price, filters.maxPrice.toString()));
+    }
+
+    if (filters.inStock) {
+      const stockCondition = or(
+        eq(products.trackQuantity, false),
+        and(eq(products.trackQuantity, true), sql`${products.quantity} > 0`)
+      );
+      if (stockCondition) {
+        conditions.push(stockCondition);
+      }
+    }
+
+    const whereClause = and(...conditions);
+
+    // Get total count
+    const totalCount = await this.count(whereClause);
+
+    // Get paginated data
+    const data = await this.db
+      .select()
+      .from(products)
+      .where(whereClause)
+      .orderBy(desc(products.featured), desc(products.createdAt))
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      data: data as Product[],
+      total: totalCount,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  }
+
+  /**
+   * Get product recommendations based on category and vendor
+   */
+  async getRecommendations(
+    productId: string,
+    limit: number = 5
+  ): Promise<Product[]> {
+    // Get the current product to find similar ones
+    const currentProduct = await this.findById(productId);
+    if (!currentProduct) return [];
+
+    const conditions = [
+      eq(products.status, "active"),
+      sql`${products.id} != ${productId}`, // Exclude current product
+    ];
+
+    // Prefer same category
+    if (currentProduct.categoryId) {
+      conditions.push(eq(products.categoryId, currentProduct.categoryId));
+    }
+
+    return this.db
+      .select()
+      .from(products)
+      .where(and(...conditions))
+      .orderBy(desc(products.featured), desc(products.createdAt))
+      .limit(limit);
   }
 }

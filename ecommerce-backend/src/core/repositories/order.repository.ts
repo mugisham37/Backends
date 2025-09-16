@@ -3,18 +3,7 @@
  * Handles all database operations for orders and order items
  */
 
-import {
-  eq,
-  and,
-  or,
-  sql,
-  desc,
-  asc,
-  gte,
-  lte,
-  inArray,
-  ilike,
-} from "drizzle-orm";
+import { eq, and, or, sql, desc, gte, lte, ilike } from "drizzle-orm";
 import { BaseRepository } from "./base.repository";
 import { Database } from "../database/connection";
 import {
@@ -70,12 +59,14 @@ export interface OrderWithItems extends Order {
     }
   >;
   payments: Payment[];
-  user?: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-  };
+  user?:
+    | {
+        id: string;
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+      }
+    | undefined;
 }
 
 export interface OrderStats {
@@ -93,6 +84,7 @@ export class OrderRepository extends BaseRepository<
 > {
   protected table = orders;
   protected idColumn = orders.id;
+  protected tableName = "orders";
 
   constructor(db: Database) {
     super(db);
@@ -219,6 +211,7 @@ export class OrderRepository extends BaseRepository<
 
     return {
       ...orderResult[0],
+      user: orderResult[0].user || undefined,
       items: itemsResult,
       payments: paymentsResult,
     };
@@ -272,21 +265,94 @@ export class OrderRepository extends BaseRepository<
       );
     }
 
-    // Filter by vendor if specified
+    // Execute query directly to avoid type issues
     if (filters.vendorId) {
       // Need to join with order items to filter by vendor
-      query = this.db
-        .selectDistinct()
-        .from(orders)
-        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
-        .where(eq(orderItems.vendorId, filters.vendorId));
+      conditions.push(eq(orderItems.vendorId, filters.vendorId));
+      if (conditions.length > 0) {
+        const result = await this.db
+          .selectDistinct({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            userId: orders.userId,
+            customerEmail: orders.customerEmail,
+            customerPhone: orders.customerPhone,
+            status: orders.status,
+            paymentStatus: orders.paymentStatus,
+            shippingStatus: orders.shippingStatus,
+            subtotal: orders.subtotal,
+            taxAmount: orders.taxAmount,
+            shippingAmount: orders.shippingAmount,
+            discountAmount: orders.discountAmount,
+            total: orders.total,
+            currency: orders.currency,
+            billingAddress: orders.billingAddress,
+            shippingAddress: orders.shippingAddress,
+            shippingMethod: orders.shippingMethod,
+            trackingNumber: orders.trackingNumber,
+            trackingUrl: orders.trackingUrl,
+            customerNotes: orders.customerNotes,
+            adminNotes: orders.adminNotes,
+            metadata: orders.metadata,
+            shippedAt: orders.shippedAt,
+            deliveredAt: orders.deliveredAt,
+            cancelledAt: orders.cancelledAt,
+            createdAt: orders.createdAt,
+            updatedAt: orders.updatedAt,
+          })
+          .from(orders)
+          .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+          .where(and(...conditions))
+          .orderBy(desc(orders.createdAt));
+        return result as Order[];
+      } else {
+        const result = await this.db
+          .selectDistinct({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            userId: orders.userId,
+            customerEmail: orders.customerEmail,
+            customerPhone: orders.customerPhone,
+            status: orders.status,
+            paymentStatus: orders.paymentStatus,
+            shippingStatus: orders.shippingStatus,
+            subtotal: orders.subtotal,
+            taxAmount: orders.taxAmount,
+            shippingAmount: orders.shippingAmount,
+            discountAmount: orders.discountAmount,
+            total: orders.total,
+            currency: orders.currency,
+            billingAddress: orders.billingAddress,
+            shippingAddress: orders.shippingAddress,
+            shippingMethod: orders.shippingMethod,
+            trackingNumber: orders.trackingNumber,
+            trackingUrl: orders.trackingUrl,
+            customerNotes: orders.customerNotes,
+            adminNotes: orders.adminNotes,
+            metadata: orders.metadata,
+            shippedAt: orders.shippedAt,
+            deliveredAt: orders.deliveredAt,
+            cancelledAt: orders.cancelledAt,
+            createdAt: orders.createdAt,
+            updatedAt: orders.updatedAt,
+          })
+          .from(orders)
+          .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+          .where(eq(orderItems.vendorId, filters.vendorId))
+          .orderBy(desc(orders.createdAt));
+        return result as Order[];
+      }
+    } else {
+      if (conditions.length > 0) {
+        return this.db
+          .select()
+          .from(orders)
+          .where(and(...conditions))
+          .orderBy(desc(orders.createdAt));
+      } else {
+        return this.db.select().from(orders).orderBy(desc(orders.createdAt));
+      }
     }
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    return query.orderBy(desc(orders.createdAt));
   }
 
   // Update order status
@@ -393,14 +459,10 @@ export class OrderRepository extends BaseRepository<
 
   // Get order statistics
   async getStatistics(dateFrom?: Date, dateTo?: Date): Promise<OrderStats> {
-    let baseQuery = this.db.select().from(orders);
-
-    if (dateFrom || dateTo) {
-      const conditions = [];
-      if (dateFrom) conditions.push(gte(orders.createdAt, dateFrom));
-      if (dateTo) conditions.push(lte(orders.createdAt, dateTo));
-      baseQuery = baseQuery.where(and(...conditions));
-    }
+    // Build date conditions
+    const dateConditions = [];
+    if (dateFrom) dateConditions.push(gte(orders.createdAt, dateFrom));
+    if (dateTo) dateConditions.push(lte(orders.createdAt, dateTo));
 
     const [totalStats, statusStats, paymentStatusStats] = await Promise.all([
       this.db

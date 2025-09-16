@@ -1,4 +1,4 @@
-import { FastifyRequest, FastifyReply, FastifyError } from "fastify";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { ZodError } from "zod";
 import { AppError, ValidationError, DatabaseError } from "./app-error.js";
 import {
@@ -135,8 +135,8 @@ export class ErrorHandler {
     correlationId?: string
   ): DatabaseError {
     const message = error.message;
-    let errorCode = ERROR_CODES.DATABASE_ERROR;
-    let statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    let errorCode: string = ERROR_CODES.DATABASE_ERROR;
+    let statusCode: number = HTTP_STATUS.INTERNAL_SERVER_ERROR;
 
     // Check for specific PostgreSQL error codes
     const pgError = error as any;
@@ -146,19 +146,23 @@ export class ErrorHandler {
         pgError.code as keyof typeof DATABASE_ERROR_MAPPING
       ]
     ) {
-      errorCode =
+      const mappedCode =
         DATABASE_ERROR_MAPPING[
           pgError.code as keyof typeof DATABASE_ERROR_MAPPING
         ];
 
       // Adjust status code based on error type
-      if (errorCode === ERROR_CODES.RESOURCE_EXISTS) {
+      if (mappedCode === ERROR_CODES.RESOURCE_EXISTS) {
         statusCode = HTTP_STATUS.CONFLICT;
+        errorCode = mappedCode;
       } else if (
-        errorCode === ERROR_CODES.MISSING_REQUIRED_FIELD ||
-        errorCode === ERROR_CODES.VALIDATION_ERROR
+        mappedCode === ERROR_CODES.MISSING_REQUIRED_FIELD ||
+        mappedCode === ERROR_CODES.VALIDATION_ERROR
       ) {
         statusCode = HTTP_STATUS.BAD_REQUEST;
+        errorCode = mappedCode;
+      } else {
+        errorCode = mappedCode;
       }
     }
 
@@ -425,11 +429,13 @@ export const defaultErrorHandler = new ErrorHandler();
 export function asyncHandler<T extends any[], R>(
   fn: (...args: T) => Promise<R>
 ) {
-  return (...args: T): Promise<R> => {
-    return Promise.resolve(fn(...args)).catch((error) => {
+  return async (...args: T): Promise<R> => {
+    try {
+      return await fn(...args);
+    } catch (error) {
       // Re-throw the error to be caught by the global error handler
       throw error;
-    });
+    }
   };
 }
 
