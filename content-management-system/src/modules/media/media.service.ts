@@ -71,9 +71,9 @@ export class MediaService {
       if (!validationResult.isValid) {
         return {
           success: false,
-          error: new ValidationError("File validation failed", {
-            file: validationResult.errors,
-          }),
+          error: new ValidationError(
+            `File validation failed: ${validationResult.errors.join(", ")}`
+          ),
         };
       }
 
@@ -84,7 +84,7 @@ export class MediaService {
         .digest("hex");
 
       // Check for duplicate files
-      const existingFile = await this.mediaRepository.findByHash(
+      const existingFile = await this._mediaRepository.findByHash(
         fileHash,
         tenantId
       );
@@ -117,27 +117,27 @@ export class MediaService {
       const metadata = await this.extractMetadata(file, mediaType);
 
       // Get image dimensions if applicable
-      let width: number | undefined;
-      let height: number | undefined;
-      let duration: number | undefined;
+      let width: number | null = null;
+      let height: number | null = null;
+      let duration: number | null = null;
 
       if (mediaType === "image") {
         const dimensions = await this.getImageDimensions(file.buffer);
-        width = dimensions.width;
-        height = dimensions.height;
+        width = dimensions.width ?? null;
+        height = dimensions.height ?? null;
       } else if (mediaType === "video") {
         const videoInfo = await this.getVideoInfo(file.buffer);
-        width = videoInfo.width;
-        height = videoInfo.height;
-        duration = videoInfo.duration;
+        width = videoInfo.width ?? null;
+        height = videoInfo.height ?? null;
+        duration = videoInfo.duration ?? null;
       } else if (mediaType === "audio") {
         const audioInfo = await this.getAudioInfo(file.buffer);
-        duration = audioInfo.duration;
+        duration = audioInfo.duration ?? null;
       }
 
       // Generate URLs
       const url = this.generateFileUrl(relativePath);
-      const cdnUrl = this.generateCdnUrl(relativePath);
+      const cdnUrl = this.generateCdnUrl(relativePath) ?? null;
 
       // Create media record
       const mediaData: NewMedia = {
@@ -157,18 +157,18 @@ export class MediaService {
         isPublic: options.isPublic || false,
         uploaderId,
         tenantId,
-        folderId: options.folderId,
-        alt: options.alt,
-        caption: options.caption,
-        description: options.description,
-        tags: options.tags,
+        folderId: options.folderId ?? null,
+        alt: options.alt ?? null,
+        caption: options.caption ?? null,
+        description: options.description ?? null,
+        tags: options.tags ?? null,
         metadata: {
           ...metadata,
           ...options.metadata,
         },
       };
 
-      const result = await this.mediaRepository.create(mediaData);
+      const result = await this._mediaRepository.create(mediaData);
       if (!result.success) {
         // Clean up file if database insert failed
         await fs.unlink(fullPath).catch(() => {});
@@ -181,7 +181,7 @@ export class MediaService {
       }
 
       // Log media upload
-      await this.auditService.logMediaEvent({
+      await this._auditService.logMediaEvent({
         mediaId: result.data.id,
         tenantId,
         userId: uploaderId,
@@ -216,12 +216,12 @@ export class MediaService {
     try {
       // Check cache first
       const cacheKey = `media:${id}`;
-      const cachedMedia = await this.cacheService.get(cacheKey);
+      const cachedMedia = await this._cacheService.get(cacheKey);
       if (cachedMedia) {
-        return { success: true, data: cachedMedia };
+        return { success: true, data: cachedMedia as Media };
       }
 
-      const result = await this.mediaRepository.findByIdInTenant(id, tenantId);
+      const result = await this._mediaRepository.findByIdInTenant(id, tenantId);
       if (!result.success || !result.data) {
         return {
           success: false,
@@ -230,7 +230,7 @@ export class MediaService {
       }
 
       // Cache media for 10 minutes
-      await this.cacheService.set(cacheKey, result.data, 10 * 60);
+      await this._cacheService.set(cacheKey, result.data, 10 * 60);
 
       return result as Result<Media, NotFoundError>;
     } catch (error) {
@@ -335,7 +335,7 @@ export class MediaService {
         sortOptions.push({ field: "createdAt", direction: "desc" as const });
       }
 
-      const result = await this.mediaRepository.findManyPaginated({
+      const result = await this._mediaRepository.findManyPaginated({
         where: filterConditions,
         orderBy: sortOptions,
         pagination: { page, limit },
@@ -348,8 +348,8 @@ export class MediaService {
       // Filter by tags if specified (could be optimized with proper JSONB queries)
       let mediaData = result.data.data;
       if (filter.tags && filter.tags.length > 0) {
-        mediaData = mediaData.filter((media) =>
-          media.tags?.some((tag) => filter.tags?.includes(tag))
+        mediaData = mediaData.filter((media: Media) =>
+          media.tags?.some((tag: string) => filter.tags?.includes(tag))
         );
       }
 
@@ -395,7 +395,7 @@ export class MediaService {
 
       // Validate folder if being changed
       if (data.folderId && data.folderId !== existingMedia.data.folderId) {
-        const folderExists = await this.mediaRepository.folderExists(
+        const folderExists = await this._mediaRepository.folderExists(
           data.folderId,
           tenantId
         );
@@ -408,16 +408,16 @@ export class MediaService {
       }
 
       // Update media
-      const result = await this.mediaRepository.update(id, data);
+      const result = await this._mediaRepository.update(id, data);
       if (!result.success) {
         return result;
       }
 
       // Clear cache
-      await this.cacheService.delete(`media:${id}`);
+      await this._cacheService.delete(`media:${id}`);
 
       // Log media update
-      await this.auditService.logMediaEvent({
+      await this._auditService.logMediaEvent({
         mediaId: id,
         tenantId,
         userId,
@@ -459,7 +459,7 @@ export class MediaService {
       }
 
       // Check if media is being used
-      const usageResult = await this.mediaRepository.getUsage(id);
+      const usageResult = await this._mediaRepository.getUsage(id);
       if (usageResult.success && usageResult.data.length > 0) {
         return {
           success: false,
@@ -476,7 +476,9 @@ export class MediaService {
       });
 
       // Delete transformations
-      const transformations = await this.mediaRepository.getTransformations(id);
+      const transformations = await this._mediaRepository.getTransformations(
+        id
+      );
       if (transformations.success) {
         for (const transformation of transformations.data) {
           const transformationPath = path.join(
@@ -492,16 +494,16 @@ export class MediaService {
       }
 
       // Delete media record
-      const result = await this.mediaRepository.delete(id);
+      const result = await this._mediaRepository.delete(id);
       if (!result.success) {
         return result;
       }
 
       // Clear cache
-      await this.cacheService.delete(`media:${id}`);
+      await this._cacheService.delete(`media:${id}`);
 
       // Log media deletion
-      await this.auditService.logMediaEvent({
+      await this._auditService.logMediaEvent({
         mediaId: id,
         tenantId,
         userId,
@@ -549,16 +551,14 @@ export class MediaService {
       if (!this.isValidSlug(slug)) {
         return {
           success: false,
-          error: new ValidationError("Invalid slug format", {
-            slug: [
-              "Slug must contain only lowercase letters, numbers, and hyphens",
-            ],
-          }),
+          error: new ValidationError(
+            "Slug must contain only lowercase letters, numbers, and hyphens"
+          ),
         };
       }
 
       // Check if slug is unique within parent folder
-      const existingFolder = await this.mediaRepository.findFolderBySlug(
+      const existingFolder = await this._mediaRepository.findFolderBySlug(
         slug,
         tenantId,
         data.parentId
@@ -577,15 +577,32 @@ export class MediaService {
         tenantId
       );
 
-      const result = await this.mediaRepository.createFolder({
+      // Build folder data, only including optional properties if they have values
+      const folderData: {
+        name: string;
+        slug: string;
+        description?: string;
+        parentId?: string;
+        tenantId: string;
+        path: string;
+        isPublic: boolean;
+      } = {
         name: data.name,
         slug,
-        description: data.description,
-        parentId: data.parentId,
         tenantId,
         path: folderPath,
         isPublic: data.isPublic || false,
-      });
+      };
+
+      // Only add optional properties if they have values
+      if (data.description !== undefined) {
+        folderData.description = data.description;
+      }
+      if (data.parentId !== undefined) {
+        folderData.parentId = data.parentId;
+      }
+
+      const result = await this._mediaRepository.createFolder(folderData);
 
       if (!result.success) {
         return result;
@@ -596,7 +613,7 @@ export class MediaService {
       await this.ensureFolderExists(physicalPath);
 
       // Log folder creation
-      await this.auditService.logMediaEvent({
+      await this._auditService.logMediaEvent({
         tenantId,
         userId,
         event: "media_folder_created",
@@ -636,7 +653,7 @@ export class MediaService {
         };
       }
 
-      const result = await this.mediaRepository.getTransformations(mediaId);
+      const result = await this._mediaRepository.getTransformations(mediaId);
       return result;
     } catch (error) {
       logger.error(
@@ -646,30 +663,6 @@ export class MediaService {
       return {
         success: false,
         error: new Error("Failed to get media transformations"),
-      };
-    }
-  }
-
-  /**
-   * Generate CDN URL for media
-   */
-  generateCdnUrl(
-    mediaId: string,
-    transformation?: string
-  ): Result<string, Error> {
-    try {
-      const baseUrl = config.cdn?.baseUrl || config.app?.baseUrl || "";
-      let url = `${baseUrl}/media/${mediaId}`;
-
-      if (transformation) {
-        url += `/${transformation}`;
-      }
-
-      return { success: true, data: url };
-    } catch (_error) {
-      return {
-        success: false,
-        error: new Error("Failed to generate CDN URL"),
       };
     }
   }
@@ -778,7 +771,7 @@ export class MediaService {
       return tenantId; // Use tenant ID as root folder
     }
 
-    const folder = await this.mediaRepository.getFolder(folderId);
+    const folder = await this._mediaRepository.getFolder(folderId);
     if (folder.success && folder.data) {
       return folder.data.path;
     }

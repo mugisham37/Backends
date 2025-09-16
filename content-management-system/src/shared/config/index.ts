@@ -130,6 +130,7 @@ export const config = {
       process.env["UPLOAD_ALLOWED_MIME_TYPES"] || "image/*,application/pdf"
     ).split(","),
     destination: process.env["UPLOAD_DESTINATION"] || "./uploads",
+    directory: process.env["UPLOAD_DIRECTORY"] || "uploads",
   },
 
   // Security configuration
@@ -145,5 +146,20 @@ export const config = {
   cache: {
     ttl: Number.parseInt(process.env["CACHE_TTL"] || "3600", 10), // 1 hour
     maxSize: Number.parseInt(process.env["CACHE_MAX_SIZE"] || "100", 10), // 100 items
+  },
+
+  // CDN configuration
+  cdn: {
+    baseUrl: process.env["CDN_BASE_URL"],
+    enabled: !!process.env["CDN_BASE_URL"],
+  },
+
+  // Application configuration
+  app: {
+    baseUrl:
+      process.env["APP_BASE_URL"] ||
+      `http://localhost:${Number.parseInt(process.env["PORT"] || "3000", 10)}`,
+    name: process.env["APP_NAME"] || "Content Management System",
+    version: process.env["APP_VERSION"] || "1.0.0",
   },
 } as const;

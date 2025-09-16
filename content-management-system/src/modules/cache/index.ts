@@ -1,4 +1,5 @@
 export { CacheService } from "./cache.service";
+export { CacheController } from "./cache.controller";
 export * from "./cache.types";
 export {
   // Core schemas

@@ -1,112 +1,157 @@
-import type { NextFunction, Request, Response } from "express";
-import multer from "multer";
-import { config } from "../../shared/config";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import type { MultipartFile } from "@fastify/multipart";
+import { inject, injectable } from "tsyringe";
 import { MediaService } from "./media.service";
-import { ApiError } from "../../shared/utils/errors";
-import {
-  parsePaginationParams,
-  parseSortParams,
-} from "../../shared/utils/helpers";
+import { parsePaginationParams, parseSortParams } from "../utils/helpers";
 import { logger } from "../../shared/utils/logger";
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: config.upload.maxSize,
-  },
-  fileFilter: (_req, file, cb) => {
-    // Check if MIME type is allowed
-    const allowedMimeTypes = config.upload.allowedMimeTypes;
-    if (allowedMimeTypes.length > 0) {
-      const isAllowed = allowedMimeTypes.some((allowed) => {
-        if (allowed.endsWith("/*")) {
-          const prefix = allowed.slice(0, -1);
-          return file.mimetype.startsWith(prefix);
-        }
-        return file.mimetype === allowed;
-      });
+// Type definitions for Fastify requests
+interface MediaQueryParams extends Record<string, unknown> {
+  page?: string;
+  limit?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  type?: "image" | "video" | "audio" | "document" | "other";
+  search?: string;
+  mimeType?: string;
+  folderId?: string;
+  isPublic?: string;
+  tags?: string;
+  minSize?: string;
+  maxSize?: string;
+  createdFrom?: string;
+  createdTo?: string;
+}
 
-      if (!isAllowed) {
-        return cb(new Error(`File type not allowed: ${file.mimetype}`));
-      }
-    }
-    cb(null, true);
-  },
-});
+interface MediaParams {
+  id: string;
+}
 
+interface FolderParams {
+  path: string;
+}
+
+interface CreateFolderBody {
+  name: string;
+  parentId?: string;
+  description?: string;
+}
+
+interface UpdateMediaBody {
+  filename?: string;
+  alt?: string;
+  caption?: string;
+  description?: string;
+  tags?: string[];
+  folderId?: string;
+  isPublic?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+interface UploadMediaFields {
+  alt?: string;
+  caption?: string;
+  description?: string;
+  tags?: string;
+  folderId?: string;
+  isPublic?: string;
+  metadata?: string;
+}
+
+interface FolderQueryParams {
+  parent?: string;
+}
+
+/**
+ * Media controller for Fastify
+ * Handles file uploads, media management, and folder operations
+ */
+@injectable()
 export class MediaController {
-  private mediaService: MediaService;
-
-  constructor() {
-    this.mediaService = new MediaService();
-  }
+  constructor(@inject("MediaService") private mediaService: MediaService) {}
 
   /**
-   * Get all media
+   * Get all media with pagination and filtering
    */
   public getAllMedia = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Querystring: MediaQueryParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
+      // Get tenant and user context
+      const tenantId = (request as any).tenantId || "default";
+
       // Parse query parameters
-      const { page, limit } = parsePaginationParams(req.query);
+      const { page, limit } = parsePaginationParams(request.query);
       const { field, direction } = parseSortParams(
-        req.query,
+        request.query,
         "createdAt",
         "desc"
       );
 
       // Build filter
       const filter: any = {};
-      if (req.query.type) filter.type = req.query.type as string;
-      if (req.query.search) filter.search = req.query.search as string;
-      if (req.query.mimeType) filter.mimeType = req.query.mimeType as string;
-      if (req.query.folder) filter.folder = req.query.folder as string;
-      if (req.query.createdBy) filter.createdBy = req.query.createdBy as string;
+      const query = request.query;
+
+      if (query.type) filter.type = query.type;
+      if (query.search) filter.search = query.search;
+      if (query.mimeType) filter.mimeType = query.mimeType;
+      if (query.folderId) filter.folderId = query.folderId;
+      if (query.isPublic !== undefined)
+        filter.isPublic = query.isPublic === "true";
 
       // Handle tags
-      if (req.query.tags) {
-        if (Array.isArray(req.query.tags)) {
-          filter.tags = req.query.tags as string[];
-        } else {
-          filter.tags = [req.query.tags as string];
-        }
+      if (query.tags) {
+        filter.tags =
+          typeof query.tags === "string" ? query.tags.split(",") : query.tags;
       }
+
+      // Handle size range
+      if (query.minSize) filter.minSize = parseInt(query.minSize, 10);
+      if (query.maxSize) filter.maxSize = parseInt(query.maxSize, 10);
 
       // Handle date range
-      if (req.query.createdFrom || req.query.createdTo) {
+      if (query.createdFrom || query.createdTo) {
         filter.createdAt = {};
-        if (req.query.createdFrom)
-          filter.createdAt.from = new Date(req.query.createdFrom as string);
-        if (req.query.createdTo)
-          filter.createdAt.to = new Date(req.query.createdTo as string);
+        if (query.createdFrom)
+          filter.createdAt.from = new Date(query.createdFrom);
+        if (query.createdTo) filter.createdAt.to = new Date(query.createdTo);
       }
 
-      // Get media
+      // Get media with pagination
       const result = await this.mediaService.getAllMedia(
+        tenantId,
         filter,
         { field, direction },
         { page, limit }
       );
 
-      res.status(200).json({
+      if (!result.success) {
+        logger.error("Failed to get media:", result.error);
+        return reply.status(500).send({
+          status: "error",
+          message: result.error?.message || "Failed to retrieve media",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          media: result.media,
-          pagination: {
-            page: result.page,
-            limit,
-            totalPages: result.totalPages,
-            totalCount: result.totalCount,
-          },
+          media: result.data.media,
+          pagination: result.data.pagination,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error getting media:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -114,136 +159,236 @@ export class MediaController {
    * Get media by ID
    */
   public getMediaById = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Params: MediaParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
-      const media = await this.mediaService.getMediaById(id);
+      const { id } = request.params;
+      const tenantId = (request as any).tenantId || "default";
 
-      res.status(200).json({
+      const result = await this.mediaService.getMediaById(id, tenantId);
+
+      if (!result.success) {
+        if (result.error?.message.includes("not found")) {
+          return reply.status(404).send({
+            status: "error",
+            message: "Media not found",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        logger.error("Failed to get media:", result.error);
+        return reply.status(500).send({
+          status: "error",
+          message: result.error?.message || "Failed to retrieve media",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          media,
+          media: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error getting media by ID:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * Upload media
+   * Upload media file using Fastify multipart
    */
   public uploadMedia = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    // Use multer middleware for file upload
-    const uploadMiddleware = upload.single("file");
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    try {
+      const tenantId = (request as any).tenantId || "default";
+      const userId = (request as any).user?.id;
 
-    uploadMiddleware(req, res, async (err) => {
-      if (err) {
-        if (err instanceof multer.MulterError) {
-          // A Multer error occurred when uploading
-          if (err.code === "LIMIT_FILE_SIZE") {
-            return next(
-              ApiError.badRequest(
-                `File size exceeds the limit of ${
-                  config.upload.maxSize / 1024 / 1024
-                }MB`
-              )
-            );
-          }
-          return next(ApiError.badRequest(err.message));
-        }
-        // An unknown error occurred
-        return next(err);
-      }
-
-      try {
-        // Check if file exists
-        if (!req.file) {
-          throw ApiError.badRequest("No file uploaded");
-        }
-
-        // Get user ID
-        const userId = (req as any).user?._id;
-
-        // Parse options
-        const options: any = {};
-        if (req.body.folder) options.folder = req.body.folder;
-        if (req.body.alt) options.alt = req.body.alt;
-        if (req.body.title) options.title = req.body.title;
-        if (req.body.description) options.description = req.body.description;
-
-        // Parse tags
-        if (req.body.tags) {
-          try {
-            options.tags = JSON.parse(req.body.tags);
-          } catch (_error) {
-            // If tags is not valid JSON, treat it as a comma-separated string
-            options.tags = req.body.tags
-              .split(",")
-              .map((tag: string) => tag.trim());
-          }
-        }
-
-        // Parse metadata
-        if (req.body.metadata) {
-          try {
-            options.metadata = JSON.parse(req.body.metadata);
-          } catch (error) {
-            logger.warn("Invalid metadata JSON:", error);
-          }
-        }
-
-        // Upload media
-        const media = await this.mediaService.uploadMedia(
-          {
-            buffer: req.file.buffer,
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-          },
-          options,
-          userId
-        );
-
-        res.status(201).json({
-          status: "success",
-          data: {
-            media,
-          },
+      if (!userId) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          timestamp: new Date().toISOString(),
         });
-      } catch (error) {
-        next(error);
       }
-    });
+
+      // Check if the request is multipart
+      if (!request.isMultipart()) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Request must be multipart/form-data",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      let file: MultipartFile | undefined;
+      const fields: UploadMediaFields = {};
+
+      // Process multipart data
+      for await (const part of request.parts()) {
+        if (part.type === "file") {
+          if (part.fieldname === "file") {
+            file = part;
+          }
+        } else {
+          // Handle form fields
+          const fieldName = part.fieldname as keyof UploadMediaFields;
+          fields[fieldName] = part.value as any;
+        }
+      }
+
+      if (!file) {
+        return reply.status(400).send({
+          status: "error",
+          message: "No file uploaded",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Convert file to buffer
+      const buffer = await file.toBuffer();
+
+      // Parse options from form fields
+      const options: any = {};
+      if (fields.alt) options.alt = fields.alt;
+      if (fields.caption) options.caption = fields.caption;
+      if (fields.description) options.description = fields.description;
+      if (fields.folderId) options.folderId = fields.folderId;
+      if (fields.isPublic) options.isPublic = fields.isPublic === "true";
+
+      // Parse tags
+      if (fields.tags) {
+        try {
+          options.tags = JSON.parse(fields.tags);
+        } catch {
+          // If not valid JSON, treat as comma-separated string
+          options.tags = fields.tags
+            .split(",")
+            .map((tag: string) => tag.trim());
+        }
+      }
+
+      // Parse metadata
+      if (fields.metadata) {
+        try {
+          options.metadata = JSON.parse(fields.metadata);
+        } catch (error) {
+          logger.warn("Invalid metadata JSON:", error);
+        }
+      }
+
+      // Upload file using the service
+      const result = await this.mediaService.uploadFile(
+        {
+          buffer,
+          originalname: file.filename,
+          mimetype: file.mimetype,
+          size: buffer.length,
+        },
+        options,
+        tenantId,
+        userId
+      );
+
+      if (!result.success) {
+        logger.error("Failed to upload media:", result.error);
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Failed to upload media",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(201).send({
+        status: "success",
+        data: {
+          media: result.data,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error("Error uploading media:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
+    }
   };
 
   /**
-   * Update media
+   * Update media metadata
    */
   public updateMedia = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Params: MediaParams;
+      Body: UpdateMediaBody;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
-      const media = await this.mediaService.updateMedia(id, req.body);
+      const { id } = request.params;
+      const tenantId = (request as any).tenantId || "default";
+      const userId = (request as any).user?.id;
+      const updateData = request.body;
 
-      res.status(200).json({
+      if (!userId) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.mediaService.updateMedia(
+        id,
+        updateData,
+        tenantId,
+        userId
+      );
+
+      if (!result.success) {
+        if (result.error?.message.includes("not found")) {
+          return reply.status(404).send({
+            status: "error",
+            message: "Media not found",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        logger.error("Failed to update media:", result.error);
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Failed to update media",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          media,
+          media: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error updating media:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -251,20 +396,56 @@ export class MediaController {
    * Delete media
    */
   public deleteMedia = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Params: MediaParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
-      await this.mediaService.deleteMedia(id);
+      const { id } = request.params;
+      const tenantId = (request as any).tenantId || "default";
+      const userId = (request as any).user?.id;
 
-      res.status(200).json({
+      if (!userId) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.mediaService.deleteMedia(id, tenantId, userId);
+
+      if (!result.success) {
+        if (result.error?.message.includes("not found")) {
+          return reply.status(404).send({
+            status: "error",
+            message: "Media not found",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        logger.error("Failed to delete media:", result.error);
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Failed to delete media",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: null,
+        message: "Media deleted successfully",
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error deleting media:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -272,69 +453,120 @@ export class MediaController {
    * Create folder
    */
   public createFolder = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Body: CreateFolderBody;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { name, parentFolder } = req.body;
-      const folderPath = await this.mediaService.createFolder(
-        name,
-        parentFolder
+      const { name, parentId, description } = request.body;
+      const tenantId = (request as any).tenantId || "default";
+      const userId = (request as any).user?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const folderData: {
+        name: string;
+        slug?: string;
+        description?: string;
+        parentId?: string;
+        isPublic?: boolean;
+      } = { name };
+
+      if (parentId) folderData.parentId = parentId;
+      if (description) folderData.description = description;
+
+      const result = await this.mediaService.createFolder(
+        folderData,
+        tenantId,
+        userId
       );
 
-      res.status(201).json({
+      if (!result.success) {
+        logger.error("Failed to create folder:", result.error);
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Failed to create folder",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(201).send({
         status: "success",
         data: {
-          path: folderPath,
+          folder: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error creating folder:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * Delete folder
+   * Delete folder (simplified implementation - needs service method)
    */
   public deleteFolder = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    _request: FastifyRequest<{
+      Params: FolderParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { path } = req.params;
-      await this.mediaService.deleteFolder(path);
-
-      res.status(200).json({
-        status: "success",
-        data: null,
+      // This is a placeholder implementation
+      // The MediaService needs to implement deleteFolderByPath method
+      return reply.status(501).send({
+        status: "error",
+        message:
+          "Delete folder functionality not yet implemented in MediaService",
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error deleting folder:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * List folders
+   * List folders (simplified implementation - needs service method)
    */
   public listFolders = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    _request: FastifyRequest<{
+      Querystring: FolderQueryParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const parentFolder = (req.query.parent as string) || "/";
-      const folders = await this.mediaService.listFolders(parentFolder);
-
-      res.status(200).json({
-        status: "success",
-        data: {
-          folders,
-        },
+      // This is a placeholder implementation
+      // The MediaService needs to implement getFoldersByParent method
+      return reply.status(501).send({
+        status: "error",
+        message:
+          "List folders functionality not yet implemented in MediaService",
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      logger.error("Error listing folders:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 }

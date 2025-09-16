@@ -2,26 +2,33 @@ import { inject, injectable } from "tsyringe";
 import type { Content } from "../../core/database/schema/content.schema";
 import type { Media } from "../../core/database/schema/media.schema";
 import type { Result } from "../../core/types/result.types";
+import type {
+  ISearchService,
+  SearchQuery as ServiceSearchQuery,
+  SearchResult as ServiceSearchResult,
+  SearchHit,
+  SearchStats,
+} from "../../core/types/service.types";
 import { logger } from "../../shared/utils/logger";
 import { CacheService } from "../cache/cache.service";
 
 interface SearchDocument {
   id: string;
   type: "content" | "media";
-  title?: string;
-  body?: string;
-  excerpt?: string;
+  title: string;
+  body: string;
+  excerpt: string;
   filename?: string;
   originalName?: string;
-  alt?: string;
-  caption?: string;
-  description?: string;
+  alt: string;
+  caption: string;
+  description: string;
   tags: string[];
   categories?: string[];
   status?: string;
   mediaType?: string;
   tenantId: string;
-  authorId?: string;
+  authorId: string;
   createdAt: Date;
   updatedAt: Date;
   searchableText: string;
@@ -62,7 +69,9 @@ interface SearchResult {
  * Provides comprehensive search functionality with filtering, ranking, and caching
  */
 @injectable()
-export class SearchService {
+export class SearchService implements ISearchService {
+  public readonly name = "SearchService";
+
   private searchIndex = new Map<string, SearchDocument>();
   private invertedIndex = new Map<string, Set<string>>();
   private searchStats = {
@@ -82,7 +91,7 @@ export class SearchService {
     try {
       // Load cached index if available
       const cachedIndex = await this.cacheService.get<
-        Map<string, SearchDocument>
+        Array<[string, SearchDocument]>
       >("search:index");
       if (cachedIndex) {
         this.searchIndex = new Map(cachedIndex);
@@ -256,14 +265,17 @@ export class SearchService {
       const searchDocument: SearchDocument = {
         id: content.id,
         type: "content",
-        title: content.title,
-        body: content.body,
-        excerpt: content.excerpt,
+        title: content.title || "",
+        body: content.body || "",
+        excerpt: content.excerpt || "",
+        alt: "",
+        caption: "",
+        description: "",
         tags: content.tags || [],
         categories: content.categories || [],
         status: content.status,
         tenantId: content.tenantId,
-        authorId: content.authorId,
+        authorId: content.authorId || "",
         createdAt: content.createdAt,
         updatedAt: content.updatedAt,
         searchableText: "",
@@ -356,14 +368,18 @@ export class SearchService {
       const searchDocument: SearchDocument = {
         id: media.id,
         type: "media",
+        title: media.originalName || media.filename,
+        body: media.description || "",
+        excerpt: media.caption || "",
         filename: media.filename,
         originalName: media.originalName,
-        alt: media.alt,
-        caption: media.caption,
-        description: media.description,
+        alt: media.alt || "",
+        caption: media.caption || "",
+        description: media.description || "",
         tags: media.tags || [],
         mediaType: media.mediaType,
         tenantId: media.tenantId,
+        authorId: media.uploaderId || "",
         createdAt: media.createdAt,
         updatedAt: media.updatedAt,
         searchableText: "",
@@ -453,11 +469,14 @@ export class SearchService {
    */
   private async cacheIndex(): Promise<void> {
     try {
-      await this.cacheService.set(
+      const result = await this.cacheService.set(
         "search:index",
         Array.from(this.searchIndex.entries()),
         3600 // 1 hour TTL
       );
+      if (!result.success) {
+        logger.error("Failed to cache search index:", result.error);
+      }
     } catch (error) {
       logger.error("Failed to cache search index:", error);
     }
@@ -466,7 +485,7 @@ export class SearchService {
   /**
    * Advanced search with full-text search, ranking, and optimization
    */
-  async search(
+  async performSearch(
     query: string,
     options: SearchOptions = {}
   ): Promise<
@@ -502,7 +521,7 @@ export class SearchService {
       const cacheKey = `search:${JSON.stringify({ query, options })}`;
       const cachedResult = await this.cacheService.get(cacheKey);
       if (cachedResult) {
-        return { success: true, data: cachedResult };
+        return { success: true, data: cachedResult as any };
       }
 
       const {
@@ -518,13 +537,26 @@ export class SearchService {
       // Tokenize search query
       const searchTokens = this.tokenize(query);
       if (searchTokens.length === 0) {
+        const emptyResult = {
+          results: [] as SearchResult[],
+          total: 0,
+          ...(pagination
+            ? {
+                pagination: {
+                  page: pagination.page,
+                  limit: pagination.limit,
+                  totalPages: 0,
+                  hasNext: false,
+                  hasPrev: false,
+                },
+              }
+            : {}),
+          searchTime: Date.now() - startTime,
+          suggestions: [] as string[],
+        };
         return {
           success: true,
-          data: {
-            results: [],
-            total: 0,
-            searchTime: Date.now() - startTime,
-          },
+          data: emptyResult,
         };
       }
 
@@ -538,8 +570,18 @@ export class SearchService {
         const document = this.searchIndex.get(docId);
         if (!document) continue;
 
-        // Apply filters
-        if (!this.passesFilters(document, { type, tenantId, filters })) {
+        // Apply filters - ensure tenantId is defined when passed
+        const filterOptions: {
+          type?: string;
+          tenantId?: string;
+          filters?: any;
+        } = {
+          type,
+          ...(tenantId !== undefined ? { tenantId } : {}),
+          filters,
+        };
+
+        if (!this.passesFilters(document, filterOptions)) {
           continue;
         }
 
@@ -608,12 +650,16 @@ export class SearchService {
       const result = {
         results: paginatedResults,
         total,
-        pagination: paginationInfo,
+        ...(paginationInfo ? { pagination: paginationInfo } : {}),
         searchTime,
+        suggestions: [] as string[],
       };
 
       // Cache the result
-      await this.cacheService.set(cacheKey, result, 300); // 5 minutes TTL
+      const cacheSetResult = await this.cacheService.set(cacheKey, result, 300); // 5 minutes TTL
+      if (!cacheSetResult.success) {
+        logger.warn("Failed to cache search result:", cacheSetResult.error);
+      }
 
       return { success: true, data: result };
     } catch (error) {
@@ -668,8 +714,12 @@ export class SearchService {
       return false;
     }
 
-    // Tenant filter
-    if (tenantId && document.tenantId !== tenantId) {
+    // Tenant filter - only check if tenantId is provided and not undefined
+    if (
+      tenantId !== undefined &&
+      tenantId !== null &&
+      document.tenantId !== tenantId
+    ) {
       return false;
     }
 
@@ -738,7 +788,10 @@ export class SearchService {
     }
 
     // Field-specific boosts
-    if (document.title?.toLowerCase().includes(originalQuery.toLowerCase())) {
+    if (
+      document.title &&
+      document.title.toLowerCase().includes(originalQuery.toLowerCase())
+    ) {
       score *= 2.0; // Title matches get higher score
     }
 
@@ -766,20 +819,23 @@ export class SearchService {
     const highlights: { [field: string]: string[] } = {};
 
     const fields = {
-      title: document.title,
-      body: document.body,
-      description: document.description,
+      title: document.title || "",
+      body: document.body || "",
+      description: document.description || "",
     };
 
     for (const [fieldName, fieldValue] of Object.entries(fields)) {
-      if (!fieldValue) continue;
+      if (!fieldValue || fieldValue.trim() === "") continue;
 
       const fieldHighlights: string[] = [];
       const words = fieldValue.split(/\s+/);
 
       for (let i = 0; i < words.length; i++) {
-        const word = words[i].toLowerCase();
-        if (searchTokens.some((token) => word.includes(token))) {
+        const word = words[i];
+        if (!word) continue;
+
+        const wordLower = word.toLowerCase();
+        if (searchTokens.some((token) => wordLower.includes(token))) {
           // Extract context around the match
           const start = Math.max(0, i - 5);
           const end = Math.min(words.length, i + 6);
@@ -812,30 +868,30 @@ export class SearchService {
    * Calculate Levenshtein distance for fuzzy matching
    */
   private calculateLevenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1)
+    const matrix: number[][] = Array(str2.length + 1)
       .fill(null)
-      .map(() => Array(str1.length + 1).fill(null));
+      .map(() => Array(str1.length + 1).fill(0));
 
     for (let i = 0; i <= str1.length; i++) {
-      matrix[0][i] = i;
+      matrix[0]![i] = i;
     }
 
     for (let j = 0; j <= str2.length; j++) {
-      matrix[j][0] = j;
+      matrix[j]![0] = j;
     }
 
     for (let j = 1; j <= str2.length; j++) {
       for (let i = 1; i <= str1.length; i++) {
         const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1, // deletion
-          matrix[j - 1][i] + 1, // insertion
-          matrix[j - 1][i - 1] + indicator // substitution
+        matrix[j]![i] = Math.min(
+          matrix[j]![i - 1]! + 1, // deletion
+          matrix[j - 1]![i]! + 1, // insertion
+          matrix[j - 1]![i - 1]! + indicator // substitution
         );
       }
     }
 
-    return matrix[str2.length][str1.length];
+    return matrix[str2.length]![str1.length]!;
   }
 
   /**
@@ -880,9 +936,12 @@ export class SearchService {
           document.originalName,
           ...document.tags,
           ...(document.categories || []),
-        ].filter(Boolean);
+        ]
+          .filter(Boolean)
+          .filter((item): item is string => typeof item === "string");
 
         for (const candidate of candidates) {
+          if (!candidate) continue;
           const candidateLower = candidate.toLowerCase();
 
           // Exact substring match
@@ -904,6 +963,9 @@ export class SearchService {
 
       // Rank suggestions by relevance
       const rankedSuggestions = Array.from(suggestions)
+        .filter(
+          (suggestion): suggestion is string => typeof suggestion === "string"
+        )
         .map((suggestion) => ({
           text: suggestion,
           score: this.calculateSuggestionScore(suggestion, query),
@@ -913,7 +975,14 @@ export class SearchService {
         .map((s) => s.text);
 
       // Cache suggestions
-      await this.cacheService.set(cacheKey, rankedSuggestions, 1800); // 30 minutes
+      const cacheSetResult = await this.cacheService.set(
+        cacheKey,
+        rankedSuggestions,
+        1800
+      ); // 30 minutes
+      if (!cacheSetResult.success) {
+        logger.warn("Failed to cache suggestions:", cacheSetResult.error);
+      }
 
       return { success: true, data: rankedSuggestions };
     } catch (error) {
@@ -982,7 +1051,7 @@ export class SearchService {
       const cacheKey = `analytics:${tenantId || "all"}`;
       const cached = await this.cacheService.get(cacheKey);
       if (cached) {
-        return { success: true, data: cached };
+        return { success: true, data: cached as any };
       }
 
       // Get top queries
@@ -1025,7 +1094,14 @@ export class SearchService {
       };
 
       // Cache analytics
-      await this.cacheService.set(cacheKey, analytics, 3600); // 1 hour
+      const cacheSetResult = await this.cacheService.set(
+        cacheKey,
+        analytics,
+        3600
+      ); // 1 hour
+      if (!cacheSetResult.success) {
+        logger.warn("Failed to cache analytics:", cacheSetResult.error);
+      }
 
       return { success: true, data: analytics };
     } catch (error) {
@@ -1041,15 +1117,16 @@ export class SearchService {
    * Generate search trends data
    */
   private generateSearchTrends(): Array<{ date: string; searches: number }> {
-    const trends = [];
+    const trends: Array<{ date: string; searches: number }> = [];
     const now = new Date();
 
     for (let i = 6; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
+      const dateString = date.toISOString().split("T")[0];
 
       trends.push({
-        date: date.toISOString().split("T")[0],
+        date: dateString ?? new Date().toISOString().split("T")[0]!,
         searches: Math.floor(Math.random() * 100) + 10, // Simplified
       });
     }
@@ -1115,8 +1192,25 @@ export class SearchService {
       }
 
       // Clear tenant-specific cache
-      await this.cacheService.invalidatePattern(`search:*${tenantId}*`);
-      await this.cacheService.invalidatePattern(`suggestions:*${tenantId}*`);
+      const searchCacheResult = await this.cacheService.invalidatePattern(
+        `search:*${tenantId}*`
+      );
+      const suggestionsCacheResult = await this.cacheService.invalidatePattern(
+        `suggestions:*${tenantId}*`
+      );
+
+      if (!searchCacheResult.success) {
+        logger.warn(
+          "Failed to invalidate search cache:",
+          searchCacheResult.error
+        );
+      }
+      if (!suggestionsCacheResult.success) {
+        logger.warn(
+          "Failed to invalidate suggestions cache:",
+          suggestionsCacheResult.error
+        );
+      }
 
       // Cache the updated index
       await this.cacheIndex();
@@ -1276,37 +1370,275 @@ export class SearchService {
   /**
    * Health check for search service
    */
-  async healthCheck(): Promise<{
-    status: "healthy" | "degraded" | "unhealthy";
-    indexSize: number;
-    cacheConnected: boolean;
-    lastOptimization?: Date;
-  }> {
+  async healthCheck(): Promise<{ healthy: boolean; error?: string }> {
     try {
       const cacheHealthy = await this.cacheService.healthCheck();
       const indexSize = this.searchIndex.size;
 
-      let status: "healthy" | "degraded" | "unhealthy" = "healthy";
-
       if (!cacheHealthy) {
-        status = "degraded";
+        return {
+          healthy: false,
+          error: "Cache service is not healthy",
+        };
       }
 
       if (indexSize === 0) {
-        status = "unhealthy";
+        return {
+          healthy: false,
+          error: "Search index is empty",
+        };
       }
 
-      return {
-        status,
-        indexSize,
-        cacheConnected: cacheHealthy,
-      };
+      return { healthy: true };
     } catch (error) {
       logger.error("Search service health check failed:", error);
       return {
-        status: "unhealthy",
-        indexSize: 0,
-        cacheConnected: false,
+        healthy: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  // ISearchService interface implementation methods
+
+  /**
+   * Index a document (interface method)
+   */
+  async indexDocument(
+    type: string,
+    id: string,
+    document: Record<string, unknown>
+  ): Promise<Result<void, Error>> {
+    try {
+      const searchDocument: SearchDocument = {
+        id,
+        type: type as "content" | "media",
+        title: (document["title"] as string) || "",
+        body:
+          (document["body"] as string) ||
+          (document["description"] as string) ||
+          "",
+        excerpt:
+          (document["excerpt"] as string) ||
+          (document["caption"] as string) ||
+          "",
+        alt: (document["alt"] as string) || "",
+        caption: (document["caption"] as string) || "",
+        description: (document["description"] as string) || "",
+        tags: (document["tags"] as string[]) || [],
+        categories: (document["categories"] as string[]) || [],
+        status: (document["status"] as string) || "",
+        mediaType: (document["mediaType"] as string) || "",
+        tenantId: (document["tenantId"] as string) || "",
+        authorId:
+          (document["authorId"] as string) ||
+          (document["uploaderId"] as string) ||
+          "",
+        createdAt: new Date(document["createdAt"] as string) || new Date(),
+        updatedAt: new Date(document["updatedAt"] as string) || new Date(),
+        searchableText: "",
+        boost: 1.0,
+      };
+
+      searchDocument.searchableText = this.createSearchableText(searchDocument);
+      searchDocument.boost = this.calculateBoost(searchDocument);
+
+      const docId = `${type}:${id}`;
+
+      // Remove old document from inverted index if it exists
+      const existingDoc = this.searchIndex.get(docId);
+      if (existingDoc) {
+        this.removeFromInvertedIndex(docId, existingDoc.searchableText);
+      }
+
+      // Add to main index
+      this.searchIndex.set(docId, searchDocument);
+
+      // Add to inverted index
+      this.addToInvertedIndex(docId, searchDocument.searchableText);
+
+      // Cache the updated index
+      await this.cacheIndex();
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error(`Failed to index document ${type}:${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to index document"),
+      };
+    }
+  }
+
+  /**
+   * Remove a document from index (interface method)
+   */
+  async removeDocument(type: string, id: string): Promise<Result<void, Error>> {
+    try {
+      const docId = `${type}:${id}`;
+      const existingDoc = this.searchIndex.get(docId);
+
+      if (existingDoc) {
+        // Remove from inverted index
+        this.removeFromInvertedIndex(docId, existingDoc.searchableText);
+
+        // Remove from main index
+        this.searchIndex.delete(docId);
+
+        // Cache the updated index
+        await this.cacheIndex();
+      }
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error(`Failed to remove document ${type}:${id}:`, error);
+      return {
+        success: false,
+        error: new Error("Failed to remove document"),
+      };
+    }
+  }
+
+  /**
+   * Search with service interface (interface method)
+   */
+  async search(
+    query: ServiceSearchQuery
+  ): Promise<Result<ServiceSearchResult, Error>> {
+    try {
+      const searchOptions: SearchOptions = {
+        type: query.type as "content" | "media" | "all",
+        filters: query.filters as any,
+        ...(query.sort?.[0]
+          ? {
+              sort: {
+                field: query.sort[0].field,
+                direction: query.sort[0].direction,
+              },
+            }
+          : {}),
+        ...(query.pagination ? { pagination: query.pagination } : {}),
+        highlight: true,
+        fuzzy: false,
+      };
+
+      const result = await this.performSearch(query.query, searchOptions);
+
+      if (!result.success) {
+        return result as Result<ServiceSearchResult, Error>;
+      }
+
+      const serviceResult: ServiceSearchResult = {
+        hits: result.data.results.map(
+          (r): SearchHit => ({
+            id: r.document.id,
+            type: r.document.type,
+            score: r.score,
+            source: {
+              title: r.document.title,
+              body: r.document.body,
+              excerpt: r.document.excerpt,
+              tags: r.document.tags,
+              categories: r.document.categories,
+              status: r.document.status,
+              tenantId: r.document.tenantId,
+              authorId: r.document.authorId,
+              createdAt: r.document.createdAt,
+              updatedAt: r.document.updatedAt,
+            },
+            highlights: r.highlights || {},
+          })
+        ),
+        total: result.data.total,
+        took: result.data.searchTime,
+        suggestions: result.data.suggestions ?? [],
+      };
+
+      return { success: true, data: serviceResult };
+    } catch (error) {
+      logger.error("Service search failed:", error);
+      return {
+        success: false,
+        error: new Error("Service search failed"),
+      };
+    }
+  }
+
+  /**
+   * Get search suggestions (interface method)
+   */
+  async suggest(
+    query: string,
+    _type?: string
+  ): Promise<Result<string[], Error>> {
+    try {
+      const result = await this.getSuggestions(query, undefined, 5);
+      return result;
+    } catch (error) {
+      logger.error("Suggest failed:", error);
+      return {
+        success: false,
+        error: new Error("Suggest failed"),
+      };
+    }
+  }
+
+  /**
+   * Reindex documents (interface method)
+   */
+  async reindex(type?: string): Promise<Result<void, Error>> {
+    try {
+      // Clear the appropriate indexes
+      if (type) {
+        const keysToRemove: string[] = [];
+        for (const [docId, document] of this.searchIndex.entries()) {
+          if (document.type === type) {
+            keysToRemove.push(docId);
+            this.removeFromInvertedIndex(docId, document.searchableText);
+          }
+        }
+        for (const key of keysToRemove) {
+          this.searchIndex.delete(key);
+        }
+      } else {
+        this.searchIndex.clear();
+        this.invertedIndex.clear();
+      }
+
+      await this.cacheIndex();
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      logger.error("Reindex failed:", error);
+      return {
+        success: false,
+        error: new Error("Reindex failed"),
+      };
+    }
+  }
+
+  /**
+   * Get search statistics (interface method)
+   */
+  async getStats(): Promise<Result<SearchStats, Error>> {
+    try {
+      const stats = await this.getIndexStats();
+
+      const searchStats: SearchStats = {
+        totalDocuments: stats.totalItems,
+        indexSize: stats.indexSize,
+        types: {
+          content: stats.contentItems,
+          media: stats.mediaItems,
+        },
+      };
+
+      return { success: true, data: searchStats };
+    } catch (error) {
+      logger.error("Get stats failed:", error);
+      return {
+        success: false,
+        error: new Error("Get stats failed"),
       };
     }
   }

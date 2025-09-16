@@ -1,5 +1,6 @@
 export { SearchService } from "./search.service";
 export { SearchController } from "./search.controller";
+export { searchPlugin } from "./search.plugin";
 export * from "./search.types";
 export {
   // Core schemas

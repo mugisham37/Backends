@@ -48,6 +48,10 @@
     "ogg",
     "wma",
     "webm",
+    "openxmlformats",
+    "officedocument",
+    "msword",
+    "ffprobe",
     "mkv",
     "docx",
     "xlsx",
@@ -60,7 +64,8 @@
     "jwt",
     "setex",
     "incrby",
-    "dbsize"
+    "dbsize",
+    "reindexing"
   ],
   "ignorePaths": [
     "node_modules/**",
