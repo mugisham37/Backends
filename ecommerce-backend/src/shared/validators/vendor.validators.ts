@@ -165,14 +165,21 @@ export const vendorFiltersSchema = z.object({
 });
 
 // Payout schemas
-export const calculatePayoutSchema = z.object({
-  vendorId: uuidSchema,
-  startDate: z.date(),
-  endDate: z.date().refine((date, ctx) => {
-    const startDate = ctx.parent.startDate;
-    return date > startDate;
-  }, "End date must be after start date"),
-});
+export const calculatePayoutSchema = z
+  .object({
+    vendorId: uuidSchema,
+    startDate: z.date(),
+    endDate: z.date(),
+  })
+  .refine(
+    (data) => {
+      return data.endDate > data.startDate;
+    },
+    {
+      message: "End date must be after start date",
+      path: ["endDate"],
+    }
+  );
 
 export const createPayoutSchema = z.object({
   vendorId: uuidSchema,

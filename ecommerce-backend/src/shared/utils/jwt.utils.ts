@@ -38,11 +38,17 @@ export const generateJWT = async (
   const secret =
     payload.type === "refresh" ? getRefreshSecret() : getAccessSecret();
 
-  return jwt.sign(payload, secret, {
-    expiresIn,
-    issuer: "ecommerce-api",
-    audience: "ecommerce-client",
-  });
+  try {
+    // Use any to bypass strict typing issues with jwt.sign overloads
+    const token = (jwt.sign as any)(payload, secret, {
+      expiresIn,
+      issuer: "ecommerce-api",
+      audience: "ecommerce-client",
+    });
+    return token;
+  } catch (error) {
+    throw new Error(`Failed to generate JWT: ${error}`);
+  }
 };
 
 // Verify JWT token

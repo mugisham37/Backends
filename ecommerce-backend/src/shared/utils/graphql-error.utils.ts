@@ -6,7 +6,7 @@
 import { GraphQLError, GraphQLFormattedError } from "graphql";
 
 export interface CustomGraphQLError extends GraphQLError {
-  extensions?: {
+  extensions: {
     code?: string;
     statusCode?: number;
     details?: any;

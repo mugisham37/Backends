@@ -296,13 +296,14 @@ async function securityPlugin(
   fastify.setErrorHandler(async (error, request, reply) => {
     // Rate limit errors
     if (error.statusCode === 429) {
+      const rateLimitError = error as any; // Type assertion to access custom properties
       return reply.status(429).send({
         success: false,
         error: {
           message: "Too many requests, please try again later",
           code: "RATE_LIMIT_EXCEEDED",
           details: {
-            retryAfter: error.retryAfter || 60,
+            retryAfter: rateLimitError.retryAfter || 60,
           },
         },
       });

@@ -93,16 +93,19 @@ export class RateLimitMiddleware {
 
         // Hook into response to handle skip options
         if (skipSuccessfulRequests || skipFailedRequests) {
-          reply.addHook("onSend", async (request, reply) => {
-            const statusCode = reply.statusCode;
-            const shouldSkip =
-              (skipSuccessfulRequests && statusCode < 400) ||
-              (skipFailedRequests && statusCode >= 400);
+          request.server.addHook(
+            "onSend",
+            async (request: FastifyRequest, reply: FastifyReply) => {
+              const statusCode = reply.statusCode;
+              const shouldSkip =
+                (skipSuccessfulRequests && statusCode < 400) ||
+                (skipFailedRequests && statusCode >= 400);
 
-            if (shouldSkip) {
-              await this.redis.decr(redisKey);
+              if (shouldSkip) {
+                await this.redis.decr(redisKey);
+              }
             }
-          });
+          );
         }
       } catch (error) {
         if (error instanceof AppError) {
@@ -147,37 +150,40 @@ export class RateLimitMiddleware {
         }
 
         // Hook into response to track failures
-        reply.addHook("onSend", async (request, reply) => {
-          const statusCode = reply.statusCode;
+        request.server.addHook(
+          "onSend",
+          async (request: FastifyRequest, reply: FastifyReply) => {
+            const statusCode = reply.statusCode;
 
-          if (statusCode === 401 || statusCode === 403) {
-            // Failed authentication/authorization
-            const attempts = await this.redis.incr(attemptsKey);
-            await this.redis.expire(attemptsKey, Math.ceil(lifetime / 1000));
+            if (statusCode === 401 || statusCode === 403) {
+              // Failed authentication/authorization
+              const attempts = await this.redis.incr(attemptsKey);
+              await this.redis.expire(attemptsKey, Math.ceil(lifetime / 1000));
 
-            if (attempts > freeRetries) {
-              // Calculate block time with exponential backoff
-              const blockDuration = Math.min(
-                minWait * Math.pow(2, attempts - freeRetries - 1),
-                maxWait
-              );
-              const blockUntil = Date.now() + blockDuration;
+              if (attempts > freeRetries) {
+                // Calculate block time with exponential backoff
+                const blockDuration = Math.min(
+                  minWait * Math.pow(2, attempts - freeRetries - 1),
+                  maxWait
+                );
+                const blockUntil = Date.now() + blockDuration;
 
-              await this.redis.setex(
-                blockKey,
-                Math.ceil(blockDuration / 1000),
-                blockUntil.toString()
-              );
+                await this.redis.setex(
+                  blockKey,
+                  Math.ceil(blockDuration / 1000),
+                  blockUntil.toString()
+                );
 
-              if (failCallback) {
-                failCallback(request, reply);
+                if (failCallback) {
+                  failCallback(request, reply);
+                }
               }
+            } else if (statusCode < 400) {
+              // Successful request, reset attempts
+              await this.redis.del(attemptsKey);
             }
-          } else if (statusCode < 400) {
-            // Successful request, reset attempts
-            await this.redis.del(attemptsKey);
           }
-        });
+        );
       } catch (error) {
         if (error instanceof AppError) {
           throw error;

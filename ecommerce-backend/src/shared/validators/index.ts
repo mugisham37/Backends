@@ -5,38 +5,34 @@ export * from "./vendor.validators.js";
 export * from "./order.validators.js";
 export * from "./common.validators.js";
 
-// Re-export commonly used schemas with shorter names
+// Re-export commonly used schemas with shorter names for auth
 export {
   loginSchema as Login,
   registerSchema as Register,
-  createProductSchema as CreateProduct,
-  updateProductSchema as UpdateProduct,
-  createVendorSchema as CreateVendor,
-  updateVendorSchema as UpdateVendor,
-  createOrderSchema as CreateOrder,
-  updateOrderSchema as UpdateOrder,
-  paginationSchema as Pagination,
-  uuidSchema as UUID,
 } from "./auth.validators.js";
 
+// Re-export product schemas
 export {
   createProductSchema as CreateProduct,
   updateProductSchema as UpdateProduct,
   productFiltersSchema as ProductFilters,
 } from "./product.validators.js";
 
+// Re-export vendor schemas
 export {
   createVendorSchema as CreateVendor,
   updateVendorSchema as UpdateVendor,
   vendorFiltersSchema as VendorFilters,
 } from "./vendor.validators.js";
 
+// Re-export order schemas
 export {
   createOrderSchema as CreateOrder,
   updateOrderSchema as UpdateOrder,
   orderFiltersSchema as OrderFilters,
 } from "./order.validators.js";
 
+// Re-export common schemas
 export {
   paginationSchema as Pagination,
   uuidSchema as UUID,

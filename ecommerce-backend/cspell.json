@@ -58,7 +58,15 @@
     "presigner",
     "bullmq",
     "unsubscription",
-    "prefs"
+    "prefs",
+    "hsts",
+    "nosniff",
+    "frameguard",
+    "pinterest",
+    "sameorigin",
+    "noopen",
+    "HSTS",
+    "Backorders"
   ],
   "ignorePaths": ["node_modules/**", "dist/**", "coverage/**", "*.min.js", "package-lock.json"],
   "ignoreWords": ["MUGISHA"]

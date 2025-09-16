@@ -15,7 +15,7 @@ import {
   rateLimitConfigs,
   bruteForceConfigs,
 } from "../middleware/index.js";
-import { getDatabase } from "../../core/database/connection.js";
+import { db } from "../../core/database/connection.js";
 import { config } from "./env.config.js";
 
 export interface SecuritySetupOptions {
@@ -35,7 +35,6 @@ export class SecurityConfig {
   private rateLimitMiddleware: any;
 
   constructor() {
-    const db = getDatabase();
     this.jwtService = new JWTService();
     this.rbacService = new RBACService(db);
     this.authMiddleware = createAuthMiddleware(this.jwtService);

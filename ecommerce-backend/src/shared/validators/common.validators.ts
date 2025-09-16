@@ -18,13 +18,20 @@ export const searchSchema = z.object({
 });
 
 // Date range schema
-export const dateRangeSchema = z.object({
-  startDate: z.date(),
-  endDate: z.date().refine((date, ctx) => {
-    const startDate = ctx.parent.startDate;
-    return date >= startDate;
-  }, "End date must be after or equal to start date"),
-});
+export const dateRangeSchema = z
+  .object({
+    startDate: z.date(),
+    endDate: z.date(),
+  })
+  .refine(
+    (data) => {
+      return data.endDate >= data.startDate;
+    },
+    {
+      message: "End date must be after or equal to start date",
+      path: ["endDate"],
+    }
+  );
 
 // File upload schema
 export const fileUploadSchema = z.object({
