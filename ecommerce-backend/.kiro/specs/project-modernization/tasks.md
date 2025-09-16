@@ -232,7 +232,7 @@
   - Add email tracking and analytics
   - _Requirements: 9.2, 9.5_
 
-- [ ] 9. Real-time Features and WebSocket Integration
+- [-] 9. Real-time Features and WebSocket Integration
 
   - Implement WebSocket server for real-time communication
   - Add real-time notifications system
@@ -240,7 +240,7 @@
   - Implement connection management and scaling
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 9.1 Set up WebSocket server
+- [-] 9.1 Set up WebSocket server
 
   - Install and configure WebSocket server in modules/notifications/websocket.service.ts
   - Implement WebSocket authentication and authorization
