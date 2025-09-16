@@ -16,10 +16,16 @@ export * from "./request-id.middleware.js";
 export * from "./request-logging.middleware.js";
 export * from "./api-version.middleware.js";
 
-// Re-export commonly used middleware instances
+// Re-export commonly used middleware instances and configurations
 export { securityMiddleware, securityConfigs } from "./security.middleware.js";
 export {
   getRateLimitMiddleware,
   rateLimitConfigs,
   bruteForceConfigs,
 } from "./rate-limit.middleware.js";
+export { commonPermissions, createRBACMiddleware } from "./rbac.middleware.js";
+export {
+  createAuthMiddleware,
+  getUserIdFromParams,
+  isAuthenticatedRequest,
+} from "./auth.middleware.js";

@@ -88,5 +88,53 @@ export class AuthController {
   /**
    * Get current user profile
    */
-  async getProfile(request: AuthenticatedRequest, reply: FastifyReply): Promise<void> {
-    const us
+  async getProfile(
+    request: AuthenticatedRequest,
+    reply: FastifyReply
+  ): Promise<void> {
+    const user = await this.authService.getUserProfile(request.userId);
+
+    if (!user) {
+      throw new AppError("User not found", 404, "USER_NOT_FOUND");
+    }
+
+    reply.send({
+      success: true,
+      message: "Profile retrieved successfully",
+      data: user,
+    });
+  }
+
+  /**
+   * Change password
+   */
+  async changePassword(
+    request: FastifyRequest<{ Body: ChangePasswordInput }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    const authRequest = request as AuthenticatedRequest;
+    const validatedInput = changePasswordSchema.parse(request.body);
+
+    await this.authService.changePassword(authRequest.userId, validatedInput);
+
+    reply.send({
+      success: true,
+      message: "Password changed successfully",
+    });
+  }
+
+  /**
+   * Logout user (invalidate refresh token)
+   */
+  async logout(
+    request: FastifyRequest<{ Body: { refreshToken: string } }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    // In a real implementation, you would invalidate the refresh token
+    // For now, we'll just return success
+    reply.send({
+      success: true,
+      message: "Logged out successfully",
+    });
+  }
+}
