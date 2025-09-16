@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag"
+import { gql } from "graphql-tag";
 
 export const mediaTypeDefs = gql`
   enum MediaType {
@@ -93,4 +93,4 @@ export const mediaTypeDefs = gql`
     
     deleteFolder(path: String!): Boolean!
   }
-`
+`;

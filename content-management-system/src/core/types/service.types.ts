@@ -1,12 +1,12 @@
-import type { Result } from "./result.types";
 import type {
-  User,
-  Tenant,
   Content,
+  FilterOptions,
   Media,
   PaginatedResult,
-  FilterOptions,
+  Tenant,
+  User,
 } from "./database.types";
+import type { Result } from "./result.types";
 
 /**
  * Base service interface

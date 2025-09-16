@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
-import { restApiPlugin } from "./rest/plugin";
 import { graphqlApiPlugin } from "./graphql/plugin";
+import { restApiPlugin } from "./rest/plugin";
 
 /**
  * Unified API Gateway Plugin
@@ -62,7 +62,7 @@ export const apiGatewayPlugin: FastifyPluginAsync = async (
   });
 
   // API Gateway health check
-  fastify.get("/api/health", async (request, reply) => {
+  fastify.get("/api/health", async (_request, reply) => {
     return reply.status(200).send({
       status: "healthy",
       timestamp: new Date().toISOString(),
@@ -75,7 +75,7 @@ export const apiGatewayPlugin: FastifyPluginAsync = async (
   });
 
   // API Gateway info endpoint
-  fastify.get("/api/info", async (request, reply) => {
+  fastify.get("/api/info", async (_request, reply) => {
     return reply.status(200).send({
       name: "Content Management System API",
       version: "1.0.0",

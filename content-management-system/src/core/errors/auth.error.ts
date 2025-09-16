@@ -7,14 +7,6 @@ export class AuthenticationError extends ClientError {
   public readonly code = "AUTHENTICATION_ERROR";
   public readonly statusCode = 401;
 
-  constructor(
-    message: string = "Authentication failed",
-    cause?: unknown,
-    context?: Record<string, unknown>
-  ) {
-    super(message, cause, context);
-  }
-
   /**
    * Create an invalid credentials error
    */
@@ -25,7 +17,7 @@ export class AuthenticationError extends ClientError {
   /**
    * Create an invalid token error
    */
-  static invalidToken(tokenType: string = "token"): AuthenticationError {
+  static invalidToken(tokenType = "token"): AuthenticationError {
     return new AuthenticationError(`Invalid ${tokenType}`, undefined, {
       tokenType,
     });
@@ -34,7 +26,7 @@ export class AuthenticationError extends ClientError {
   /**
    * Create an expired token error
    */
-  static expiredToken(tokenType: string = "token"): AuthenticationError {
+  static expiredToken(tokenType = "token"): AuthenticationError {
     return new AuthenticationError(`${tokenType} has expired`, undefined, {
       tokenType,
     });
@@ -74,7 +66,7 @@ export class AuthorizationError extends ClientError {
   public readonly statusCode = 403;
 
   constructor(
-    message: string = "Access denied",
+    message = "Access denied",
     public readonly requiredPermission?: string,
     public readonly userRole?: string,
     cause?: unknown,

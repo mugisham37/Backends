@@ -5,7 +5,7 @@ import type { IWebhookService } from "../../../core/types/service.types";
 export const webhookRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const webhookService = container.resolve<IWebhookService>("WebhookService");
+  const _webhookService = container.resolve<IWebhookService>("WebhookService");
 
   // Get all webhooks
   fastify.get(
@@ -13,7 +13,7 @@ export const webhookRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",
@@ -29,7 +29,7 @@ export const webhookRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",
@@ -45,7 +45,7 @@ export const webhookRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",

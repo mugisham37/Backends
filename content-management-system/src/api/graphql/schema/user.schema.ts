@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag"
+import { gql } from "graphql-tag";
 
 export const userTypeDefs = gql`
   enum UserRole {
@@ -80,4 +80,4 @@ export const userTypeDefs = gql`
     
     changePassword(currentPassword: String!, newPassword: String!): Boolean!
   }
-`
+`;

@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag"
+import { gql } from "graphql-tag";
 
 export const contentTypeTypeDefs = gql`
   enum FieldType {
@@ -132,4 +132,4 @@ export const contentTypeTypeDefs = gql`
     
     removeField(contentTypeId: ID!, fieldId: ID!): ContentType!
   }
-`
+`;

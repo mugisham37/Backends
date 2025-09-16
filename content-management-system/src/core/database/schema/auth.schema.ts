@@ -1,17 +1,17 @@
+import { relations } from "drizzle-orm";
 import {
+  boolean,
+  index,
+  jsonb,
   pgTable,
-  uuid,
-  varchar,
   text,
   timestamp,
-  boolean,
-  jsonb,
-  index,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { tenants } from "./tenant.schema";
 import { contents } from "./content.schema";
 import { media } from "./media.schema";
+import { tenants } from "./tenant.schema";
 
 /**
  * User roles enum

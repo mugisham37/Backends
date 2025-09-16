@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag"
+import { gql } from "graphql-tag";
 
 export const webhookTypeDefs = gql`
   enum WebhookEvent {
@@ -105,4 +105,4 @@ export const webhookTypeDefs = gql`
     
     retryWebhookDelivery(deliveryId: ID!): WebhookDelivery!
   }
-`
+`;

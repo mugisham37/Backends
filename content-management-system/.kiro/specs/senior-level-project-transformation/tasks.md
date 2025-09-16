@@ -302,9 +302,214 @@
     - _Requirements: 6.6_
 
 - [ ] 17. Final code cleanup and optimization
+
   - Remove all unnecessary comments and AI-generated markers
   - Consolidate duplicate code and optimize imports
   - Ensure consistent code formatting with Biome
   - Verify all TypeScript strict mode compliance
   - Run final performance benchmarks and optimization
   - _Requirements: 8.1, 8.2, 8.3, 8.7_
+
+- [x] 18. Reorganize project structure to modular architecture
+
+  - [x] 18.1 Create new modular directory structure
+
+    - Create src/modules/ directory for feature modules
+    - Create src/shared/ directory for shared utilities
+    - Prepare directory structure according to design specification
+    - _Requirements: 3.1, 8.1_
+
+  - [x] 18.2 Move services to feature modules
+
+    - Move src/services/auth.service.ts to src/modules/auth/auth.service.ts
+    - Move src/services/tenant.service.ts to src/modules/tenant/tenant.service.ts
+    - Move src/services/content.service.ts to src/modules/content/content.service.ts
+    - Move src/services/media.service.ts to src/modules/media/media.service.ts
+    - Move src/services/search.service.ts to src/modules/search/search.service.ts
+    - Move src/services/webhook.service.ts to src/modules/webhook/webhook.service.ts
+    - Move src/services/cache.service.ts to src/modules/cache/cache.service.ts
+    - Move src/services/audit.service.ts to src/modules/audit/audit.service.ts
+    - _Requirements: 3.1, 8.1_
+
+  - [x] 18.3 Move controllers to feature modules
+
+    - Move src/controllers/auth.controller.ts to src/modules/auth/auth.controller.ts
+    - Move src/controllers/tenant.controller.ts to src/modules/tenant/tenant.controller.ts
+    - Move src/controllers/content.controller.ts to src/modules/content/content.controller.ts
+    - Move src/controllers/media.controller.ts to src/modules/media/media.controller.ts
+    - Move src/controllers/search.controller.ts to src/modules/search/search.controller.ts
+    - Move src/controllers/webhook.controller.ts to src/modules/webhook/webhook.controller.ts
+    - Move src/controllers/audit.controller.ts to src/modules/audit/audit.controller.ts
+    - _Requirements: 3.1, 8.1_
+
+  - [x] 18.4 Move repositories to feature modules
+    - Move src/core/repositories/user.repository.ts to src/modules/auth/auth.repository.ts
+    - Move src/core/repositories/tenant.repository.ts to src/modules/tenant/tenant.repository.ts
+    - Move src/core/repositories/content.repository.ts to src/modules/content/content.repository.ts
+    - Move src/core/repositories/media.repository.ts to src/modules/media/media.repository.ts
+    - Keep base repositories in src/core/repositories/ for shared functionality
+    - _Requirements: 3.1, 8.1_
+
+- [ ] 19. Create feature module type definitions
+
+  - [ ] 19.1 Create module-specific type files
+
+    - Create src/modules/auth/auth.types.ts with authentication-related types
+    - Create src/modules/tenant/tenant.types.ts with tenant-related types
+    - Create src/modules/content/content.types.ts with content-related types
+    - Create src/modules/media/media.types.ts with media-related types
+    - Create src/modules/search/search.types.ts with search-related types
+    - Create src/modules/webhook/webhook.types.ts with webhook-related types
+    - Create src/modules/cache/cache.types.ts with cache-related types
+    - Create src/modules/audit/audit.types.ts with audit-related types
+    - _Requirements: 3.7, 8.2_
+
+  - [ ] 19.2 Extract and organize validation schemas
+    - Move src/validations/zod/auth.schemas.ts to src/modules/auth/auth.schemas.ts
+    - Move src/validations/zod/tenant.schemas.ts to src/modules/tenant/tenant.schemas.ts
+    - Move src/validations/zod/content.schemas.ts to src/modules/content/content.schemas.ts
+    - Move src/validations/zod/media.schemas.ts to src/modules/media/media.schemas.ts
+    - Move src/validations/zod/user.schemas.ts to src/modules/auth/user.schemas.ts
+    - Move src/validations/zod/webhook.schemas.ts to src/modules/webhook/webhook.schemas.ts
+    - Move common schemas to src/shared/validators/
+    - _Requirements: 4.5, 8.1_
+
+- [ ] 20. Reorganize shared utilities and middleware
+
+  - [ ] 20.1 Move middleware to shared directory
+
+    - Move src/middleware/ contents to src/shared/middleware/
+    - Organize middleware by functionality (auth, validation, security, monitoring)
+    - Update import paths throughout the application
+    - _Requirements: 4.2, 8.1_
+
+  - [ ] 20.2 Move utilities to shared directory
+
+    - Move src/utils/ contents to src/shared/utils/
+    - Add src/shared/constants/ directory for application constants
+    - Move validation utilities to src/shared/validators/
+    - Update import paths throughout the application
+    - _Requirements: 8.1_
+
+  - [ ] 20.3 Reorganize configuration
+    - Move src/config/ to src/shared/config/
+    - Create environment-specific configuration files
+    - Update configuration imports throughout the application
+    - _Requirements: 5.6, 8.1_
+
+- [ ] 21. Update API layer organization
+
+  - [ ] 21.1 Reorganize REST API structure
+
+    - Keep src/api/rest/ structure but update route organization
+    - Group routes by feature modules in src/api/rest/routes/
+    - Update route imports to use new module structure
+    - Ensure proper plugin registration for modular routes
+    - _Requirements: 4.1, 4.5_
+
+  - [ ] 21.2 Reorganize GraphQL API structure
+
+    - Keep src/api/graphql/ structure but update resolver organization
+    - Update resolvers to import from new module structure
+    - Update schema definitions to use module-specific types
+    - Update dataloaders to use new repository locations
+    - _Requirements: 4.1_
+
+  - [ ] 21.3 Update API gateway configuration
+    - Update src/api/gateway.ts to work with new module structure
+    - Ensure proper plugin registration and routing
+    - Update middleware registration to use shared middleware
+    - _Requirements: 4.1, 4.3_
+
+- [ ] 22. Update dependency injection and container configuration
+
+  - [ ] 22.1 Update container registry for modular structure
+
+    - Update src/core/container/registry.ts to register services from modules
+    - Create module-specific container configurations
+    - Update service registration to use new module paths
+    - _Requirements: 3.2_
+
+  - [ ] 22.2 Update bootstrap configuration
+    - Update src/core/container/bootstrap.ts for new structure
+    - Ensure proper initialization order for modular services
+    - Update test container configuration for new structure
+    - _Requirements: 3.2_
+
+- [ ] 23. Update all import statements and references
+
+  - [ ] 23.1 Update service imports
+
+    - Update all imports of services to use new module paths
+    - Update controller imports to use new module paths
+    - Update repository imports to use new module paths
+    - Run TypeScript compiler to identify any missing imports
+    - _Requirements: 8.1, 8.2_
+
+  - [ ] 23.2 Update middleware and utility imports
+
+    - Update all middleware imports to use src/shared/middleware/
+    - Update all utility imports to use src/shared/utils/
+    - Update validation schema imports to use module-specific paths
+    - Update configuration imports to use src/shared/config/
+    - _Requirements: 8.1, 8.2_
+
+  - [ ] 23.3 Update test imports and configurations
+    - Update all test files to use new import paths
+    - Update test utilities and fixtures for new structure
+    - Update test database configuration for modular structure
+    - Ensure all tests pass with new organization
+    - _Requirements: 8.4, 8.6_
+
+- [ ] 24. Create module index files and clean up structure
+
+  - [ ] 24.1 Create module index files
+
+    - Create index.ts files for each module to export public interfaces
+    - Create src/modules/index.ts to export all modules
+    - Create src/shared/index.ts to export shared utilities
+    - Ensure clean public API for each module
+    - _Requirements: 8.1, 8.2_
+
+  - [ ] 24.2 Remove old directory structure
+
+    - Remove empty src/services/ directory
+    - Remove empty src/controllers/ directory
+    - Remove empty src/validations/ directory
+    - Remove empty src/middleware/ directory (after moving to shared)
+    - Remove empty src/utils/ directory (after moving to shared)
+    - Clean up any remaining empty directories
+    - _Requirements: 8.1_
+
+  - [ ] 24.3 Update package.json scripts and configuration
+    - Update build scripts to work with new structure
+    - Update test scripts to work with new structure
+    - Update any path-specific configurations in package.json
+    - Update TypeScript path mappings if needed
+    - _Requirements: 5.1, 8.1_
+
+- [ ] 25. Final validation and testing of modular structure
+
+  - [ ] 25.1 Validate application startup
+
+    - Ensure application starts successfully with new structure
+    - Verify all services are properly registered and initialized
+    - Test all API endpoints to ensure they work correctly
+    - Verify database connections and migrations work
+    - _Requirements: 8.4, 8.6_
+
+  - [ ] 25.2 Run comprehensive test suite
+
+    - Run all unit tests to ensure they pass with new structure
+    - Run all integration tests to verify API functionality
+    - Run performance tests to ensure no regression
+    - Fix any issues identified during testing
+    - _Requirements: 8.4, 8.6_
+
+  - [ ] 25.3 Final code quality verification
+    - Run Biome linting and formatting on entire codebase
+    - Verify TypeScript compilation with strict mode
+    - Check for any unused imports or dead code
+    - Ensure consistent code style across all modules
+    - Generate final documentation for new structure
+    - _Requirements: 8.1, 8.2, 8.3, 8.7_

@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import {
-  healthCheckMiddleware,
-  metricsMiddleware,
   applicationMetricsMiddleware,
   auditLogsMiddleware,
+  healthCheckMiddleware,
+  metricsMiddleware,
   systemHealthSummaryMiddleware,
 } from "../../../middleware/monitoring.middleware";
 

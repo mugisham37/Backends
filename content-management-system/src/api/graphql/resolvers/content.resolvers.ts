@@ -3,7 +3,7 @@ import type { GraphQLContext } from "../context";
 export const contentResolvers = {
   Query: {
     content: async (
-      parent: any,
+      _parent: any,
       { id, version }: any,
       context: GraphQLContext
     ) => {
@@ -24,7 +24,7 @@ export const contentResolvers = {
     },
 
     contents: async (
-      parent: any,
+      _parent: any,
       { page, limit, status, authorId }: any,
       context: GraphQLContext
     ) => {
@@ -47,7 +47,7 @@ export const contentResolvers = {
     },
 
     contentVersions: async (
-      parent: any,
+      _parent: any,
       { contentId }: any,
       context: GraphQLContext
     ) => {
@@ -68,7 +68,7 @@ export const contentResolvers = {
 
   Mutation: {
     createContent: async (
-      parent: any,
+      _parent: any,
       { input }: any,
       context: GraphQLContext
     ) => {
@@ -82,9 +82,8 @@ export const contentResolvers = {
         tenantId: context.user.tenantId,
       };
 
-      const result = await context.dataSources.contentService.createContent(
-        contentData
-      );
+      const result =
+        await context.dataSources.contentService.createContent(contentData);
 
       if (!result.success) {
         throw new Error(result.error.message);
@@ -94,7 +93,7 @@ export const contentResolvers = {
     },
 
     updateContent: async (
-      parent: any,
+      _parent: any,
       { id, input }: any,
       context: GraphQLContext
     ) => {
@@ -115,7 +114,7 @@ export const contentResolvers = {
     },
 
     deleteContent: async (
-      parent: any,
+      _parent: any,
       { id }: any,
       context: GraphQLContext
     ) => {
@@ -133,7 +132,7 @@ export const contentResolvers = {
     },
 
     publishContent: async (
-      parent: any,
+      _parent: any,
       { id }: any,
       context: GraphQLContext
     ) => {
@@ -141,9 +140,8 @@ export const contentResolvers = {
         throw new Error("Authentication required");
       }
 
-      const result = await context.dataSources.contentService.publishContent(
-        id
-      );
+      const result =
+        await context.dataSources.contentService.publishContent(id);
 
       if (!result.success) {
         throw new Error(result.error.message);
@@ -153,7 +151,7 @@ export const contentResolvers = {
     },
 
     unpublishContent: async (
-      parent: any,
+      _parent: any,
       { id }: any,
       context: GraphQLContext
     ) => {
@@ -177,7 +175,7 @@ export const contentResolvers = {
   Subscription: {
     contentCreated: {
       subscribe: async (
-        parent: any,
+        _parent: any,
         { tenantId }: any,
         context: GraphQLContext
       ) => {
@@ -194,7 +192,7 @@ export const contentResolvers = {
 
     contentUpdated: {
       subscribe: async (
-        parent: any,
+        _parent: any,
         { contentId }: any,
         context: GraphQLContext
       ) => {
@@ -210,7 +208,7 @@ export const contentResolvers = {
 
     contentPublished: {
       subscribe: async (
-        parent: any,
+        _parent: any,
         { tenantId }: any,
         context: GraphQLContext
       ) => {

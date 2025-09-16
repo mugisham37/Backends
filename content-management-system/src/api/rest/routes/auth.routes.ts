@@ -1,13 +1,13 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { IAuthService } from "../../../core/types/service.types";
-import { validate } from "../../../middleware/zod-validation";
+import type { IAuthService } from "../../../modules/auth/auth.types";
+import { validate } from "../../../shared/middleware/zod-validation";
 import {
-  loginSchema,
-  refreshTokenSchema,
   type LoginRequest,
   type RefreshTokenRequest,
-} from "../../../validations/zod/auth.schemas";
+  loginSchema,
+  refreshTokenSchema,
+} from "../../../modules/auth/auth.schemas";
 
 /**
  * Authentication REST Routes
@@ -86,7 +86,7 @@ export const authRoutes: FastifyPluginAsync = async (
         },
       },
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implement logout logic (token blacklisting, etc.)
       return reply.status(200).send({
         success: true,

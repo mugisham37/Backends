@@ -1,19 +1,19 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { IMediaService } from "../../../core/types/service.types";
-import { validate } from "../../../middleware/zod-validation";
+import type { IMediaService } from "../../../modules/media/media.types";
+import { validate } from "../../../shared/middleware/zod-validation";
 import {
-  uploadMediaSchema,
-  mediaParamsSchema,
-  mediaQuerySchema,
-  imageTransformSchema,
-  cdnOptionsSchema,
-  type UploadMediaRequest,
+  type CdnOptions,
+  type ImageTransform,
   type MediaParams,
   type MediaQueryParams,
-  type ImageTransform,
-  type CdnOptions,
-} from "../../../validations/zod/media.schemas";
+  type UploadMediaRequest,
+  cdnOptionsSchema,
+  imageTransformSchema,
+  mediaParamsSchema,
+  mediaQuerySchema,
+  uploadMediaSchema,
+} from "../../../modules/media/media.schemas";
 
 /**
  * Media Management REST Routes

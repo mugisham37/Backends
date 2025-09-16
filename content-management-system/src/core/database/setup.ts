@@ -1,6 +1,6 @@
-import { initializeDatabase, closeDatabase } from "./connection.js";
+import { dbLogger } from "../../shared/utils/logger.js";
+import { closeDatabase, initializeDatabase } from "./connection.js";
 import { autoMigrate } from "./migrator.js";
-import { dbLogger } from "../../utils/logger.js";
 
 /**
  * Database setup options

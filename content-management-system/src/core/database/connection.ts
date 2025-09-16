@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { config } from "../../config/index.js";
-import { dbLogger } from "../../utils/logger.js";
-import { QueryOptimizer, ConnectionPoolOptimizer } from "./query-optimizer.js";
+import { config } from "../../shared/config/index.js";
+import { dbLogger } from "../../shared/utils/logger.js";
+import { ConnectionPoolOptimizer, QueryOptimizer } from "./query-optimizer.js";
 
 // PostgreSQL connection with connection pooling
 let connectionPool: postgres.Sql | null = null;
@@ -198,7 +198,7 @@ const optimizeQueries = async (): Promise<void> => {
       {
         key: "active_tenants",
         queryFn: () =>
-          db!.execute(postgres.sql`
+          db?.execute(postgres.sql`
           SELECT id, name, slug, is_active 
           FROM tenants 
           WHERE is_active = true 
@@ -209,7 +209,7 @@ const optimizeQueries = async (): Promise<void> => {
       {
         key: "user_roles",
         queryFn: () =>
-          db!.execute(postgres.sql`
+          db?.execute(postgres.sql`
           SELECT DISTINCT role 
           FROM users 
           WHERE is_active = true

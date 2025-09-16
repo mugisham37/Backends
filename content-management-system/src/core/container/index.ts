@@ -6,8 +6,8 @@
  */
 
 import "reflect-metadata";
-import { container, DependencyContainer } from "tsyringe";
-import { logger } from "../../utils/logger";
+import { DependencyContainer, container } from "tsyringe";
+import { logger } from "../../shared/utils/logger";
 
 /**
  * Service registration tokens
@@ -76,7 +76,7 @@ export class ContainerConfig {
    */
   register<T>(
     token: string,
-    implementation: new (...args: any[]) => T,
+    implementation: new (..._args: any[]) => T,
     singleton = true
   ): this {
     this.registrations.push({
@@ -204,7 +204,7 @@ export function isRegistered(token: string): boolean {
  * Injectable decorator for services
  */
 export function Injectable(token?: string) {
-  return function <T extends new (...args: any[]) => any>(constructor: T) {
+  return <T extends new (..._args: any[]) => any>(constructor: T) => {
     // Register the class as injectable
     if (token) {
       container.registerSingleton(token, constructor);
@@ -217,11 +217,11 @@ export function Injectable(token?: string) {
  * Inject decorator for constructor parameters
  */
 export function Inject(token: string) {
-  return function (
+  return (
     target: any,
     _propertyKey: string | symbol | undefined,
     parameterIndex: number
-  ) {
+  ) => {
     // This is handled by tsyringe's inject decorator
     const existingTokens =
       Reflect.getMetadata("design:paramtypes", target) || [];

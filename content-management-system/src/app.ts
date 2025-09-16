@@ -1,24 +1,24 @@
+import multipart from "@fastify/multipart";
 import fastify, {
   type FastifyInstance,
   type FastifyServerOptions,
 } from "fastify";
-import multipart from "@fastify/multipart";
-import { config } from "./config";
+import { apiGatewayPlugin } from "./api/gateway";
+import { config } from "./shared/config";
 import {
-  initializeDatabase,
-  isDatabaseConnected,
+  getApplicationStatus,
+  initializeApplication,
+} from "./core/container/bootstrap";
+import {
   checkDatabaseHealth,
   getConnectionStats,
+  initializeDatabase,
+  isDatabaseConnected,
 } from "./core/database/connection";
-import { logger } from "./utils/logger";
-import {
-  initializeApplication,
-  getApplicationStatus,
-} from "./core/container/bootstrap";
+import { compressionSecurityPlugin } from "./middleware/compression-security";
 import authPlugin from "./middleware/fastify-auth";
 import validationPlugin from "./middleware/validation";
-import { apiGatewayPlugin } from "./api/gateway";
-import { compressionSecurityPlugin } from "./middleware/compression-security";
+import { logger } from "./shared/utils/logger";
 
 export const createApp = async (): Promise<FastifyInstance> => {
   // Fastify server options with proper typing
@@ -93,7 +93,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
         status: "ok",
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        version: process.env["npm_package_version"] || "1.0.0",
+        version: process.env.npm_package_version || "1.0.0",
         environment: config.env,
         database: {
           connected: isDatabaseConnected(),

@@ -1,12 +1,11 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { container } from "tsyringe";
-import { PerformanceMonitorService } from "../../../services/performance-monitor.service.js";
 import {
-  getConnectionStats,
   executeOptimizedQuery,
+  getConnectionStats,
 } from "../../../core/database/connection.js";
-import { CacheService } from "../../../services/cache.service.js";
-import { logger } from "../../../utils/logger.js";
+import { CacheService } from "../../../modules/cache/cache.service.js";
+import { logger } from "../../../shared/utils/logger.js";
 
 /**
  * Performance monitoring and optimization routes
@@ -50,7 +49,7 @@ export async function performanceRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         const metrics = await performanceMonitor.getMetrics();
 
@@ -96,7 +95,7 @@ export async function performanceRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         const report = await performanceMonitor.getPerformanceReport();
 
@@ -143,7 +142,7 @@ export async function performanceRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         // Get connection statistics
         const connectionStats = await getConnectionStats();
@@ -220,7 +219,7 @@ export async function performanceRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         const [stats, health] = await Promise.all([
           cacheService.getStats(),
@@ -402,7 +401,7 @@ export async function performanceRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         const [metrics, connectionStats, cacheHealth] = await Promise.all([
           performanceMonitor.getMetrics(),

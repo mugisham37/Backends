@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag"
+import { gql } from "graphql-tag";
 
 export const workflowTypeDefs = gql`
   enum WorkflowStepType {
@@ -157,4 +157,4 @@ export const workflowTypeDefs = gql`
     
     cancelWorkflow(entryId: ID!): WorkflowEntry!
   }
-`
+`;

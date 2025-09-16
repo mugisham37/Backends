@@ -179,7 +179,7 @@ export type Paths<T> = T extends object
  */
 export type PathValue<
   T,
-  P extends Paths<T>
+  P extends Paths<T>,
 > = P extends `${infer K}.${infer Rest}`
   ? K extends keyof T
     ? Rest extends Paths<T[K]>
@@ -187,18 +187,18 @@ export type PathValue<
       : never
     : never
   : P extends keyof T
-  ? T[P]
-  : never;
+    ? T[P]
+    : never;
 
 /**
  * Create a type that represents a constructor function
  */
-export type Constructor<T = {}> = new (...args: any[]) => T;
+export type Constructor<T = {}> = new (..._args: any[]) => T;
 
 /**
  * Create a type that represents an abstract constructor function
  */
-export type AbstractConstructor<T = {}> = abstract new (...args: any[]) => T;
+export type AbstractConstructor<T = {}> = abstract new (..._args: any[]) => T;
 
 /**
  * Create a type that represents a mixin

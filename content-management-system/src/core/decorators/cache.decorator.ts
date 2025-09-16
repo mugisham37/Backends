@@ -46,11 +46,11 @@ export interface CacheOptions {
  * @param options Cache configuration options
  */
 export function Cache(options: CacheMetadata = {}): MethodDecorator {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol,
     _descriptor: PropertyDescriptor
-  ) {
+  ) => {
     const metadata: CacheMetadata = {
       ttl: 300, // 5 minutes default
       serialize: true,
@@ -117,11 +117,11 @@ export function CacheWithTags(
 export function CacheInvalidate(
   options: CacheInvalidateMetadata = {}
 ): MethodDecorator {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol,
     _descriptor: PropertyDescriptor
-  ) {
+  ) => {
     Reflect.defineMetadata(CACHE_INVALIDATE_KEY, options, target, propertyKey);
   };
 }
@@ -169,7 +169,7 @@ export class CacheKeyGenerator {
     methodName: string,
     args: any[]
   ): string {
-    const argsHash = this.hashArgs(args);
+    const argsHash = CacheKeyGenerator.hashArgs(args);
     return `${className}:${methodName}:${argsHash}`;
   }
 
@@ -177,7 +177,7 @@ export class CacheKeyGenerator {
    * Generate cache key from user context
    */
   static fromUser(userId: string, action: string, ...params: any[]): string {
-    const paramsHash = this.hashArgs(params);
+    const paramsHash = CacheKeyGenerator.hashArgs(params);
     return `user:${userId}:${action}:${paramsHash}`;
   }
 
@@ -189,7 +189,7 @@ export class CacheKeyGenerator {
     action: string,
     ...params: any[]
   ): string {
-    const paramsHash = this.hashArgs(params);
+    const paramsHash = CacheKeyGenerator.hashArgs(params);
     return `tenant:${tenantId}:${action}:${paramsHash}`;
   }
 
@@ -201,7 +201,7 @@ export class CacheKeyGenerator {
     filters: Record<string, any> = {},
     pagination: { page?: number; limit?: number } = {}
   ): string {
-    const filterHash = this.hashArgs([filters, pagination]);
+    const filterHash = CacheKeyGenerator.hashArgs([filters, pagination]);
     return `list:${entity}:${filterHash}`;
   }
 
@@ -220,7 +220,7 @@ export class CacheKeyGenerator {
     filters: Record<string, any> = {},
     pagination: { page?: number; limit?: number } = {}
   ): string {
-    const searchHash = this.hashArgs([query, filters, pagination]);
+    const searchHash = CacheKeyGenerator.hashArgs([query, filters, pagination]);
     return `search:${searchHash}`;
   }
 
@@ -229,10 +229,10 @@ export class CacheKeyGenerator {
    */
   private static hashArgs(args: any[]): string {
     try {
-      const serialized = JSON.stringify(args, this.replacer);
-      return this.simpleHash(serialized);
+      const serialized = JSON.stringify(args, CacheKeyGenerator.replacer);
+      return CacheKeyGenerator.simpleHash(serialized);
     } catch {
-      return this.simpleHash(String(args));
+      return CacheKeyGenerator.simpleHash(String(args));
     }
   }
 
@@ -297,7 +297,7 @@ export class CacheUtils {
    * Check if method has caching enabled
    */
   static isCacheEnabled(target: any, propertyKey: string | symbol): boolean {
-    const metadata = this.getCacheMetadata(target, propertyKey);
+    const metadata = CacheUtils.getCacheMetadata(target, propertyKey);
     return metadata !== undefined;
   }
 
@@ -308,7 +308,7 @@ export class CacheUtils {
     target: any,
     propertyKey: string | symbol
   ): boolean {
-    const metadata = this.getCacheInvalidateMetadata(target, propertyKey);
+    const metadata = CacheUtils.getCacheInvalidateMetadata(target, propertyKey);
     return metadata !== undefined;
   }
 
@@ -322,7 +322,7 @@ export class CacheUtils {
     metadata?: CacheMetadata
   ): string {
     const cacheMetadata =
-      metadata || this.getCacheMetadata(target, propertyKey);
+      metadata || CacheUtils.getCacheMetadata(target, propertyKey);
 
     if (!cacheMetadata) {
       throw new Error("No cache metadata found");
@@ -442,10 +442,7 @@ export class CacheUtils {
       };
     }
 
-    if (
-      metadata.tags &&
-      metadata.tags.some((tag) => !tag || typeof tag !== "string")
-    ) {
+    if (metadata.tags?.some((tag) => !tag || typeof tag !== "string")) {
       return {
         success: false,
         error: new Error("Cache tags must be non-empty strings"),

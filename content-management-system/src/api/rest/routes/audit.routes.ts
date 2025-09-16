@@ -5,7 +5,7 @@ import type { IAuditService } from "../../../core/types/service.types";
 export const auditRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const auditService = container.resolve<IAuditService>("AuditService");
+  const _auditService = container.resolve<IAuditService>("AuditService");
 
   // Get audit logs
   fastify.get(
@@ -26,7 +26,7 @@ export const auditRoutes: FastifyPluginAsync = async (
         },
       },
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",

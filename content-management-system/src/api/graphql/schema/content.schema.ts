@@ -1,4 +1,4 @@
-import { gql } from "graphql-tag"
+import { gql } from "graphql-tag";
 
 export const contentTypeDefs = gql`
   enum ContentStatus {
@@ -110,4 +110,4 @@ export const contentTypeDefs = gql`
     
     restoreVersion(contentId: ID!, versionId: ID!): Content!
   }
-`
+`;

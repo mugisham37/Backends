@@ -1,7 +1,7 @@
 import { createApp } from "./app";
-import { logger } from "./utils/logger";
-import { config } from "./config";
+import { config } from "./shared/config";
 import { closeDatabase } from "./core/database/connection";
+import { logger } from "./shared/utils/logger";
 
 async function startServer(): Promise<void> {
   let app: Awaited<ReturnType<typeof createApp>> | null = null;

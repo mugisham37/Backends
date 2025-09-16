@@ -2,7 +2,7 @@ import type { GraphQLContext } from "../context";
 
 export const authResolvers = {
   Query: {
-    me: async (parent: any, args: any, context: GraphQLContext) => {
+    me: async (_parent: any, _args: any, context: GraphQLContext) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }
@@ -11,7 +11,7 @@ export const authResolvers = {
   },
 
   Mutation: {
-    login: async (parent: any, { input }: any, context: GraphQLContext) => {
+    login: async (_parent: any, { input }: any, context: GraphQLContext) => {
       const result = await context.dataSources.authService.authenticate(input);
 
       if (!result.success) {
@@ -21,7 +21,7 @@ export const authResolvers = {
       return result.data;
     },
 
-    logout: async (parent: any, args: any, context: GraphQLContext) => {
+    logout: async (_parent: any, _args: any, context: GraphQLContext) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }
@@ -31,13 +31,12 @@ export const authResolvers = {
     },
 
     refreshToken: async (
-      parent: any,
+      _parent: any,
       { refreshToken }: any,
       context: GraphQLContext
     ) => {
-      const result = await context.dataSources.authService.refreshToken(
-        refreshToken
-      );
+      const result =
+        await context.dataSources.authService.refreshToken(refreshToken);
 
       if (!result.success) {
         throw new Error(result.error.message);

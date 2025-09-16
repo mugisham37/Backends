@@ -56,36 +56,36 @@ export type {
 } from "./media.schema";
 
 // Schema collections for easier imports
-import { tenants, tenantRelations } from "./tenant.schema";
+import { tenantRelations, tenants } from "./tenant.schema";
 
 import {
-  users,
-  userSessions,
+  userPermissionRelations,
   userPermissions,
   userRelations,
   userSessionRelations,
-  userPermissionRelations,
+  userSessions,
+  users,
 } from "./auth.schema";
 
 import {
-  contents,
-  contentVersions,
   contentCategories,
-  contentTags,
-  contentRelations,
-  contentVersionRelations,
   contentCategoryRelations,
+  contentRelations,
   contentTagRelations,
+  contentTags,
+  contentVersionRelations,
+  contentVersions,
+  contents,
 } from "./content.schema";
 
 import {
   media,
+  mediaFolderRelations,
   mediaFolders,
+  mediaRelations,
+  mediaTransformationRelations,
   mediaTransformations,
   mediaUsage,
-  mediaRelations,
-  mediaFolderRelations,
-  mediaTransformationRelations,
   mediaUsageRelations,
 } from "./media.schema";
 

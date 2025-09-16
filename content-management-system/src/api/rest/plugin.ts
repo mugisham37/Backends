@@ -1,11 +1,11 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import { auditRoutes } from "./routes/audit.routes";
 import { authRoutes } from "./routes/auth.routes";
 import { contentRoutes } from "./routes/content.routes";
 import { mediaRoutes } from "./routes/media.routes";
-import { tenantRoutes } from "./routes/tenant.routes";
 import { searchRoutes } from "./routes/search.routes";
+import { tenantRoutes } from "./routes/tenant.routes";
 import { webhookRoutes } from "./routes/webhook.routes";
-import { auditRoutes } from "./routes/audit.routes";
 
 /**
  * REST API Plugin for Fastify
@@ -17,7 +17,7 @@ export const restApiPlugin: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
   // Add REST API specific hooks
-  fastify.addHook("preHandler", async (request, reply) => {
+  fastify.addHook("preHandler", async (_request, reply) => {
     // Add REST-specific headers
     reply.header("content-type", "application/json");
     reply.header("x-api-type", "rest");
@@ -36,7 +36,7 @@ export const restApiPlugin: FastifyPluginAsync = async (
   await fastify.register(auditRoutes, { prefix: "/audit" });
 
   // REST API documentation endpoint
-  fastify.get("/docs", async (request, reply) => {
+  fastify.get("/docs", async (_request, reply) => {
     return reply.status(200).send({
       title: "REST API Documentation",
       version: "v1",

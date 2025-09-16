@@ -2,7 +2,7 @@ import type { GraphQLContext } from "../context";
 
 export const mediaResolvers = {
   Query: {
-    media: async (parent: any, { id }: any, context: GraphQLContext) => {
+    media: async (_parent: any, { id }: any, context: GraphQLContext) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }
@@ -17,7 +17,7 @@ export const mediaResolvers = {
     },
 
     mediaFiles: async (
-      parent: any,
+      _parent: any,
       { page, limit, mimeType }: any,
       context: GraphQLContext
     ) => {
@@ -41,7 +41,7 @@ export const mediaResolvers = {
 
   Mutation: {
     uploadMedia: async (
-      parent: any,
+      _parent: any,
       { file, metadata }: any,
       context: GraphQLContext
     ) => {
@@ -70,7 +70,7 @@ export const mediaResolvers = {
       return result.data;
     },
 
-    deleteMedia: async (parent: any, { id }: any, context: GraphQLContext) => {
+    deleteMedia: async (_parent: any, { id }: any, context: GraphQLContext) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }
@@ -88,7 +88,7 @@ export const mediaResolvers = {
   Subscription: {
     mediaUploaded: {
       subscribe: async (
-        parent: any,
+        _parent: any,
         { tenantId }: any,
         context: GraphQLContext
       ) => {

@@ -1,16 +1,16 @@
+import { relations } from "drizzle-orm";
 import {
-  pgTable,
-  uuid,
-  varchar,
-  text,
-  timestamp,
+  bigint,
   boolean,
+  index,
   integer,
   jsonb,
-  index,
-  bigint,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 import { users } from "./auth.schema";
 import { tenants } from "./tenant.schema";
 

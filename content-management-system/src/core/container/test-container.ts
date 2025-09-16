@@ -5,7 +5,7 @@
  * It creates a test-specific container configuration for unit and integration tests.
  */
 
-import { container, DependencyContainer } from "tsyringe";
+import { DependencyContainer, container } from "tsyringe";
 import { vi } from "vitest";
 import { TOKENS } from "./index.js";
 

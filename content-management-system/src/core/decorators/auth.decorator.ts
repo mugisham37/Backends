@@ -25,11 +25,11 @@ export interface AuthMetadata {
 export function Auth(
   options: Partial<AuthMetadata> = {}
 ): MethodDecorator & ClassDecorator {
-  return function (
+  return (
     target: any,
     propertyKey?: string | symbol,
     _descriptor?: PropertyDescriptor
-  ) {
+  ) => {
     const metadata: AuthMetadata = {
       required: true,
       ...options,
@@ -69,11 +69,11 @@ export function RequirePermissions(
  * Decorator to allow anonymous access (override class-level auth)
  */
 export function AllowAnonymous(): MethodDecorator {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol,
     _descriptor: PropertyDescriptor
-  ) {
+  ) => {
     const metadata: AuthMetadata = {
       required: false,
       allowAnonymous: true,
@@ -160,7 +160,7 @@ export class AuthMetadataUtils {
    * Check if authentication is required
    */
   static isAuthRequired(target: any, propertyKey?: string | symbol): boolean {
-    const metadata = this.getAuthMetadata(target, propertyKey);
+    const metadata = AuthMetadataUtils.getAuthMetadata(target, propertyKey);
     return metadata?.required ?? false;
   }
 
@@ -171,7 +171,7 @@ export class AuthMetadataUtils {
     target: any,
     propertyKey?: string | symbol
   ): boolean {
-    const metadata = this.getAuthMetadata(target, propertyKey);
+    const metadata = AuthMetadataUtils.getAuthMetadata(target, propertyKey);
     return metadata?.allowAnonymous ?? false;
   }
 
@@ -182,7 +182,7 @@ export class AuthMetadataUtils {
     target: any,
     propertyKey?: string | symbol
   ): string[] {
-    const metadata = this.getAuthMetadata(target, propertyKey);
+    const metadata = AuthMetadataUtils.getAuthMetadata(target, propertyKey);
     return metadata?.roles ?? [];
   }
 
@@ -193,7 +193,7 @@ export class AuthMetadataUtils {
     target: any,
     propertyKey?: string | symbol
   ): string[] {
-    const metadata = this.getAuthMetadata(target, propertyKey);
+    const metadata = AuthMetadataUtils.getAuthMetadata(target, propertyKey);
     return metadata?.permissions ?? [];
   }
 
@@ -215,7 +215,7 @@ export class AuthMetadataUtils {
     if (requiredPermissions.length === 0) return true;
     if (!user.permissions) return false;
     return requiredPermissions.every((permission) =>
-      user.permissions!.includes(permission)
+      user.permissions?.includes(permission)
     );
   }
 
@@ -227,7 +227,7 @@ export class AuthMetadataUtils {
     target: any,
     propertyKey?: string | symbol
   ): { allowed: boolean; reason?: string } {
-    const metadata = this.getAuthMetadata(target, propertyKey);
+    const metadata = AuthMetadataUtils.getAuthMetadata(target, propertyKey);
 
     if (!metadata || metadata.allowAnonymous) {
       return { allowed: true };
@@ -244,7 +244,7 @@ export class AuthMetadataUtils {
     const requiredRoles = metadata.roles ?? [];
     if (
       requiredRoles.length > 0 &&
-      !this.hasRequiredRoles(user, requiredRoles)
+      !AuthMetadataUtils.hasRequiredRoles(user, requiredRoles)
     ) {
       return {
         allowed: false,
@@ -257,7 +257,7 @@ export class AuthMetadataUtils {
     const requiredPermissions = metadata.permissions ?? [];
     if (
       requiredPermissions.length > 0 &&
-      !this.hasRequiredPermissions(user, requiredPermissions)
+      !AuthMetadataUtils.hasRequiredPermissions(user, requiredPermissions)
     ) {
       return {
         allowed: false,

@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import mercurius from "mercurius";
-import { buildSchema } from "./schema/index";
-import { buildResolvers } from "./resolvers/index";
 import { buildContext } from "./context";
+import { buildResolvers } from "./resolvers/index";
+import { buildSchema } from "./schema/index";
 
 /**
  * GraphQL API Plugin for Fastify using Mercurius
@@ -76,7 +76,7 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
   });
 
   // GraphQL health check
-  fastify.get("/health", async (request, reply) => {
+  fastify.get("/health", async (_request, reply) => {
     return reply.status(200).send({
       status: "healthy",
       service: "graphql",

@@ -1,19 +1,19 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { IContentService } from "../../../core/types/service.types";
-import { validate } from "../../../middleware/zod-validation";
+import type { IContentService } from "../../../modules/content/content.types";
+import { validate } from "../../../shared/middleware/zod-validation";
 import {
-  createContentSchema,
-  updateContentSchema,
-  contentQuerySchema,
-  contentParamsSchema,
-  contentVersionQuerySchema,
+  type ContentParams,
+  type ContentQueryParams,
+  type ContentVersionQuery,
   type CreateContentRequest,
   type UpdateContentRequest,
-  type ContentQueryParams,
-  type ContentParams,
-  type ContentVersionQuery,
-} from "../../../validations/zod/content.schemas";
+  contentParamsSchema,
+  contentQuerySchema,
+  contentVersionQuerySchema,
+  createContentSchema,
+  updateContentSchema,
+} from "../../../modules/content/content.schemas";
 
 /**
  * Content Management REST Routes

@@ -1,8 +1,8 @@
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { getDatabase, getConnectionPool } from "./connection.js";
-import { dbLogger } from "../../utils/logger.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { dbLogger } from "../../shared/utils/logger.js";
+import { getConnectionPool, getDatabase } from "./connection.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,7 +95,7 @@ export const checkMigrationStatus = async (): Promise<{
       ) as exists
     `;
 
-    if (!migrationTableExists[0]?.["exists"]) {
+    if (!migrationTableExists[0]?.exists) {
       return {
         pending: true,
         appliedCount: 0,
@@ -107,7 +107,7 @@ export const checkMigrationStatus = async (): Promise<{
       SELECT COUNT(*) as count FROM __drizzle_migrations
     `;
 
-    const appliedCount = Number(appliedMigrations[0]?.["count"] || 0);
+    const appliedCount = Number(appliedMigrations[0]?.count || 0);
 
     dbLogger.info(`Found ${appliedCount} applied migrations`);
 
@@ -197,7 +197,7 @@ export const validateSchema = async (): Promise<{
       AND table_type = 'BASE TABLE'
     `;
 
-    const existingTableNames = existingTables.map((row) => row["table_name"]);
+    const existingTableNames = existingTables.map((row) => row.table_name);
     const missingTables = expectedTables.filter(
       (table) => !existingTableNames.includes(table)
     );

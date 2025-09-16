@@ -1,9 +1,9 @@
-import { eq, and, or, inArray, sql, desc, asc } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { PgSelect } from "drizzle-orm/pg-core";
-import type { DrizzleDatabase } from "./connection";
-import { CacheService } from "../../services/cache.service";
-import { logger } from "../../utils/logger";
 import { container } from "tsyringe";
+import { CacheService } from "../../modules/cache/cache.service";
+import { logger } from "../../shared/utils/logger";
+import type { DrizzleDatabase } from "./connection";
 
 /**
  * Database query optimization utilities
@@ -24,7 +24,7 @@ export class QueryOptimizer {
   async executeWithCache<T>(
     queryKey: string,
     queryFn: () => Promise<T>,
-    ttlSeconds: number = 300 // 5 minutes default
+    ttlSeconds = 300 // 5 minutes default
   ): Promise<T> {
     // Check cache first
     const cached = await this.cache.get<T>(queryKey);
@@ -58,7 +58,7 @@ export class QueryOptimizer {
     ids: K[],
     queryFn: (ids: K[]) => Promise<T[]>,
     keyExtractor: (item: T) => K,
-    ttlSeconds: number = 300
+    ttlSeconds = 300
   ): Promise<Map<K, T>> {
     if (ids.length === 0) {
       return new Map();
@@ -170,8 +170,8 @@ export class QueryOptimizer {
    */
   async paginateQuery<T>(
     baseQuery: PgSelect,
-    page: number = 1,
-    limit: number = 20,
+    page = 1,
+    limit = 20,
     cacheKey?: string
   ): Promise<{
     data: T[];
@@ -326,7 +326,7 @@ export class QueryBuilder {
    * Build efficient sorting query
    */
   static buildSortQuery(
-    sortBy: string = "created_at",
+    sortBy = "created_at",
     sortOrder: "asc" | "desc" = "desc"
   ) {
     const column = sql.identifier(sortBy);

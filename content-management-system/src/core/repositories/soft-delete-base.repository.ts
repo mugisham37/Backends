@@ -1,13 +1,13 @@
-import { eq, and, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
-import { BaseRepository } from "./base.repository.js";
+import { DatabaseError } from "../errors/database.error.js";
 import type {
+  FilterOptions,
   ISoftDeleteRepository,
   SoftDeleteEntity,
-  FilterOptions,
 } from "../types/database.types.js";
 import type { Result } from "../types/result.types.js";
-import { DatabaseError } from "../errors/database.error.js";
+import { BaseRepository } from "./base.repository.js";
 
 /**
  * Base repository for entities with soft delete functionality
@@ -15,7 +15,7 @@ import { DatabaseError } from "../errors/database.error.js";
  */
 export abstract class SoftDeleteBaseRepository<
     T extends SoftDeleteEntity,
-    K = string
+    K = string,
   >
   extends BaseRepository<T, K>
   implements ISoftDeleteRepository<T, K>

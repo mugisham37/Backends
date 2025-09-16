@@ -1,7 +1,7 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { container } from "tsyringe";
 import type { IAuthService } from "../../core/types/service.types";
-import { createDataLoaders, type DataLoaders } from "./dataloaders";
+import { type DataLoaders, createDataLoaders } from "./dataloaders";
 
 /**
  * GraphQL Context Builder
@@ -32,7 +32,7 @@ export const buildContext = async (
   let user = null;
   const authHeader = request.headers.authorization;
 
-  if (authHeader && authHeader.startsWith("Bearer ")) {
+  if (authHeader?.startsWith("Bearer ")) {
     try {
       const token = authHeader.substring(7);
       const authService = container.resolve<IAuthService>("AuthService");

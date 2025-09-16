@@ -5,14 +5,14 @@
  * that work with tsyringe and provide additional functionality.
  */
 
-import { injectable, inject, singleton } from "tsyringe";
-import { logger } from "../../utils/logger";
+import { inject, injectable, singleton } from "tsyringe";
+import { logger } from "../../shared/utils/logger";
 
 /**
  * Service decorator that marks a class as injectable and optionally registers it
  */
 export function Service(_token?: string, isSingleton = true) {
-  return function <T extends new (...args: any[]) => any>(constructor: T): any {
+  return <T extends new (..._args: any[]) => any>(constructor: T): any => {
     // Apply injectable decorator first
     injectable()(constructor);
 
@@ -29,7 +29,7 @@ export function Service(_token?: string, isSingleton = true) {
  * Repository decorator for data access layer classes
  */
 export function Repository(token?: string) {
-  return function <T extends new (...args: any[]) => any>(constructor: T) {
+  return <T extends new (..._args: any[]) => any>(constructor: T) => {
     // Repositories are always singletons
     return Service(token, true)(constructor);
   };
@@ -39,7 +39,7 @@ export function Repository(token?: string) {
  * Controller decorator for API controllers
  */
 export function Controller(prefix?: string) {
-  return function <T extends new (...args: any[]) => any>(constructor: T) {
+  return <T extends new (..._args: any[]) => any>(constructor: T) => {
     // Controllers are always singletons
     const decoratedClass = Service(undefined, true)(constructor);
 
@@ -56,20 +56,19 @@ export function Controller(prefix?: string) {
  * Middleware decorator for Fastify middleware
  */
 export function Middleware() {
-  return function <T extends new (...args: any[]) => any>(constructor: T) {
-    return Service(undefined, true)(constructor);
-  };
+  return <T extends new (..._args: any[]) => any>(constructor: T) =>
+    Service(undefined, true)(constructor);
 }
 
 /**
  * Enhanced Inject decorator with validation
  */
 export function Inject(token: string, optional = false) {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol | undefined,
     parameterIndex: number
-  ) {
+  ) => {
     // Apply tsyringe inject decorator
     inject(token)(target, propertyKey, parameterIndex);
 
@@ -84,11 +83,11 @@ export function Inject(token: string, optional = false) {
  * InjectLogger decorator for automatic logger injection
  */
 export function InjectLogger() {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol | undefined,
     parameterIndex: number
-  ) {
+  ) => {
     inject("Logger")(target, propertyKey, parameterIndex);
   };
 }
@@ -97,11 +96,11 @@ export function InjectLogger() {
  * InjectConfig decorator for automatic configuration injection
  */
 export function InjectConfig() {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol | undefined,
     parameterIndex: number
-  ) {
+  ) => {
     inject("Config")(target, propertyKey, parameterIndex);
   };
 }
@@ -110,11 +109,11 @@ export function InjectConfig() {
  * InjectDatabase decorator for automatic database injection
  */
 export function InjectDatabase() {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol | undefined,
     parameterIndex: number
-  ) {
+  ) => {
     inject("Database")(target, propertyKey, parameterIndex);
   };
 }
@@ -123,7 +122,7 @@ export function InjectDatabase() {
  * Lazy injection decorator for circular dependency resolution
  */
 export function InjectLazy(token: string) {
-  return function (target: any, propertyKey: string) {
+  return (target: any, propertyKey: string) => {
     // Create a getter that resolves the dependency lazily
     Object.defineProperty(target, propertyKey, {
       get: function () {
@@ -148,11 +147,7 @@ export function InjectLazy(token: string) {
  * PostConstruct decorator for initialization methods
  */
 export function PostConstruct() {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     // Store metadata about post-construct methods
     const existingMethods =
       Reflect.getMetadata("lifecycle:postConstruct", target.constructor) || [];
@@ -171,11 +166,7 @@ export function PostConstruct() {
  * PreDestroy decorator for cleanup methods
  */
 export function PreDestroy() {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     // Store metadata about pre-destroy methods
     const existingMethods =
       Reflect.getMetadata("lifecycle:preDestroy", target.constructor) || [];
@@ -194,11 +185,11 @@ export function PreDestroy() {
  * Conditional injection decorator
  */
 export function InjectIf(token: string, condition: () => boolean) {
-  return function (
+  return (
     target: any,
     propertyKey: string | symbol | undefined,
     parameterIndex: number
-  ) {
+  ) => {
     if (condition()) {
       inject(token)(target, propertyKey, parameterIndex);
     }
@@ -209,11 +200,7 @@ export function InjectIf(token: string, condition: () => boolean) {
  * Profile decorator for performance monitoring
  */
 export function Profile(name?: string) {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
     const profileName = name || `${target.constructor.name}.${propertyKey}`;
 
@@ -239,11 +226,11 @@ export function Profile(name?: string) {
  * Retry decorator for automatic retry logic
  */
 export function Retry(attempts = 3, delay = 1000) {
-  return function (
+  return (
     _target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor
-  ) {
+  ) => {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
@@ -281,11 +268,11 @@ export function Retry(attempts = 3, delay = 1000) {
  * Validate decorator for input validation
  */
 export function ValidateInput(schema: any) {
-  return function (
+  return (
     _target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor
-  ) {
+  ) => {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
@@ -310,11 +297,11 @@ export function ValidateInput(schema: any) {
  * Transaction decorator for database transactions
  */
 export function Transactional() {
-  return function (
+  return (
     _target: any,
     _propertyKey: string,
     descriptor: PropertyDescriptor
-  ) {
+  ) => {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {

@@ -1,9 +1,9 @@
 import { container } from "tsyringe";
-import { UserRepository } from "./user.repository.js";
-import { TenantRepository } from "./tenant.repository.js";
 import { ContentRepository } from "./content.repository.js";
-import { MediaRepository } from "./media.repository.js";
 import { REPOSITORY_TOKENS } from "./index.js";
+import { MediaRepository } from "./media.repository.js";
+import { TenantRepository } from "./tenant.repository.js";
+import { UserRepository } from "./user.repository.js";
 
 /**
  * Register all repositories with the dependency injection container

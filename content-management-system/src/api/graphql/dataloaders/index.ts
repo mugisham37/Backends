@@ -1,10 +1,10 @@
 import DataLoader from "dataloader";
 import { container } from "tsyringe";
 import type {
-  IUserService,
-  ITenantService,
   IContentService,
   IMediaService,
+  ITenantService,
+  IUserService,
 } from "../../../core/types/service.types";
 
 /**

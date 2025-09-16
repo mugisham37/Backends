@@ -18,11 +18,7 @@ export interface ValidationConfig {
  * Method decorator for validating service method inputs and outputs
  */
 export function Validate(config: ValidationConfig) {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
@@ -86,7 +82,7 @@ export function Validate(config: ValidationConfig) {
  * Class decorator for validating all methods in a service class
  */
 export function ValidateClass(defaultConfig: ValidationConfig = {}) {
-  return function <T extends { new (...args: any[]): {} }>(constructor: T) {
+  return <T extends { new (...args: any[]): {} }>(constructor: T) => {
     const prototype = constructor.prototype;
     const methodNames = Object.getOwnPropertyNames(prototype).filter(
       (name) => name !== "constructor" && typeof prototype[name] === "function"
@@ -108,12 +104,8 @@ export function ValidateClass(defaultConfig: ValidationConfig = {}) {
 /**
  * Parameter decorator for validating specific parameters
  */
-export function ValidateParam(schema: ZodSchema, paramIndex: number = 0) {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
+export function ValidateParam(schema: ZodSchema, paramIndex = 0) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {

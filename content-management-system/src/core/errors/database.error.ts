@@ -46,7 +46,7 @@ export class ConnectionError extends DatabaseError {
   public override readonly statusCode = 503;
 
   constructor(
-    message: string = "Database connection failed",
+    message = "Database connection failed",
     cause?: unknown,
     context?: Record<string, unknown>
   ) {

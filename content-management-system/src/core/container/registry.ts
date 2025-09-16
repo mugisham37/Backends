@@ -5,9 +5,9 @@
  * in the dependency injection container.
  */
 
-import { containerConfig, TOKENS } from "./index";
-import { config } from "../../config";
-import { logger } from "../../utils/logger";
+import { config } from "../../shared/config";
+import { logger } from "../../shared/utils/logger";
+import { TOKENS, containerConfig } from "./index";
 
 // Import database connection
 import { db } from "../database/connection";
@@ -42,7 +42,7 @@ export function registerInfrastructure(): void {
 
     // Only add password if it's defined
     if (config.redis.password) {
-      redisOptions["password"] = config.redis.password;
+      redisOptions.password = config.redis.password;
     }
 
     return new Redis(config.redis.uri, redisOptions);
@@ -61,19 +61,19 @@ export function registerRepositories(): void {
   const repositories = [
     {
       token: TOKENS.UserRepository,
-      path: "../../repositories/user.repository",
+      path: "../../modules/auth/auth.repository",
     },
     {
       token: TOKENS.TenantRepository,
-      path: "../../repositories/tenant.repository",
+      path: "../../modules/tenant/tenant.repository",
     },
     {
       token: TOKENS.ContentRepository,
-      path: "../../repositories/content.repository",
+      path: "../../modules/content/content.repository",
     },
     {
       token: TOKENS.MediaRepository,
-      path: "../../repositories/media.repository",
+      path: "../../modules/media/media.repository",
     },
   ];
 
@@ -92,7 +92,7 @@ export function registerRepositories(): void {
             error.message
           );
         });
-    } catch (error) {
+    } catch (_error) {
       logger.warn(`Repository ${repo.token} not found, skipping...`);
     }
   }
@@ -108,21 +108,26 @@ export function registerServices(): void {
 
   // Import services dynamically to avoid circular dependencies
   const services = [
-    { token: TOKENS.AuthService, path: "../../services/auth.service" },
-    { token: TOKENS.TenantService, path: "../../services/tenant.service" },
-    { token: TOKENS.ContentService, path: "../../services/content.service" },
+    { token: TOKENS.AuthService, path: "../../modules/auth/auth.service" },
     {
-      token: TOKENS.MediaService,
-      path: "../../services/media-adapter.service",
+      token: TOKENS.TenantService,
+      path: "../../modules/tenant/tenant.service",
     },
-    { token: TOKENS.SearchService, path: "../../services/search.service" },
-    { token: TOKENS.CacheService, path: "../../services/cache.service" },
-    { token: "QueueService", path: "../../services/queue.service" },
-    { token: TOKENS.WebhookService, path: "../../services/webhook.service" },
-    { token: TOKENS.AuditService, path: "../../services/audit.service" },
-    { token: "MonitoringService", path: "../../services/monitoring.service" },
-    // Register the original MediaService with a different token
-    { token: "OriginalMediaService", path: "../../services/media.service" },
+    {
+      token: TOKENS.ContentService,
+      path: "../../modules/content/content.service",
+    },
+    { token: TOKENS.MediaService, path: "../../modules/media/media.service" },
+    {
+      token: TOKENS.SearchService,
+      path: "../../modules/search/search.service",
+    },
+    { token: TOKENS.CacheService, path: "../../modules/cache/cache.service" },
+    {
+      token: TOKENS.WebhookService,
+      path: "../../modules/webhook/webhook.service",
+    },
+    { token: TOKENS.AuditService, path: "../../modules/audit/audit.service" },
   ];
 
   for (const service of services) {
@@ -140,7 +145,7 @@ export function registerServices(): void {
             error.message
           );
         });
-    } catch (error) {
+    } catch (_error) {
       logger.warn(`Service ${service.token} not found, skipping...`);
     }
   }

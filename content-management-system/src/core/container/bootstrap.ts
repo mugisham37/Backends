@@ -5,12 +5,12 @@
  * and application startup sequence.
  */
 
-import "reflect-metadata";
 import { FastifyInstance } from "fastify";
-import { containerConfig, getContainer, TOKENS } from "./index";
+import "reflect-metadata";
+import { config } from "../../shared/config";
+import { logger } from "../../shared/utils/logger";
+import { TOKENS, containerConfig, getContainer } from "./index";
 import { registerAllServices, registerTestServices } from "./registry";
-import { logger } from "../../utils/logger";
-import { config } from "../../config";
 
 /**
  * Application bootstrap class
@@ -252,7 +252,7 @@ export class ApplicationBootstrap {
           // Service exists and can be resolved
           services[token] = "up";
         }
-      } catch (error) {
+      } catch (_error) {
         services[token] = "down";
         overallStatus = "unhealthy";
       }

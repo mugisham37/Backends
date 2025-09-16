@@ -2,7 +2,7 @@ import type { GraphQLContext } from "../context";
 
 export const tenantResolvers = {
   Query: {
-    tenant: async (parent: any, { id }: any, context: GraphQLContext) => {
+    tenant: async (_parent: any, { id }: any, context: GraphQLContext) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }
@@ -17,7 +17,7 @@ export const tenantResolvers = {
     },
 
     tenants: async (
-      parent: any,
+      _parent: any,
       { page, limit }: any,
       context: GraphQLContext
     ) => {
@@ -39,7 +39,7 @@ export const tenantResolvers = {
 
   Mutation: {
     createTenant: async (
-      parent: any,
+      _parent: any,
       { input }: any,
       context: GraphQLContext
     ) => {
@@ -47,9 +47,8 @@ export const tenantResolvers = {
         throw new Error("Authentication required");
       }
 
-      const result = await context.dataSources.tenantService.createTenant(
-        input
-      );
+      const result =
+        await context.dataSources.tenantService.createTenant(input);
 
       if (!result.success) {
         throw new Error(result.error.message);
@@ -59,7 +58,7 @@ export const tenantResolvers = {
     },
 
     updateTenant: async (
-      parent: any,
+      _parent: any,
       { id, input }: any,
       context: GraphQLContext
     ) => {
@@ -79,7 +78,11 @@ export const tenantResolvers = {
       return result.data;
     },
 
-    deleteTenant: async (parent: any, { id }: any, context: GraphQLContext) => {
+    deleteTenant: async (
+      _parent: any,
+      { id }: any,
+      context: GraphQLContext
+    ) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }

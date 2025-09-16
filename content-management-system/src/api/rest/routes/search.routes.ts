@@ -5,7 +5,7 @@ import type { ISearchService } from "../../../core/types/service.types";
 export const searchRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const searchService = container.resolve<ISearchService>("SearchService");
+  const _searchService = container.resolve<ISearchService>("SearchService");
 
   // Search endpoint
   fastify.get(
@@ -25,7 +25,7 @@ export const searchRoutes: FastifyPluginAsync = async (
         },
       },
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",

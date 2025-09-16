@@ -1,15 +1,15 @@
+import { relations } from "drizzle-orm";
 import {
-  pgTable,
-  uuid,
-  varchar,
-  text,
-  timestamp,
   boolean,
+  index,
   integer,
   jsonb,
-  index,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 import { users } from "./auth.schema";
 import { tenants } from "./tenant.schema";
 

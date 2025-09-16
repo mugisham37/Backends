@@ -5,7 +5,7 @@ import type { ITenantService } from "../../../core/types/service.types";
 export const tenantRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const tenantService = container.resolve<ITenantService>("TenantService");
+  const _tenantService = container.resolve<ITenantService>("TenantService");
 
   // Get all tenants for user
   fastify.get(
@@ -13,7 +13,7 @@ export const tenantRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",
@@ -29,7 +29,7 @@ export const tenantRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",
@@ -45,7 +45,7 @@ export const tenantRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",
@@ -61,7 +61,7 @@ export const tenantRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",
@@ -77,7 +77,7 @@ export const tenantRoutes: FastifyPluginAsync = async (
     {
       preHandler: [fastify.authenticate],
     },
-    async (request, reply) => {
+    async (_request, reply) => {
       // Implementation placeholder
       return reply.status(501).send({
         error: "Not Implemented",

@@ -1,13 +1,13 @@
 import type { IResolvers } from "mercurius";
 import { authResolvers } from "./auth.resolvers";
-import { tenantResolvers } from "./tenant.resolvers";
+import { contentTypeResolvers } from "./content-type.resolvers";
 import { contentResolvers } from "./content.resolvers";
 import { mediaResolvers } from "./media.resolvers";
 import { searchResolvers } from "./search.resolvers";
+import { tenantResolvers } from "./tenant.resolvers";
 import { userResolvers } from "./user.resolvers";
 import { webhookResolvers } from "./webhook.resolvers";
 import { workflowResolvers } from "./workflow.resolvers";
-import { contentTypeResolvers } from "./content-type.resolvers";
 
 /**
  * GraphQL Resolvers Builder
@@ -71,44 +71,44 @@ export const buildResolvers = (): IResolvers => {
 
     // Type resolvers for relationships using DataLoaders
     User: {
-      tenant: async (parent: any, args: any, context: any) => {
+      tenant: async (parent: any, _args: any, context: any) => {
         if (!parent.tenantId) return null;
         return context.loaders.tenantLoader.load(parent.tenantId);
       },
     },
 
     Tenant: {
-      users: async (parent: any, args: any, context: any) => {
+      users: async (parent: any, _args: any, context: any) => {
         return context.loaders.usersByTenantLoader.load(parent.id);
       },
-      contents: async (parent: any, args: any, context: any) => {
+      contents: async (parent: any, _args: any, context: any) => {
         return context.loaders.contentsByTenantLoader.load(parent.id);
       },
     },
 
     Content: {
-      tenant: async (parent: any, args: any, context: any) => {
+      tenant: async (parent: any, _args: any, context: any) => {
         return context.loaders.tenantLoader.load(parent.tenantId);
       },
-      author: async (parent: any, args: any, context: any) => {
+      author: async (parent: any, _args: any, context: any) => {
         return context.loaders.userLoader.load(parent.authorId);
       },
-      versions: async (parent: any, args: any, context: any) => {
+      versions: async (parent: any, _args: any, context: any) => {
         return context.loaders.contentVersionsLoader.load(parent.id);
       },
     },
 
     ContentVersion: {
-      content: async (parent: any, args: any, context: any) => {
+      content: async (parent: any, _args: any, context: any) => {
         return context.loaders.contentLoader.load(parent.contentId);
       },
     },
 
     Media: {
-      tenant: async (parent: any, args: any, context: any) => {
+      tenant: async (parent: any, _args: any, context: any) => {
         return context.loaders.tenantLoader.load(parent.tenantId);
       },
-      uploader: async (parent: any, args: any, context: any) => {
+      uploader: async (parent: any, _args: any, context: any) => {
         return context.loaders.userLoader.load(parent.uploadedBy);
       },
     },
