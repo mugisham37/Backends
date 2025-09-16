@@ -59,7 +59,7 @@ export abstract class BaseError extends Error {
       isOperational: this.isOperational,
       timestamp: this.timestamp.toISOString(),
       context: this.context,
-      ...(process.env.NODE_ENV === "development" && {
+      ...(process.env["NODE_ENV"] === "development" && {
         stack: this.stack,
         cause: this.cause,
       }),

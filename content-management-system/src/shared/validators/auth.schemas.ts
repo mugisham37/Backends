@@ -4,7 +4,7 @@ import {
   passwordSchema,
   successResponseSchema,
   uuidSchema,
-} from "../../shared/validators/common.schemas.js";
+} from "./common.schemas.js";
 
 /**
  * Zod validation schemas for authentication endpoints

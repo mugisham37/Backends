@@ -6,25 +6,25 @@
  */
 
 // Common schemas and utilities
-export * from "./common.schemas.js";
+export * from "./common.schemas.ts";
 
 // Authentication schemas
-export * from "./auth.schemas.js";
+export * from "./auth.schemas.ts";
 
 // User management schemas
-export * from "./user.schemas.js";
+export * from "./user.schemas.ts";
 
 // Tenant management schemas
-export * from "./tenant.schemas.js";
+export * from "./tenant.schemas.ts";
 
 // Content management schemas
-export * from "./content.schemas.js";
+export * from "./content.schemas.ts";
 
 // Media management schemas
-export * from "./media.schemas.js";
+export * from "./media.schemas.ts";
 
 // Webhook management schemas
-export * from "./webhook.schemas.js";
+export * from "./webhook.schemas.ts";
 
 // Re-export zod for convenience
 export { z } from "zod";
@@ -35,79 +35,79 @@ export { z } from "zod";
 export const ValidationSchemas = {
   // Authentication
   Auth: {
-    login: () => import("./auth.schemas.js").then((m) => m.loginSchema),
-    register: () => import("./auth.schemas.js").then((m) => m.registerSchema),
+    login: () => import("./auth.schemas.ts").then((m) => m.loginSchema),
+    register: () => import("./auth.schemas.ts").then((m) => m.registerSchema),
     refreshToken: () =>
-      import("./auth.schemas.js").then((m) => m.refreshTokenSchema),
+      import("./auth.schemas.ts").then((m) => m.refreshTokenSchema),
     changePassword: () =>
-      import("./auth.schemas.js").then((m) => m.changePasswordSchema),
+      import("./auth.schemas.ts").then((m) => m.changePasswordSchema),
     forgotPassword: () =>
-      import("./auth.schemas.js").then((m) => m.forgotPasswordSchema),
+      import("./auth.schemas.ts").then((m) => m.forgotPasswordSchema),
     resetPassword: () =>
-      import("./auth.schemas.js").then((m) => m.resetPasswordSchema),
+      import("./auth.schemas.ts").then((m) => m.resetPasswordSchema),
   },
 
   // Users
   User: {
-    create: () => import("./user.schemas.js").then((m) => m.createUserSchema),
-    update: () => import("./user.schemas.js").then((m) => m.updateUserSchema),
+    create: () => import("./user.schemas.ts").then((m) => m.createUserSchema),
+    update: () => import("./user.schemas.ts").then((m) => m.updateUserSchema),
     updateProfile: () =>
-      import("./user.schemas.js").then((m) => m.updateProfileSchema),
-    query: () => import("./user.schemas.js").then((m) => m.userQuerySchema),
+      import("./user.schemas.ts").then((m) => m.updateProfileSchema),
+    query: () => import("./user.schemas.ts").then((m) => m.userQuerySchema),
   },
 
   // Tenants
   Tenant: {
     create: () =>
-      import("./tenant.schemas.js").then((m) => m.createTenantSchema),
+      import("./tenant.schemas.ts").then((m) => m.createTenantSchema),
     update: () =>
-      import("./tenant.schemas.js").then((m) => m.updateTenantSchema),
-    query: () => import("./tenant.schemas.js").then((m) => m.tenantQuerySchema),
+      import("./tenant.schemas.ts").then((m) => m.updateTenantSchema),
+    query: () => import("./tenant.schemas.ts").then((m) => m.tenantQuerySchema),
     inviteUser: () =>
-      import("./tenant.schemas.js").then((m) => m.inviteTenantUserSchema),
+      import("./tenant.schemas.ts").then((m) => m.inviteTenantUserSchema),
   },
 
   // Content
   Content: {
     create: () =>
-      import("./content.schemas.js").then((m) => m.createContentSchema),
+      import("./content.schemas.ts").then((m) => m.createContentSchema),
     update: () =>
-      import("./content.schemas.js").then((m) => m.updateContentSchema),
+      import("./content.schemas.ts").then((m) => m.updateContentSchema),
     query: () =>
-      import("./content.schemas.js").then((m) => m.contentQuerySchema),
+      import("./content.schemas.ts").then((m) => m.contentQuerySchema),
     publish: () =>
-      import("./content.schemas.js").then((m) => m.publishContentSchema),
+      import("./content.schemas.ts").then((m) => m.publishContentSchema),
   },
 
   // Media
   Media: {
-    upload: () => import("./media.schemas.js").then((m) => m.uploadMediaSchema),
-    update: () => import("./media.schemas.js").then((m) => m.updateMediaSchema),
-    query: () => import("./media.schemas.js").then((m) => m.mediaQuerySchema),
+    upload: () => import("./media.schemas.ts").then((m) => m.uploadMediaSchema),
+    update: () => import("./media.schemas.ts").then((m) => m.updateMediaSchema),
+    query: () => import("./media.schemas.ts").then((m) => m.mediaQuerySchema),
     transform: () =>
-      import("./media.schemas.js").then((m) => m.imageTransformSchema),
+      import("./media.schemas.ts").then((m) => m.imageTransformSchema),
   },
 
   // Webhooks
   Webhook: {
     create: () =>
-      import("./webhook.schemas.js").then((m) => m.createWebhookSchema),
+      import("./webhook.schemas.ts").then((m) => m.createWebhookSchema),
     update: () =>
-      import("./webhook.schemas.js").then((m) => m.updateWebhookSchema),
+      import("./webhook.schemas.ts").then((m) => m.updateWebhookSchema),
     query: () =>
-      import("./webhook.schemas.js").then((m) => m.webhookQuerySchema),
-    test: () => import("./webhook.schemas.js").then((m) => m.testWebhookSchema),
+      import("./webhook.schemas.ts").then((m) => m.webhookQuerySchema),
+    test: () => import("./webhook.schemas.ts").then((m) => m.testWebhookSchema),
   },
 
   // Common
   Common: {
     pagination: () =>
-      import("./common.schemas.js").then((m) => m.paginationQuerySchema),
+      import("./common.schemas.ts").then((m) => m.paginationQuerySchema),
     search: () =>
-      import("./common.schemas.js").then((m) => m.searchQuerySchema),
-    idParams: () => import("./common.schemas.js").then((m) => m.idParamsSchema),
+      import("./common.schemas.ts").then((m) => m.searchQuerySchema),
+    idParams: () => import("./common.schemas.ts").then((m) => m.idParamsSchema),
     fileUpload: () =>
-      import("./common.schemas.js").then((m) => m.fileUploadSchema),
+      import("./common.schemas.ts").then((m) => m.fileUploadSchema),
   },
 } as const;
 
@@ -116,73 +116,73 @@ export const ValidationSchemas = {
  */
 export const EndpointSchemas = {
   Auth: {
-    login: () => import("./auth.schemas.js").then((m) => m.loginEndpoint),
-    register: () => import("./auth.schemas.js").then((m) => m.registerEndpoint),
+    login: () => import("./auth.schemas.ts").then((m) => m.loginEndpoint),
+    register: () => import("./auth.schemas.ts").then((m) => m.registerEndpoint),
     refreshToken: () =>
-      import("./auth.schemas.js").then((m) => m.refreshTokenEndpoint),
+      import("./auth.schemas.ts").then((m) => m.refreshTokenEndpoint),
     changePassword: () =>
-      import("./auth.schemas.js").then((m) => m.changePasswordEndpoint),
+      import("./auth.schemas.ts").then((m) => m.changePasswordEndpoint),
     forgotPassword: () =>
-      import("./auth.schemas.js").then((m) => m.forgotPasswordEndpoint),
+      import("./auth.schemas.ts").then((m) => m.forgotPasswordEndpoint),
     resetPassword: () =>
-      import("./auth.schemas.js").then((m) => m.resetPasswordEndpoint),
+      import("./auth.schemas.ts").then((m) => m.resetPasswordEndpoint),
   },
 
   User: {
-    create: () => import("./user.schemas.js").then((m) => m.createUserEndpoint),
-    update: () => import("./user.schemas.js").then((m) => m.updateUserEndpoint),
-    get: () => import("./user.schemas.js").then((m) => m.getUserEndpoint),
-    list: () => import("./user.schemas.js").then((m) => m.listUsersEndpoint),
+    create: () => import("./user.schemas.ts").then((m) => m.createUserEndpoint),
+    update: () => import("./user.schemas.ts").then((m) => m.updateUserEndpoint),
+    get: () => import("./user.schemas.ts").then((m) => m.getUserEndpoint),
+    list: () => import("./user.schemas.ts").then((m) => m.listUsersEndpoint),
     updateProfile: () =>
-      import("./user.schemas.js").then((m) => m.updateProfileEndpoint),
+      import("./user.schemas.ts").then((m) => m.updateProfileEndpoint),
   },
 
   Tenant: {
     create: () =>
-      import("./tenant.schemas.js").then((m) => m.createTenantEndpoint),
+      import("./tenant.schemas.ts").then((m) => m.createTenantEndpoint),
     update: () =>
-      import("./tenant.schemas.js").then((m) => m.updateTenantEndpoint),
-    get: () => import("./tenant.schemas.js").then((m) => m.getTenantEndpoint),
+      import("./tenant.schemas.ts").then((m) => m.updateTenantEndpoint),
+    get: () => import("./tenant.schemas.ts").then((m) => m.getTenantEndpoint),
     list: () =>
-      import("./tenant.schemas.js").then((m) => m.listTenantsEndpoint),
+      import("./tenant.schemas.ts").then((m) => m.listTenantsEndpoint),
     inviteUser: () =>
-      import("./tenant.schemas.js").then((m) => m.inviteTenantUserEndpoint),
+      import("./tenant.schemas.ts").then((m) => m.inviteTenantUserEndpoint),
   },
 
   Content: {
     create: () =>
-      import("./content.schemas.js").then((m) => m.createContentEndpoint),
+      import("./content.schemas.ts").then((m) => m.createContentEndpoint),
     update: () =>
-      import("./content.schemas.js").then((m) => m.updateContentEndpoint),
-    get: () => import("./content.schemas.js").then((m) => m.getContentEndpoint),
+      import("./content.schemas.ts").then((m) => m.updateContentEndpoint),
+    get: () => import("./content.schemas.ts").then((m) => m.getContentEndpoint),
     list: () =>
-      import("./content.schemas.js").then((m) => m.listContentEndpoint),
+      import("./content.schemas.ts").then((m) => m.listContentEndpoint),
     publish: () =>
-      import("./content.schemas.js").then((m) => m.publishContentEndpoint),
+      import("./content.schemas.ts").then((m) => m.publishContentEndpoint),
   },
 
   Media: {
     upload: () =>
-      import("./media.schemas.js").then((m) => m.uploadMediaEndpoint),
+      import("./media.schemas.ts").then((m) => m.uploadMediaEndpoint),
     update: () =>
-      import("./media.schemas.js").then((m) => m.updateMediaEndpoint),
-    get: () => import("./media.schemas.js").then((m) => m.getMediaEndpoint),
-    list: () => import("./media.schemas.js").then((m) => m.listMediaEndpoint),
+      import("./media.schemas.ts").then((m) => m.updateMediaEndpoint),
+    get: () => import("./media.schemas.ts").then((m) => m.getMediaEndpoint),
+    list: () => import("./media.schemas.ts").then((m) => m.listMediaEndpoint),
     generateCdnUrl: () =>
-      import("./media.schemas.js").then((m) => m.generateCdnUrlEndpoint),
+      import("./media.schemas.ts").then((m) => m.generateCdnUrlEndpoint),
     bulkDelete: () =>
-      import("./media.schemas.js").then((m) => m.bulkDeleteMediaEndpoint),
+      import("./media.schemas.ts").then((m) => m.bulkDeleteMediaEndpoint),
   },
 
   Webhook: {
     create: () =>
-      import("./webhook.schemas.js").then((m) => m.createWebhookEndpoint),
+      import("./webhook.schemas.ts").then((m) => m.createWebhookEndpoint),
     update: () =>
-      import("./webhook.schemas.js").then((m) => m.updateWebhookEndpoint),
-    get: () => import("./webhook.schemas.js").then((m) => m.getWebhookEndpoint),
+      import("./webhook.schemas.ts").then((m) => m.updateWebhookEndpoint),
+    get: () => import("./webhook.schemas.ts").then((m) => m.getWebhookEndpoint),
     list: () =>
-      import("./webhook.schemas.js").then((m) => m.listWebhooksEndpoint),
+      import("./webhook.schemas.ts").then((m) => m.listWebhooksEndpoint),
     test: () =>
-      import("./webhook.schemas.js").then((m) => m.testWebhookEndpoint),
+      import("./webhook.schemas.ts").then((m) => m.testWebhookEndpoint),
   },
 } as const;

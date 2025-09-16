@@ -7,7 +7,7 @@ import {
   slugValidation,
   successResponseSchema,
   uuidSchema,
-} from "../../shared/validators/common.schemas.js";
+} from "./common.schemas.js";
 
 /**
  * Zod validation schemas for content management endpoints

@@ -148,9 +148,13 @@ export class ContentRepository extends TenantBaseRepository<Content> {
       // Add status filter
       if (options.status) {
         if (Array.isArray(options.status)) {
-          conditions.push(
-            or(...options.status.map((status) => eq(contents.status, status)))
-          );
+          if (options.status.length > 0) {
+            conditions.push(
+              or(
+                ...options.status.map((status) => eq(contents.status, status))
+              )!
+            );
+          }
         } else {
           conditions.push(eq(contents.status, options.status));
         }
@@ -159,9 +163,11 @@ export class ContentRepository extends TenantBaseRepository<Content> {
       // Add type filter
       if (options.type) {
         if (Array.isArray(options.type)) {
-          conditions.push(
-            or(...options.type.map((type) => eq(contents.contentType, type)))
-          );
+          if (options.type.length > 0) {
+            conditions.push(
+              or(...options.type.map((type) => eq(contents.contentType, type)))!
+            );
+          }
         } else {
           conditions.push(eq(contents.contentType, options.type));
         }

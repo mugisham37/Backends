@@ -7,7 +7,7 @@ import {
   successResponseSchema,
   urlValidation,
   uuidSchema,
-} from "../../shared/validators/common.schemas.js";
+} from "./common.schemas.js";
 
 /**
  * Zod validation schemas for webhook management endpoints
