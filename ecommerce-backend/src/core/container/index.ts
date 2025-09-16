@@ -1,0 +1,114 @@
+/**
+ * Container exports
+ * Central export point for dependency injection
+ */
+
+export * from "./registry";
+
+// Service registration helper
+import { container } from "./registry";
+import { getDatabase } from "../database/connection";
+
+// Repositories
+import { UserRepository } from "../repositories/user.repository";
+import { VendorRepository } from "../repositories/vendor.repository";
+import { ProductRepository } from "../repositories/product.repository";
+import { OrderRepository } from "../repositories/order.repository";
+
+// Services
+import { ProductService } from "../../modules/ecommerce/products/product.service";
+import { VendorService } from "../../modules/ecommerce/vendors/vendor.service";
+import { OrderService } from "../../modules/ecommerce/orders/order.service";
+
+// Use Cases
+import {
+  CreateProductUseCase,
+  UpdateProductUseCase,
+  GetProductUseCase,
+} from "../../modules/ecommerce/products/use-cases";
+import {
+  CreateVendorUseCase,
+  ApproveVendorUseCase,
+} from "../../modules/ecommerce/vendors/use-cases";
+import {
+  CreateOrderUseCase,
+  UpdateOrderStatusUseCase,
+} from "../../modules/ecommerce/orders/use-cases";
+
+/**
+ * Register all services in the container
+ */
+export function registerServices(): void {
+  // Register database
+  container.registerInstance("database", getDatabase());
+
+  // Register repositories
+  container.registerClass("userRepository", UserRepository, {
+    dependencies: ["database"],
+  });
+
+  container.registerClass("vendorRepository", VendorRepository, {
+    dependencies: ["database"],
+  });
+
+  container.registerClass("productRepository", ProductRepository, {
+    dependencies: ["database"],
+  });
+
+  container.registerClass("orderRepository", OrderRepository, {
+    dependencies: ["database"],
+  });
+
+  // Register services
+  container.registerClass("productService", ProductService, {
+    dependencies: ["productRepository", "vendorRepository"],
+  });
+
+  container.registerClass("vendorService", VendorService, {
+    dependencies: ["vendorRepository", "userRepository"],
+  });
+
+  container.registerClass("orderService", OrderService, {
+    dependencies: ["orderRepository", "productRepository", "userRepository"],
+  });
+
+  // Register use cases
+  container.registerClass("createProductUseCase", CreateProductUseCase, {
+    dependencies: ["productService"],
+  });
+
+  container.registerClass("updateProductUseCase", UpdateProductUseCase, {
+    dependencies: ["productService"],
+  });
+
+  container.registerClass("getProductUseCase", GetProductUseCase, {
+    dependencies: ["productService"],
+  });
+
+  container.registerClass("createVendorUseCase", CreateVendorUseCase, {
+    dependencies: ["vendorService"],
+  });
+
+  container.registerClass("approveVendorUseCase", ApproveVendorUseCase, {
+    dependencies: ["vendorService"],
+  });
+
+  container.registerClass("createOrderUseCase", CreateOrderUseCase, {
+    dependencies: ["orderService"],
+  });
+
+  container.registerClass(
+    "updateOrderStatusUseCase",
+    UpdateOrderStatusUseCase,
+    {
+      dependencies: ["orderService"],
+    }
+  );
+}
+
+/**
+ * Get a service from the container
+ */
+export function getService<T>(name: string): T {
+  return container.resolve<T>(name);
+}

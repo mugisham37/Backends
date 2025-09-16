@@ -35,7 +35,7 @@
   - Test migration process with sample data using scripts/seed-data.ts
   - _Requirements: 1.1, 1.2, 1.4_
 
-- [ ] 2. Core Business Logic Layer Implementation
+- [x] 2. Core Business Logic Layer Implementation
 
   - Implement repository pattern for data access layer
   - Create clean service classes with reduced complexity
@@ -43,7 +43,7 @@
   - Set up dependency injection container
   - _Requirements: 2.1, 2.2, 2.3, 7.1, 7.4_
 
-- [ ] 2.1 Create repository layer with Drizzle ORM
+- [x] 2.1 Create repository layer with Drizzle ORM
 
   - Implement core/repositories/base.repository.ts with base repository interface and abstract class
   - Create specific repositories in core/repositories/ (user.repository.ts, vendor.repository.ts, product.repository.ts, order.repository.ts)
@@ -51,7 +51,7 @@
   - Add repository unit tests using Vitest
   - _Requirements: 1.2, 1.3, 2.1, 2.2, 7.1_
 
-- [ ] 2.2 Implement clean service layer
+- [x] 2.2 Implement clean service layer
 
   - Create modular services in modules/ecommerce/ (products/product.service.ts, vendors/vendor.service.ts, orders/order.service.ts)
   - Refactor existing services to reduce from 800+ lines to 200-300 lines each
@@ -60,7 +60,7 @@
   - Add service unit tests with mocking using Vitest
   - _Requirements: 2.1, 2.2, 2.5, 7.3_
 
-- [ ] 2.3 Create use-case classes for application logic
+- [x] 2.3 Create use-case classes for application logic
 
   - Set up core/container/ for dependency injection with registry.ts
   - Implement use-case classes within each module (e.g., modules/ecommerce/vendors/vendor.service.ts)
