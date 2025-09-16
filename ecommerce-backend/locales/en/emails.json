@@ -1,0 +1,76 @@
+{
+  "welcome": {
+    "subject": "Welcome to {{storeName}}!",
+    "greeting": "Hello {{firstName}},",
+    "message": "Thank you for creating an account with us. We're excited to have you as a customer!",
+    "benefits": "With your new account, you can:",
+    "benefit1": "Track your orders",
+    "benefit2": "View your order history",
+    "benefit3": "Update your profile information",
+    "benefit4": "Save your favorite products",
+    "support": "If you have any questions or need assistance, please don't hesitate to contact our customer support team.",
+    "cta": "Visit Our Store"
+  },
+  "orderConfirmation": {
+    "subject": "Order Confirmation #{{orderId}}",
+    "greeting": "Thank you for your order, {{firstName}}!",
+    "message": "Your order has been received and is being processed. Here's a summary of your purchase:",
+    "orderDetails": "Order Details",
+    "orderNumber": "Order Number:",
+    "orderDate": "Order Date:",
+    "itemsOrdered": "Items Ordered",
+    "product": "Product",
+    "quantity": "Qty",
+    "price": "Price",
+    "total": "Total",
+    "subtotal": "Subtotal:",
+    "tax": "Tax:",
+    "shipping": "Shipping:",
+    "totalAmount": "Total:",
+    "shippingAddress": "Shipping Address",
+    "trackingMessage": "You will receive another email when your order ships. You can also check the status of your order by clicking the button below.",
+    "cta": "View Order"
+  },
+  "orderShipped": {
+    "subject": "Your Order #{{orderId}} Has Shipped!",
+    "greeting": "Hello {{firstName}},",
+    "message": "Great news! Your order #{{orderId}} is on its way to you.",
+    "trackingInfo": "Tracking Information",
+    "trackingNumber": "Tracking Number:",
+    "estimatedDelivery": "Estimated Delivery:",
+    "trackingMessage": "You can track your package by clicking the button below:",
+    "trackCta": "Track Package",
+    "support": "If you have any questions about your order, please don't hesitate to contact our customer support team.",
+    "cta": "View Order Details"
+  },
+  "orderDelivered": {
+    "subject": "Your Order #{{orderId}} Has Been Delivered!",
+    "greeting": "Hello {{firstName}},",
+    "message": "Your order #{{orderId}} has been delivered! We hope you're enjoying your purchase.",
+    "support": "If you have any issues with your order, please contact our customer support team right away.",
+    "feedback": "How was your experience?",
+    "feedbackMessage": "We'd love to hear your thoughts! Please take a moment to share your feedback about your purchase.",
+    "reviewCta": "Write a Review",
+    "orderCta": "View Order",
+    "thanks": "Thank you for shopping with us!"
+  },
+  "passwordReset": {
+    "subject": "Password Reset Request",
+    "greeting": "Hello {{firstName}},",
+    "message": "We received a request to reset your password. If you didn't make this request, you can safely ignore this email.",
+    "instruction": "To reset your password, click the button below. This link will expire in {{expiryTime}}.",
+    "cta": "Reset Password",
+    "warning": "Security Notice: If you didn't request a password reset, please contact our support team immediately as your account may be at risk.",
+    "alternative": "If the button above doesn't work, you can copy and paste the following link into your browser:"
+  },
+  "reviewRequest": {
+    "subject": "Share Your Thoughts on Your Recent Purchase",
+    "greeting": "Hello {{firstName}},",
+    "message": "Thank you for your recent purchase! We hope you're enjoying your new items.",
+    "feedback": "Your feedback is incredibly valuable to us and helps other customers make informed decisions. Would you mind taking a moment to share your thoughts?",
+    "recentPurchase": "Your Recent Purchase (Order #{{orderId}})",
+    "reviewCta": "Write a Review",
+    "orderCta": "View Order",
+    "thanks": "Thank you for being a valued customer!"
+  }
+}
