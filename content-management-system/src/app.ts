@@ -2,16 +2,13 @@ import fastify, {
   type FastifyInstance,
   type FastifyServerOptions,
 } from "fastify";
-import cors from "@fastify/cors";
-import helmet from "@fastify/helmet";
-import rateLimit from "@fastify/rate-limit";
-import compress from "@fastify/compress";
 import multipart from "@fastify/multipart";
 import { config } from "./config";
 import {
   initializeDatabase,
   isDatabaseConnected,
   checkDatabaseHealth,
+  getConnectionStats,
 } from "./core/database/connection";
 import { logger } from "./utils/logger";
 import {
@@ -21,6 +18,7 @@ import {
 import authPlugin from "./middleware/fastify-auth";
 import validationPlugin from "./middleware/validation";
 import { apiGatewayPlugin } from "./api/gateway";
+import { compressionSecurityPlugin } from "./middleware/compression-security";
 
 export const createApp = async (): Promise<FastifyInstance> => {
   // Fastify server options with proper typing
@@ -57,11 +55,8 @@ export const createApp = async (): Promise<FastifyInstance> => {
     // Initialize dependency injection container
     await initializeApplication(app);
 
-    // Register compression plugin
-    await app.register(compress, {
-      global: true,
-      encodings: ["gzip", "deflate"],
-    });
+    // Register optimized compression and security middleware
+    await app.register(compressionSecurityPlugin);
 
     // Register multipart support for file uploads
     await app.register(multipart, {
@@ -73,47 +68,8 @@ export const createApp = async (): Promise<FastifyInstance> => {
         files: 5,
         headerPairs: 2000,
       },
-    });
-
-    // Register security plugins
-    await app.register(helmet, {
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
-        },
-      },
-      crossOriginEmbedderPolicy: false,
-    });
-
-    // Register CORS
-    await app.register(cors, {
-      origin: config.cors.origin,
-      credentials: config.cors.credentials,
-      methods: config.cors.methods,
-      allowedHeaders: config.cors.allowedHeaders,
-    });
-
-    // Register rate limiting
-    await app.register(rateLimit, {
-      max: config.rateLimit.max,
-      timeWindow: config.rateLimit.windowMs,
-      standardHeaders: config.rateLimit.standardHeaders,
-      legacyHeaders: config.rateLimit.legacyHeaders,
-      errorResponseBuilder: (_request, context) => ({
-        code: 429,
-        error: "Too Many Requests",
-        message: `Rate limit exceeded, retry in ${context.ttl}ms`,
-        date: Date.now(),
-        expiresIn: context.ttl,
-      }),
+      attachFieldsToBody: true,
+      sharedSchemaId: "MultipartFileType",
     });
 
     // Register authentication plugin
@@ -125,9 +81,14 @@ export const createApp = async (): Promise<FastifyInstance> => {
     // Register unified API gateway
     await app.register(apiGatewayPlugin);
 
-    // Health check endpoint
+    // Health check endpoint with enhanced metrics
     app.get("/health", async (_request, reply) => {
       const appStatus = getApplicationStatus();
+      const dbHealth = await checkDatabaseHealth();
+      const connectionStats = isDatabaseConnected()
+        ? await getConnectionStats()
+        : null;
+
       const healthStatus = {
         status: "ok",
         timestamp: new Date().toISOString(),
@@ -136,7 +97,12 @@ export const createApp = async (): Promise<FastifyInstance> => {
         environment: config.env,
         database: {
           connected: isDatabaseConnected(),
-          health: await checkDatabaseHealth(),
+          health: dbHealth,
+          ...(connectionStats && {
+            queryMetrics: connectionStats.queryMetrics,
+            poolHealth: connectionStats.poolHealth.healthy,
+            recommendations: connectionStats.recommendations,
+          }),
         },
         container: {
           initialized: appStatus.initialized,
@@ -144,6 +110,11 @@ export const createApp = async (): Promise<FastifyInstance> => {
           services: appStatus.serviceCount,
         },
         memory: process.memoryUsage(),
+        performance: {
+          nodeVersion: process.version,
+          platform: process.platform,
+          arch: process.arch,
+        },
       };
 
       return reply.status(200).send(healthStatus);
