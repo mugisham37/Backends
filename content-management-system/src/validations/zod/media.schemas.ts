@@ -1,33 +1,78 @@
 import { z } from "zod";
+import {
+  uuidSchema,
+  paginationQuerySchema,
+  searchQuerySchema,
+  idParamsSchema,
+  fileUploadSchema,
+  successResponseSchema,
+  paginatedResponseSchema,
+} from "./common.schemas.js";
 
 /**
  * Zod validation schemas for media management endpoints
  */
 
-export const uploadMediaSchema = z.object({
-  filename: z.string().min(1, "Filename is required"),
-  mimetype: z.string().min(1, "MIME type is required"),
-  size: z.number().min(1, "File size must be greater than 0"),
-  alt: z.string().optional(),
-  caption: z.string().optional(),
+export const uploadMediaSchema = fileUploadSchema.extend({
+  alt: z
+    .string()
+    .max(255, "Alt text must be less than 255 characters")
+    .optional(),
+  caption: z
+    .string()
+    .max(500, "Caption must be less than 500 characters")
+    .optional(),
   tags: z.array(z.string()).optional(),
+  folderId: uuidSchema.optional(),
+  isPublic: z.boolean().default(true),
   metadata: z.record(z.any()).optional(),
 });
 
-export const mediaParamsSchema = z.object({
-  id: z.string().uuid("Invalid media ID format"),
+export const updateMediaSchema = z.object({
+  filename: z.string().min(1, "Filename is required").optional(),
+  alt: z
+    .string()
+    .max(255, "Alt text must be less than 255 characters")
+    .optional(),
+  caption: z
+    .string()
+    .max(500, "Caption must be less than 500 characters")
+    .optional(),
+  tags: z.array(z.string()).optional(),
+  folderId: uuidSchema.optional(),
+  isPublic: z.boolean().optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
-export const mediaQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.enum(["image", "video", "audio", "document"]).optional(),
-  search: z.string().optional(),
-  tags: z.string().optional(), // Comma-separated tags
-  sortBy: z
-    .enum(["createdAt", "updatedAt", "filename", "size"])
-    .default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+export const mediaQuerySchema = paginationQuerySchema
+  .merge(searchQuerySchema)
+  .extend({
+    type: z.enum(["image", "video", "audio", "document", "other"]).optional(),
+    mimetype: z.string().optional(),
+    folderId: uuidSchema.optional(),
+    isPublic: z.coerce.boolean().optional(),
+    tags: z.string().optional(), // Comma-separated tags
+    minSize: z.coerce.number().int().min(0).optional(),
+    maxSize: z.coerce.number().int().min(0).optional(),
+    sortBy: z
+      .enum(["createdAt", "updatedAt", "filename", "size", "downloads"])
+      .default("createdAt"),
+  });
+
+export const bulkDeleteMediaSchema = z.object({
+  mediaIds: z.array(uuidSchema).min(1, "At least one media ID is required"),
+});
+
+export const createFolderSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Folder name is required")
+    .max(255, "Name must be less than 255 characters"),
+  parentId: uuidSchema.optional(),
+  description: z
+    .string()
+    .max(500, "Description must be less than 500 characters")
+    .optional(),
 });
 
 export const imageTransformSchema = z.object({

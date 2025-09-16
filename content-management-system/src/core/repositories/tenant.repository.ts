@@ -1,4 +1,4 @@
-import { eq, ilike, and, count } from "drizzle-orm";
+import { eq, ilike, and, count, ne } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository.js";
 import { tenants, users } from "../database/schema/index.js";
@@ -34,7 +34,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find tenant by slug", String(error)),
+        error: new DatabaseError(
+          "Failed to find tenant by slug",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -57,7 +60,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find tenant by domain", error),
+        error: new DatabaseError(
+          "Failed to find tenant by domain",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -84,7 +90,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to search tenants", error),
+        error: new DatabaseError(
+          "Failed to search tenants",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -104,7 +113,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find active tenants", error),
+        error: new DatabaseError(
+          "Failed to find active tenants",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -117,24 +129,25 @@ export class TenantRepository extends BaseRepository<Tenant> {
     excludeId?: string
   ): Promise<Result<boolean, Error>> {
     try {
-      let query = this.db
+      const conditions = excludeId
+        ? and(eq(tenants.slug, slug.toLowerCase()), ne(tenants.id, excludeId))
+        : eq(tenants.slug, slug.toLowerCase());
+
+      const result = await this.db
         .select({ count: count() })
         .from(tenants)
-        .where(eq(tenants.slug, slug.toLowerCase()));
+        .where(conditions);
 
-      if (excludeId) {
-        query = query.where(
-          and(eq(tenants.slug, slug.toLowerCase()), eq(tenants.id, excludeId))
-        );
-      }
-
-      const [{ count: tenantCount }] = await query;
+      const tenantCount = result[0]?.count ?? 0;
 
       return { success: true, data: tenantCount === 0 };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to check slug availability", error),
+        error: new DatabaseError(
+          "Failed to check slug availability",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -147,27 +160,28 @@ export class TenantRepository extends BaseRepository<Tenant> {
     excludeId?: string
   ): Promise<Result<boolean, Error>> {
     try {
-      let query = this.db
+      const conditions = excludeId
+        ? and(
+            eq(tenants.domain, domain.toLowerCase()),
+            ne(tenants.id, excludeId)
+          )
+        : eq(tenants.domain, domain.toLowerCase());
+
+      const result = await this.db
         .select({ count: count() })
         .from(tenants)
-        .where(eq(tenants.domain, domain.toLowerCase()));
+        .where(conditions);
 
-      if (excludeId) {
-        query = query.where(
-          and(
-            eq(tenants.domain, domain.toLowerCase()),
-            eq(tenants.id, excludeId)
-          )
-        );
-      }
-
-      const [{ count: tenantCount }] = await query;
+      const tenantCount = result[0]?.count ?? 0;
 
       return { success: true, data: tenantCount === 0 };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to check domain availability", error),
+        error: new DatabaseError(
+          "Failed to check domain availability",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -197,7 +211,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to activate tenant", error),
+        error: new DatabaseError(
+          "Failed to activate tenant",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -227,7 +244,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to deactivate tenant", error),
+        error: new DatabaseError(
+          "Failed to deactivate tenant",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -260,7 +280,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to update tenant settings", error),
+        error: new DatabaseError(
+          "Failed to update tenant settings",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -283,10 +306,12 @@ export class TenantRepository extends BaseRepository<Tenant> {
         return { success: true, data: null };
       }
 
-      const [{ count: userCount }] = await this.db
+      const result = await this.db
         .select({ count: count() })
         .from(users)
         .where(and(eq(users.tenantId, tenantId), eq(users.isActive, true)));
+
+      const userCount = result[0]?.count ?? 0;
 
       return {
         success: true,
@@ -300,7 +325,7 @@ export class TenantRepository extends BaseRepository<Tenant> {
         success: false,
         error: new DatabaseError(
           "Failed to find tenant with user count",
-          error
+          error instanceof Error ? error.message : String(error)
         ),
       };
     }
@@ -314,24 +339,24 @@ export class TenantRepository extends BaseRepository<Tenant> {
     activeOnly = true
   ): Promise<Result<User[], Error>> {
     try {
-      let query = this.db
+      const conditions = activeOnly
+        ? and(eq(users.tenantId, tenantId), eq(users.isActive, true))
+        : eq(users.tenantId, tenantId);
+
+      const result = await this.db
         .select()
         .from(users)
-        .where(eq(users.tenantId, tenantId));
-
-      if (activeOnly) {
-        query = query.where(
-          and(eq(users.tenantId, tenantId), eq(users.isActive, true))
-        );
-      }
-
-      const result = await query.orderBy(users.email);
+        .where(conditions)
+        .orderBy(users.email);
 
       return { success: true, data: result };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get tenant users", error),
+        error: new DatabaseError(
+          "Failed to get tenant users",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -350,17 +375,17 @@ export class TenantRepository extends BaseRepository<Tenant> {
     >
   > {
     try {
-      const [totalUsersResult] = await this.db
+      const totalUsersResult = await this.db
         .select({ count: count() })
         .from(users)
         .where(eq(users.tenantId, tenantId));
 
-      const [activeUsersResult] = await this.db
+      const activeUsersResult = await this.db
         .select({ count: count() })
         .from(users)
         .where(and(eq(users.tenantId, tenantId), eq(users.isActive, true)));
 
-      const [adminUsersResult] = await this.db
+      const adminUsersResult = await this.db
         .select({ count: count() })
         .from(users)
         .where(
@@ -374,15 +399,18 @@ export class TenantRepository extends BaseRepository<Tenant> {
       return {
         success: true,
         data: {
-          totalUsers: totalUsersResult.count,
-          activeUsers: activeUsersResult.count,
-          adminUsers: adminUsersResult.count,
+          totalUsers: totalUsersResult[0]?.count ?? 0,
+          activeUsers: activeUsersResult[0]?.count ?? 0,
+          adminUsers: adminUsersResult[0]?.count ?? 0,
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get tenant statistics", error),
+        error: new DatabaseError(
+          "Failed to get tenant statistics",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -402,12 +430,15 @@ export class TenantRepository extends BaseRepository<Tenant> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find tenant by subdomain", error),
+        error: new DatabaseError(
+          "Failed to find tenant by subdomain",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -439,7 +470,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find tenants for user", error),
+        error: new DatabaseError(
+          "Failed to find tenants for user",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -449,16 +483,19 @@ export class TenantRepository extends BaseRepository<Tenant> {
    */
   async getUserCount(tenantId: string): Promise<Result<number, Error>> {
     try {
-      const [result] = await this.db
+      const result = await this.db
         .select({ count: count() })
         .from(users)
         .where(and(eq(users.tenantId, tenantId), eq(users.isActive, true)));
 
-      return { success: true, data: result.count };
+      return { success: true, data: result[0]?.count ?? 0 };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get user count", error),
+        error: new DatabaseError(
+          "Failed to get user count",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -466,7 +503,7 @@ export class TenantRepository extends BaseRepository<Tenant> {
   /**
    * Get content count for tenant
    */
-  async getContentCount(tenantId: string): Promise<Result<number, Error>> {
+  async getContentCount(_tenantId: string): Promise<Result<number, Error>> {
     try {
       // This would need to be implemented when content schema is available
       // For now, return 0
@@ -474,7 +511,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get content count", error),
+        error: new DatabaseError(
+          "Failed to get content count",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -482,7 +522,7 @@ export class TenantRepository extends BaseRepository<Tenant> {
   /**
    * Get media count for tenant
    */
-  async getMediaCount(tenantId: string): Promise<Result<number, Error>> {
+  async getMediaCount(_tenantId: string): Promise<Result<number, Error>> {
     try {
       // This would need to be implemented when media schema is available
       // For now, return 0
@@ -490,7 +530,10 @@ export class TenantRepository extends BaseRepository<Tenant> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get media count", error),
+        error: new DatabaseError(
+          "Failed to get media count",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }

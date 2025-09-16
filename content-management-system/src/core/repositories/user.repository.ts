@@ -8,7 +8,6 @@ import {
 } from "../database/schema/index.js";
 import type {
   User,
-  NewUser,
   UserSession,
   UserPermission,
 } from "../database/schema/index.js";
@@ -38,12 +37,15 @@ export class UserRepository extends TenantBaseRepository<User> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find user by email", error),
+        error: new DatabaseError(
+          "Failed to find user by email",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -69,14 +71,14 @@ export class UserRepository extends TenantBaseRepository<User> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
         error: new DatabaseError(
           "Failed to find user by email in tenant",
-          error
+          error instanceof Error ? error.message : String(error)
         ),
       };
     }
@@ -90,28 +92,24 @@ export class UserRepository extends TenantBaseRepository<User> {
     tenantId?: string
   ): Promise<Result<User[], Error>> {
     try {
-      let query = this.db
-        .select()
-        .from(users)
-        .where(and(eq(users.role, role), eq(users.isActive, true)));
-
-      if (tenantId) {
-        query = query.where(
-          and(
+      const conditions = tenantId
+        ? and(
             eq(users.role, role),
             eq(users.isActive, true),
             eq(users.tenantId, tenantId)
           )
-        );
-      }
+        : and(eq(users.role, role), eq(users.isActive, true));
 
-      const result = await query;
+      const result = await this.db.select().from(users).where(conditions);
 
       return { success: true, data: result };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find users by role", error),
+        error: new DatabaseError(
+          "Failed to find users by role",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -126,45 +124,35 @@ export class UserRepository extends TenantBaseRepository<User> {
   ): Promise<Result<User[], Error>> {
     try {
       const searchPattern = `%${query.toLowerCase()}%`;
+      const searchConditions = or(
+        ilike(users.email, searchPattern),
+        ilike(users.firstName, searchPattern),
+        ilike(users.lastName, searchPattern),
+        ilike(users.displayName, searchPattern)
+      );
 
-      let dbQuery = this.db
-        .select()
-        .from(users)
-        .where(
-          and(
-            eq(users.isActive, true),
-            or(
-              ilike(users.email, searchPattern),
-              ilike(users.firstName, searchPattern),
-              ilike(users.lastName, searchPattern),
-              ilike(users.displayName, searchPattern)
-            )
-          )
-        )
-        .limit(limit);
-
-      if (tenantId) {
-        dbQuery = dbQuery.where(
-          and(
+      const conditions = tenantId
+        ? and(
             eq(users.isActive, true),
             eq(users.tenantId, tenantId),
-            or(
-              ilike(users.email, searchPattern),
-              ilike(users.firstName, searchPattern),
-              ilike(users.lastName, searchPattern),
-              ilike(users.displayName, searchPattern)
-            )
+            searchConditions
           )
-        );
-      }
+        : and(eq(users.isActive, true), searchConditions);
 
-      const result = await dbQuery;
+      const result = await this.db
+        .select()
+        .from(users)
+        .where(conditions)
+        .limit(limit);
 
       return { success: true, data: result };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to search users", error),
+        error: new DatabaseError(
+          "Failed to search users",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -186,7 +174,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to update last login", error),
+        error: new DatabaseError(
+          "Failed to update last login",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -200,7 +191,6 @@ export class UserRepository extends TenantBaseRepository<User> {
         .update(users)
         .set({
           isEmailVerified: true,
-          emailVerifiedAt: new Date(),
           emailVerificationToken: null,
           updatedAt: new Date(),
         })
@@ -218,7 +208,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to verify email", error),
+        error: new DatabaseError(
+          "Failed to verify email",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -245,7 +238,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to set password reset token", error),
+        error: new DatabaseError(
+          "Failed to set password reset token",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -268,7 +264,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to clear password reset token", error),
+        error: new DatabaseError(
+          "Failed to clear password reset token",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -295,7 +294,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to update password", error),
+        error: new DatabaseError(
+          "Failed to update password",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -325,7 +327,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to deactivate user", error),
+        error: new DatabaseError(
+          "Failed to deactivate user",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -355,7 +360,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to activate user", error),
+        error: new DatabaseError(
+          "Failed to activate user",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -395,7 +403,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find user with sessions", error),
+        error: new DatabaseError(
+          "Failed to find user with sessions",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -416,7 +427,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to get user permissions", error),
+        error: new DatabaseError(
+          "Failed to get user permissions",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -427,7 +441,7 @@ export class UserRepository extends TenantBaseRepository<User> {
   async createSession(sessionData: {
     userId: string;
     tokenHash: string;
-    refreshTokenHash: string;
+    refreshTokenHash?: string;
     deviceInfo?: any;
     expiresAt: Date;
   }): Promise<Result<UserSession, Error>> {
@@ -437,18 +451,30 @@ export class UserRepository extends TenantBaseRepository<User> {
         .values({
           userId: sessionData.userId,
           tokenHash: sessionData.tokenHash,
-          refreshTokenHash: sessionData.refreshTokenHash,
-          deviceInfo: sessionData.deviceInfo,
+          refreshTokenHash: sessionData.refreshTokenHash ?? null,
+          deviceInfo: sessionData.deviceInfo ?? null,
           expiresAt: sessionData.expiresAt,
           isActive: true,
         })
         .returning();
 
+      if (!result) {
+        return {
+          success: false,
+          error: new DatabaseError(
+            "Failed to create session - no result returned"
+          ),
+        };
+      }
+
       return { success: true, data: result };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to create session", error),
+        error: new DatabaseError(
+          "Failed to create session",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -468,12 +494,15 @@ export class UserRepository extends TenantBaseRepository<User> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find session by token", error),
+        error: new DatabaseError(
+          "Failed to find session by token",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -493,14 +522,14 @@ export class UserRepository extends TenantBaseRepository<User> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
         error: new DatabaseError(
           "Failed to find session by refresh token",
-          error
+          error instanceof Error ? error.message : String(error)
         ),
       };
     }
@@ -523,7 +552,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to invalidate session", error),
+        error: new DatabaseError(
+          "Failed to invalidate session",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -545,7 +577,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to invalidate user sessions", error),
+        error: new DatabaseError(
+          "Failed to invalidate user sessions",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -565,12 +600,15 @@ export class UserRepository extends TenantBaseRepository<User> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find user by reset token", error),
+        error: new DatabaseError(
+          "Failed to find user by reset token",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -597,7 +635,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to reset password", error),
+        error: new DatabaseError(
+          "Failed to reset password",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
@@ -627,7 +668,10 @@ export class UserRepository extends TenantBaseRepository<User> {
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to check user permission", error),
+        error: new DatabaseError(
+          "Failed to check user permission",
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }

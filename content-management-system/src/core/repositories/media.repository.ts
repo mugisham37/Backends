@@ -161,39 +161,29 @@ export class MediaRepository extends TenantBaseRepository<Media> {
     try {
       const searchPattern = `%${query.toLowerCase()}%`;
 
-      let dbQuery = this.db
-        .select()
-        .from(media)
-        .where(
-          and(
-            eq(media.tenantId, tenantId),
-            or(
-              ilike(media.filename, searchPattern),
-              ilike(media.originalName, searchPattern),
-              ilike(media.alt, searchPattern),
-              ilike(media.caption, searchPattern),
-              ilike(media.description, searchPattern)
-            )
-          )
-        )
-        .limit(limit)
-        .orderBy(desc(media.createdAt));
+      // Build base where conditions
+      const searchConditions = or(
+        ilike(media.filename, searchPattern),
+        ilike(media.originalName, searchPattern),
+        ilike(media.alt, searchPattern),
+        ilike(media.caption, searchPattern),
+        ilike(media.description, searchPattern)
+      );
 
-      if (mediaType) {
-        dbQuery = dbQuery.where(
-          and(
+      const whereConditions = mediaType
+        ? and(
             eq(media.tenantId, tenantId),
             eq(media.mediaType, mediaType),
-            or(
-              ilike(media.filename, searchPattern),
-              ilike(media.originalName, searchPattern),
-              ilike(media.alt, searchPattern),
-              ilike(media.caption, searchPattern),
-              ilike(media.description, searchPattern)
-            )
+            searchConditions
           )
-        ) as typeof dbQuery;
-      }
+        : and(eq(media.tenantId, tenantId), searchConditions);
+
+      const dbQuery = this.db
+        .select()
+        .from(media)
+        .where(whereConditions)
+        .limit(limit)
+        .orderBy(desc(media.createdAt));
 
       const result = await dbQuery;
 
@@ -220,30 +210,33 @@ export class MediaRepository extends TenantBaseRepository<Media> {
     limit = 50
   ): Promise<Result<Media[], Error>> {
     try {
-      let query = this.db
+      // Build where conditions
+      let whereConditions = eq(media.isPublic, true);
+
+      if (tenantId && mediaType) {
+        whereConditions = and(
+          eq(media.isPublic, true),
+          eq(media.tenantId, tenantId),
+          eq(media.mediaType, mediaType)
+        )!;
+      } else if (tenantId) {
+        whereConditions = and(
+          eq(media.isPublic, true),
+          eq(media.tenantId, tenantId)
+        )!;
+      } else if (mediaType) {
+        whereConditions = and(
+          eq(media.isPublic, true),
+          eq(media.mediaType, mediaType)
+        )!;
+      }
+
+      const query = this.db
         .select()
         .from(media)
-        .where(eq(media.isPublic, true))
+        .where(whereConditions)
         .orderBy(desc(media.createdAt))
         .limit(limit);
-
-      if (tenantId) {
-        query = query.where(
-          and(eq(media.isPublic, true), eq(media.tenantId, tenantId))
-        ) as typeof query;
-      }
-
-      if (mediaType) {
-        const existingWhere = tenantId
-          ? and(
-              eq(media.isPublic, true),
-              eq(media.tenantId, tenantId),
-              eq(media.mediaType, mediaType)
-            )
-          : and(eq(media.isPublic, true), eq(media.mediaType, mediaType));
-
-        query = query.where(existingWhere) as typeof query;
-      }
 
       const result = await query;
 
@@ -508,30 +501,20 @@ export class MediaRepository extends TenantBaseRepository<Media> {
     parentId?: string
   ): Promise<Result<MediaFolder | null, Error>> {
     try {
-      let query = this.db
-        .select()
-        .from(mediaFolders)
-        .where(
-          and(eq(mediaFolders.slug, slug), eq(mediaFolders.tenantId, tenantId))
-        );
-
-      if (parentId) {
-        query = query.where(
-          and(
+      // Build where conditions
+      const whereConditions = parentId
+        ? and(
             eq(mediaFolders.slug, slug),
             eq(mediaFolders.tenantId, tenantId),
             eq(mediaFolders.parentId, parentId)
           )
-        ) as typeof query;
-      } else {
-        query = query.where(
-          and(
+        : and(
             eq(mediaFolders.slug, slug),
             eq(mediaFolders.tenantId, tenantId),
             eq(mediaFolders.parentId, null as any)
-          )
-        ) as typeof query;
-      }
+          );
+
+      const query = this.db.select().from(mediaFolders).where(whereConditions!);
 
       const result = await query.limit(1);
 
