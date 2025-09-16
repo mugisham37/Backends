@@ -88,7 +88,7 @@ export class DatabasePerformanceMonitor {
         console.error("Database performance monitoring error:", error);
         this.addAlert(
           "error",
-          "monitoring",
+          "connection",
           "Failed to collect performance metrics",
           3,
           ["Check database connection", "Verify monitoring permissions"]
@@ -153,12 +153,12 @@ export class DatabasePerformanceMonitor {
         WHERE datname = current_database()
       `);
 
-      const stats = result[0];
+      const stats = result[0] as any;
       return {
-        active: parseInt(stats.active) || 0,
-        idle: parseInt(stats.idle) || 0,
-        waiting: parseInt(stats.waiting) || 0,
-        maxConnections: parseInt(stats.max_connections) || 100,
+        active: parseInt(String(stats.active)) || 0,
+        idle: parseInt(String(stats.idle)) || 0,
+        waiting: parseInt(String(stats.waiting)) || 0,
+        maxConnections: parseInt(String(stats.max_connections)) || 100,
       };
     } catch (error) {
       console.error("Failed to get connection stats:", error);
@@ -184,13 +184,14 @@ export class DatabasePerformanceMonitor {
         WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
       `);
 
-      if (result.length > 0 && result[0].total_queries) {
-        const stats = result[0];
+      if (result.length > 0 && (result[0] as any).total_queries) {
+        const stats = result[0] as any;
         return {
-          totalQueries: parseInt(stats.total_queries) || 0,
-          slowQueries: parseInt(stats.slow_queries) || 0,
-          averageExecutionTime: parseFloat(stats.avg_execution_time) || 0,
-          queriesPerSecond: parseFloat(stats.queries_per_second) || 0,
+          totalQueries: parseInt(String(stats.total_queries)) || 0,
+          slowQueries: parseInt(String(stats.slow_queries)) || 0,
+          averageExecutionTime:
+            parseFloat(String(stats.avg_execution_time)) || 0,
+          queriesPerSecond: parseFloat(String(stats.queries_per_second)) || 0,
         };
       }
     } catch (error) {
@@ -234,12 +235,12 @@ export class DatabasePerformanceMonitor {
       `);
 
       return result.map((row: any) => ({
-        tableName: row.tablename,
-        size: row.size,
-        rowCount: parseInt(row.row_count) || 0,
-        indexSize: row.index_size,
-        sequentialScans: parseInt(row.sequential_scans) || 0,
-        indexScans: parseInt(row.index_scans) || 0,
+        tableName: String(row.tablename),
+        size: String(row.size),
+        rowCount: parseInt(String(row.row_count)) || 0,
+        indexSize: String(row.index_size),
+        sequentialScans: parseInt(String(row.sequential_scans)) || 0,
+        indexScans: parseInt(String(row.index_scans)) || 0,
       }));
     } catch (error) {
       console.error("Failed to get table stats:", error);
@@ -273,12 +274,12 @@ export class DatabasePerformanceMonitor {
       `);
 
       return result.map((row: any) => ({
-        tableName: row.tablename,
-        indexName: row.indexname,
-        scans: parseInt(row.scans) || 0,
-        tuplesRead: parseInt(row.tuples_read) || 0,
-        tuplesReturned: parseInt(row.tuples_returned) || 0,
-        efficiency: parseFloat(row.efficiency) || 0,
+        tableName: String(row.tablename),
+        indexName: String(row.indexname),
+        scans: parseInt(String(row.scans)) || 0,
+        tuplesRead: parseInt(String(row.tuples_read)) || 0,
+        tuplesReturned: parseInt(String(row.tuples_returned)) || 0,
+        efficiency: parseFloat(String(row.efficiency)) || 0,
       }));
     } catch (error) {
       console.error("Failed to get index usage:", error);
@@ -302,11 +303,11 @@ export class DatabasePerformanceMonitor {
         WHERE database = (SELECT oid FROM pg_database WHERE datname = current_database())
       `);
 
-      const stats = result[0];
+      const stats = result[0] as any;
       return {
-        totalLocks: parseInt(stats.total_locks) || 0,
-        waitingLocks: parseInt(stats.waiting_locks) || 0,
-        deadlocks: parseInt(stats.deadlocks) || 0,
+        totalLocks: parseInt(String(stats.total_locks)) || 0,
+        waitingLocks: parseInt(String(stats.waiting_locks)) || 0,
+        deadlocks: parseInt(String(stats.deadlocks)) || 0,
       };
     } catch (error) {
       console.error("Failed to get lock stats:", error);

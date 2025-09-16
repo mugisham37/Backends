@@ -75,7 +75,7 @@ export class DatabaseOptimizer {
    * Analyze query performance using EXPLAIN
    */
   async analyzeQuery(query: string): Promise<{
-    plan: any[];
+    plan: any;
     cost: number;
     recommendations: string[];
   }> {
@@ -84,7 +84,7 @@ export class DatabaseOptimizer {
         sql.raw(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${query}`)
       );
 
-      const plan = explainResult[0]?.["QUERY PLAN"] || [];
+      const plan = explainResult[0]?.["QUERY PLAN"] || {};
       const cost = this.extractCostFromPlan(plan);
       const recommendations = this.generateQueryRecommendations(plan);
 
@@ -92,7 +92,7 @@ export class DatabaseOptimizer {
     } catch (error) {
       console.error("Query analysis error:", error);
       return {
-        plan: [],
+        plan: {},
         cost: 0,
         recommendations: ["Unable to analyze query"],
       };
@@ -445,11 +445,14 @@ export class DatabaseOptimizer {
   /**
    * Extract cost from query plan
    */
-  private extractCostFromPlan(plan: any[]): number {
-    if (!plan || plan.length === 0) return 0;
+  private extractCostFromPlan(plan: any): number {
+    if (!plan || typeof plan !== "object") return 0;
 
     try {
-      return plan[0]?.Plan?.["Total Cost"] || 0;
+      if (Array.isArray(plan) && plan.length > 0) {
+        return plan[0]?.Plan?.["Total Cost"] || 0;
+      }
+      return plan?.Plan?.["Total Cost"] || 0;
     } catch {
       return 0;
     }
@@ -458,15 +461,20 @@ export class DatabaseOptimizer {
   /**
    * Generate query recommendations from execution plan
    */
-  private generateQueryRecommendations(plan: any[]): string[] {
+  private generateQueryRecommendations(plan: any): string[] {
     const recommendations: string[] = [];
 
-    if (!plan || plan.length === 0) {
+    if (!plan || typeof plan !== "object") {
       return ["Unable to analyze query plan"];
     }
 
     try {
-      const planNode = plan[0]?.Plan;
+      let planNode;
+      if (Array.isArray(plan) && plan.length > 0) {
+        planNode = plan[0]?.Plan;
+      } else {
+        planNode = plan?.Plan;
+      }
 
       if (planNode?.["Node Type"] === "Seq Scan") {
         recommendations.push(
@@ -491,7 +499,7 @@ export class DatabaseOptimizer {
   /**
    * Generate table-specific recommendations
    */
-  private generateTableRecommendations(table: any, stats: any[]): string[] {
+  private generateTableRecommendations(table: any, _stats: any[]): string[] {
     const recommendations: string[] = [];
 
     if (table.row_count > 100000) {

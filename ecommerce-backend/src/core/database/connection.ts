@@ -58,13 +58,33 @@ export function getDatabase() {
   return db;
 }
 
+// Initialize database connection
+export async function initializeDatabase(): Promise<void> {
+  try {
+    console.log("Initializing database connection...");
+    const database = getDatabase();
+    await database.execute(sql`SELECT 1`);
+    console.log("✅ Database connection initialized successfully");
+  } catch (error) {
+    console.error("❌ Failed to initialize database:", error);
+    throw error;
+  }
+}
+
 // Close database connection
-export async function closeConnection(): Promise<void> {
+export async function closeDatabase(): Promise<void> {
   if (connection) {
+    console.log("Closing database connection...");
     await connection.end();
     connection = null;
     db = null;
+    console.log("✅ Database connection closed");
   }
+}
+
+// Legacy alias for backward compatibility
+export async function closeConnection(): Promise<void> {
+  return closeDatabase();
 }
 
 // Health check function

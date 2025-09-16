@@ -28,6 +28,11 @@ export {
   type PerformanceAlert,
 } from "./performance-monitor.js";
 
+// Import for local use
+import { initializeDatabase, closeDatabase } from "./connection.js";
+import { databaseOptimizer } from "./optimization.js";
+import { dbPerformanceMonitor } from "./performance-monitor.js";
+
 // Optimized repositories
 export {
   OptimizedBaseRepository,
