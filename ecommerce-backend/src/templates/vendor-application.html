@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Application Received</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: #7c3aed;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .content {
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+
+        .footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #7c3aed;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .info-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Application Received</h1>
+        </div>
+        <div class="content">
+            <h2>Hello {{contactPerson}},</h2>
+
+            <p>Thank you for your interest in becoming a vendor on {{storeName}}!</p>
+
+            <div class="info-box">
+                <p><strong>Application Details:</strong></p>
+                <ul>
+                    <li>Business Name: {{businessName}}</li>
+                    <li>Application ID: {{applicationId}}</li>
+                    <li>Submitted: {{formatDate (new Date) 'medium'}}</li>
+                </ul>
+            </div>
+
+            <p>We've received your vendor application and our team is currently reviewing it. Here's what happens next:
+            </p>
+
+            <ol>
+                <li><strong>Review Process:</strong> Our team will review your application within 3-5 business days</li>
+                <li><strong>Verification:</strong> We may contact you for additional information or documentation</li>
+                <li><strong>Decision:</strong> You'll receive an email with our decision and next steps</li>
+            </ol>
+
+            <p>You can track the status of your application using the link below:</p>
+
+            <a href="{{dashboardUrl}}" class="button">Check Application Status</a>
+
+            <p>If you have any questions during the review process, please don't hesitate to contact our vendor support
+                team at {{supportEmail}}.</p>
+
+            <p>We appreciate your interest in partnering with us!</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{year}} {{storeName}}. All rights reserved.</p>
+            <p>This email was sent regarding your vendor application for {{businessName}}.</p>
+        </div>
+    </div>
+</body>
+
+</html>""

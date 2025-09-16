@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Application Approved!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background-color: #10b981;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .content {
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+
+        .footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .button {
+            display: inline-block;
+            background-color: #10b981;
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+
+        .success-box {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .next-steps {
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Congratulations!</h1>
+            <p>Your vendor application has been approved</p>
+        </div>
+        <div class="content">
+            <h2>Welcome to {{storeName}}, {{contactPerson}}!</h2>
+
+            <div class="success-box">
+                <p><strong>Great news!</strong> {{businessName}} has been approved as a vendor on our platform. You can
+                    now start selling your products to thousands of customers.</p>
+            </div>
+
+            <div class="next-steps">
+                <h3>Next Steps:</h3>
+                <ol>
+                    <li><strong>Complete Onboarding:</strong> Set up your vendor profile and payment information</li>
+                    <li><strong>Add Products:</strong> Upload your first products to start selling</li>
+                    <li><strong>Configure Settings:</strong> Set up shipping, taxes, and business preferences</li>
+                    <li><strong>Go Live:</strong> Publish your products and start receiving orders</li>
+                </ol>
+            </div>
+
+            <p>Ready to get started? Use the buttons below:</p>
+
+            <a href="{{onboardingUrl}}" class="button">Complete Onboarding</a>
+            <a href="{{dashboardUrl}}" class="button">Access Dashboard</a>
+
+            <p>Our vendor success team is here to help you succeed. If you have any questions or need assistance, please
+                contact us at {{supportEmail}}.</p>
+
+            <p>We're excited to have {{businessName}} as part of our marketplace!</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{year}} {{storeName}}. All rights reserved.</p>
+            <p>This email was sent regarding the approval of {{businessName}}.</p>
+        </div>
+    </div>
+</body>
+
+</html>
