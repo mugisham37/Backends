@@ -246,11 +246,13 @@ export class ProductService {
       const products = await this.productRepo.findByVendor(vendorId);
       const activeProducts = products.filter((p) => p.status === "active");
       const outOfStock = products.filter(
-        (p) => p.trackQuantity && p.quantity === 0
+        (p) => (p.trackQuantity ?? true) && (p.quantity ?? 0) === 0
       );
       const lowStock = products.filter(
         (p) =>
-          p.trackQuantity && p.quantity > 0 && p.quantity <= p.lowStockThreshold
+          (p.trackQuantity ?? true) &&
+          (p.quantity ?? 0) > 0 &&
+          (p.quantity ?? 0) <= (p.lowStockThreshold ?? 5)
       );
       const avgPrice =
         activeProducts.length > 0
@@ -324,23 +326,23 @@ export class ProductService {
         : undefined,
       sku: product.sku,
       barcode: product.barcode,
-      trackQuantity: product.trackQuantity,
-      quantity: product.quantity,
-      lowStockThreshold: product.lowStockThreshold,
+      trackQuantity: product.trackQuantity ?? true,
+      quantity: product.quantity ?? 0,
+      lowStockThreshold: product.lowStockThreshold ?? 5,
       weight: product.weight ? Number(product.weight) : undefined,
       weightUnit: product.weightUnit,
-      dimensions: product.dimensions,
+      dimensions: product.dimensions ?? undefined,
       status: product.status,
       condition: product.condition,
-      featured: product.featured,
+      featured: product.featured ?? false,
       images: product.images || [],
       metaTitle: product.metaTitle,
       metaDescription: product.metaDescription,
-      attributes: product.attributes,
-      hasVariants: product.hasVariants,
-      requiresShipping: product.requiresShipping,
+      attributes: product.attributes ?? undefined,
+      hasVariants: product.hasVariants ?? false,
+      requiresShipping: product.requiresShipping ?? true,
       shippingClass: product.shippingClass,
-      taxable: product.taxable,
+      taxable: product.taxable ?? true,
       taxClass: product.taxClass,
       publishedAt: product.publishedAt,
       createdAt: product.createdAt,

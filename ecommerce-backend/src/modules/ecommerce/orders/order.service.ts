@@ -319,7 +319,10 @@ export class OrderService {
       }
 
       // Check inventory
-      if (product.trackQuantity && product.quantity < item.quantity) {
+      if (
+        (product.trackQuantity ?? true) &&
+        (product.quantity ?? 0) < item.quantity
+      ) {
         throw new Error(`Insufficient inventory for product: ${product.name}`);
       }
 
