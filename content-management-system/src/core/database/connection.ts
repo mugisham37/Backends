@@ -1,8 +1,13 @@
 import { drizzle } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { config } from "../../shared/config/index.js";
 import { dbLogger } from "../../shared/utils/logger.js";
 import { ConnectionPoolOptimizer, QueryOptimizer } from "./query-optimizer.js";
+
+// Export the DrizzleDatabase type for other modules
+export type DrizzleDatabase = PostgresJsDatabase<Record<string, never>>;
 
 // PostgreSQL connection with connection pooling
 let connectionPool: postgres.Sql | null = null;
@@ -22,7 +27,7 @@ const connectionMetrics = {
  * Get expected load based on environment
  */
 const getExpectedLoad = (): "low" | "medium" | "high" => {
-  const env = process.env.NODE_ENV;
+  const env = process.env["NODE_ENV"];
   if (env === "production") return "high";
   if (env === "staging") return "medium";
   return "low";
@@ -49,8 +54,8 @@ const createConnectionPool = (): postgres.Sql => {
 
   const options: postgres.Options<{}> = {
     max: poolSettings.max,
-    idle_timeout: poolSettings.idleTimeoutMillis / 1000, // Convert to seconds
-    connect_timeout: poolSettings.acquireTimeoutMillis / 1000, // Convert to seconds
+    idle_timeout: Number(poolSettings.idleTimeoutMillis) / 1000, // Convert to seconds
+    connect_timeout: Number(poolSettings.acquireTimeoutMillis) / 1000, // Convert to seconds
     max_lifetime: 60 * 60, // 1 hour connection lifetime
     prepare: false, // Disable prepared statements for better compatibility
     debug: config.isDevelopment,
@@ -59,8 +64,8 @@ const createConnectionPool = (): postgres.Sql => {
     },
     connection: {
       application_name: "senior-cms-app",
-      statement_timeout: "30s", // 30 second query timeout
-      idle_in_transaction_session_timeout: "60s", // 1 minute idle transaction timeout
+      statement_timeout: 30000, // 30 seconds in milliseconds
+      idle_in_transaction_session_timeout: 60000, // 1 minute in milliseconds
     },
   };
 
@@ -197,23 +202,27 @@ const optimizeQueries = async (): Promise<void> => {
     await queryOptimizer.warmupCache([
       {
         key: "active_tenants",
-        queryFn: () =>
-          db?.execute(postgres.sql`
-          SELECT id, name, slug, is_active 
-          FROM tenants 
-          WHERE is_active = true 
-          ORDER BY created_at DESC
-        `),
+        queryFn: async () => {
+          if (!db) throw new Error("Database not initialized");
+          return await db.execute(sql`
+            SELECT id, name, slug, is_active 
+            FROM tenants 
+            WHERE is_active = true 
+            ORDER BY created_at DESC
+          `);
+        },
         ttl: 600, // 10 minutes
       },
       {
         key: "user_roles",
-        queryFn: () =>
-          db?.execute(postgres.sql`
-          SELECT DISTINCT role 
-          FROM users 
-          WHERE is_active = true
-        `),
+        queryFn: async () => {
+          if (!db) throw new Error("Database not initialized");
+          return await db.execute(sql`
+            SELECT DISTINCT role 
+            FROM users 
+            WHERE is_active = true
+          `);
+        },
         ttl: 1800, // 30 minutes
       },
     ]);

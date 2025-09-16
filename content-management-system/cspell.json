@@ -37,7 +37,11 @@
     "tsyringe",
     "sendgrid",
     "paramtypes",
-    "ilike"
+    "ilike",
+    "Millis",
+    "tsvector",
+    "plainto",
+    "tsquery"
   ],
   "ignorePaths": [
     "node_modules/**",

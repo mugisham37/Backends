@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { PgSelect } from "drizzle-orm/pg-core";
 import { container } from "tsyringe";
 import { CacheService } from "../../modules/cache/cache.service";
@@ -79,7 +79,7 @@ export class QueryOptimizer {
 
     ids.forEach((id, index) => {
       const cached = cachedItems[index];
-      if (cached !== null) {
+      if (cached !== null && cached !== undefined) {
         resultMap.set(id, cached);
       } else {
         uncachedIds.push(id);
@@ -190,7 +190,10 @@ export class QueryOptimizer {
       // Get total count (this should be cached separately)
       const countQuery = sql`SELECT COUNT(*) FROM (${baseQuery.getSQL()}) as count_query`;
       const [countResult] = await this.db.execute(countQuery);
-      const total = Number(countResult.count);
+      if (!countResult) {
+        throw new Error("Failed to get count result");
+      }
+      const total = Number(countResult["count"]);
 
       // Get paginated data
       const data = await baseQuery.limit(limit).offset(offset);
@@ -358,7 +361,12 @@ export class ConnectionPoolOptimizer {
    */
   async monitorPool(db: DrizzleDatabase): Promise<{
     healthy: boolean;
-    metrics: typeof this.connectionMetrics;
+    metrics: {
+      avgResponseTime: number;
+      errors: number;
+      queries: number;
+      totalTime: number;
+    };
     recommendations: string[];
   }> {
     const recommendations: string[] = [];
@@ -382,7 +390,12 @@ export class ConnectionPoolOptimizer {
 
     return {
       healthy: recommendations.length === 0,
-      metrics: this.connectionMetrics,
+      metrics: {
+        avgResponseTime: this.connectionMetrics.avgResponseTime,
+        errors: this.connectionMetrics.errors,
+        queries: this.connectionMetrics.totalQueries,
+        totalTime: 0, // Not tracked in ConnectionPoolOptimizer
+      },
       recommendations,
     };
   }
@@ -408,8 +421,8 @@ export class ConnectionPoolOptimizer {
       `);
 
       return {
-        activeConnections: Number(result[0]?.active_connections || 0),
-        maxConnections: Number(result[0]?.max_connections || 100),
+        activeConnections: Number(result[0]?.["active_connections"] || 0),
+        maxConnections: Number(result[0]?.["max_connections"] || 100),
         idleConnections: 0, // Would be calculated from actual pool
       };
     } catch (error) {
