@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id              String    @id @default(uuid())
+  email           String    
+  password        String
+  firstName       String?
+  lastName        String?
+  role            String    @default("user")
+  isActive        Boolean   @default(true)
+  lastLogin       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Multi-tenancy
+  tenantId        String
+  
+  // Composite unique constraint for email within a tenant
+  @@unique([email, tenantId])
+}
+
+// Password Reset Tokens
+model PasswordReset {
+  id              String    @id @default(uuid())
+  userId          String
+  token           String    @unique
+  expiresAt       DateTime
+  isUsed          Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+}
+
+// Audit Logs for Authentication Events
+model AuthAuditLog {
+  id              String    @id @default(uuid())
+  userId          String?
+  tenantId        String
+  event           String    // login, logout, password_reset, etc.
+  ipAddress       String?
+  userAgent       String?
+  status          String    // success, failure
+  details         String?
+  createdAt       DateTime  @default(now())
+}

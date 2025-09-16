@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  name       String
+  tenantId   String
+  userId     String?
+  properties Json?
+  timestamp  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([name])
+  @@index([timestamp])
+}
+
+model AnalyticsMetric {
+  id        String   @id @default(uuid())
+  name      String
+  value     Float
+  unit      String?
+  tenantId  String
+  timestamp DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([name])
+  @@index([timestamp])
+}
+
+model AnalyticsReport {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String
+  config      Json
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model AnalyticsDashboard {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  layout      Json
+  reports     String[] // Array of report IDs
+  tenantId    String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model UsageSnapshot {
+  id             String   @id @default(uuid())
+  tenantId       String
+  date           DateTime @default(now())
+  totalUsers     Int
+  activeUsers    Int
+  totalProjects  Int
+  totalTasks     Int
+  completedTasks Int
+  storageUsed    Float    // in bytes
+  apiCalls       Int
+  errorCount     Int
+
+  @@unique([tenantId, date])
+  @@index([tenantId])
+  @@index([date])
+}
