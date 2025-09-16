@@ -18,9 +18,21 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
     schema: buildSchema(),
     resolvers: buildResolvers(),
     context: buildContext,
-    subscription: true,
-    graphiql: fastify.config.NODE_ENV === "development" ? "playground" : false,
-    ide: fastify.config.NODE_ENV === "development",
+    subscription: {
+      emitter: fastify.redis || undefined,
+      verifyClient: (info, next) => {
+        // Verify WebSocket connection for subscriptions
+        const token = info.req.headers.authorization?.replace("Bearer ", "");
+        if (token) {
+          // Add token validation logic here if needed
+          next(true);
+        } else {
+          next(false, 401, "Unauthorized");
+        }
+      },
+    },
+    graphiql: process.env.NODE_ENV === "development" ? "playground" : false,
+    ide: process.env.NODE_ENV === "development",
     path: "/",
     errorFormatter: (execution, context) => {
       // Custom error formatting
@@ -41,7 +53,7 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
 
         // In production, don't expose internal server errors
         if (
-          fastify.config.NODE_ENV === "production" &&
+          process.env.NODE_ENV === "production" &&
           error.extensions?.code === "INTERNAL_SERVER_ERROR"
         ) {
           return {
@@ -71,9 +83,9 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
       timestamp: new Date().toISOString(),
       endpoint: "/graphql",
       playground:
-        fastify.config.NODE_ENV === "development"
-          ? "/graphql/playground"
-          : null,
+        process.env.NODE_ENV === "development" ? "/graphql/playground" : null,
+      subscriptions: "enabled",
+      dataLoaders: "enabled",
     });
   });
 };

@@ -6,6 +6,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import compress from "@fastify/compress";
+import multipart from "@fastify/multipart";
 import { config } from "./config";
 import {
   initializeDatabase,
@@ -60,6 +61,18 @@ export const createApp = async (): Promise<FastifyInstance> => {
     await app.register(compress, {
       global: true,
       encodings: ["gzip", "deflate"],
+    });
+
+    // Register multipart support for file uploads
+    await app.register(multipart, {
+      limits: {
+        fieldNameSize: 100,
+        fieldSize: 100,
+        fields: 10,
+        fileSize: config.upload.maxSize,
+        files: 5,
+        headerPairs: 2000,
+      },
     });
 
     // Register security plugins

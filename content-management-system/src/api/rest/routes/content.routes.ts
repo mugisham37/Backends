@@ -1,6 +1,19 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
 import type { IContentService } from "../../../core/types/service.types";
+import { validate } from "../../../middleware/zod-validation";
+import {
+  createContentSchema,
+  updateContentSchema,
+  contentQuerySchema,
+  contentParamsSchema,
+  contentVersionQuerySchema,
+  type CreateContentRequest,
+  type UpdateContentRequest,
+  type ContentQueryParams,
+  type ContentParams,
+  type ContentVersionQuery,
+} from "../../../validations/zod/content.schemas";
 
 /**
  * Content Management REST Routes
@@ -16,20 +29,11 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.get(
     "/",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        validate({ querystring: contentQuerySchema }),
+      ],
       schema: {
-        querystring: {
-          type: "object",
-          properties: {
-            page: { type: "integer", minimum: 1, default: 1 },
-            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-            status: {
-              type: "string",
-              enum: ["draft", "published", "archived"],
-            },
-            authorId: { type: "string" },
-          },
-        },
         response: {
           200: {
             type: "object",
@@ -52,7 +56,8 @@ export const contentRoutes: FastifyPluginAsync = async (
       },
     },
     async (request, reply) => {
-      const { page, limit, status, authorId } = request.query as any;
+      const { page, limit, status, authorId, search, tags, sortBy, sortOrder } =
+        request.query as ContentQueryParams;
       const user = request.user as any;
 
       const result = await contentService.getContentsByTenant(user.tenantId, {
@@ -60,6 +65,10 @@ export const contentRoutes: FastifyPluginAsync = async (
         limit,
         status,
         authorId,
+        search,
+        tags: tags ? tags.split(",") : undefined,
+        sortBy,
+        sortOrder,
       });
 
       if (!result.success) {
@@ -82,26 +91,17 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.get(
     "/:id",
     {
-      preHandler: [fastify.authenticate],
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string" },
-          },
-        },
-        querystring: {
-          type: "object",
-          properties: {
-            version: { type: "integer", minimum: 1 },
-          },
-        },
-      },
+      preHandler: [
+        fastify.authenticate,
+        validate({
+          params: contentParamsSchema,
+          querystring: contentVersionQuerySchema,
+        }),
+      ],
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { version } = request.query as { version?: number };
+      const { id } = request.params as ContentParams;
+      const { version } = request.query as ContentVersionQuery;
 
       const result = await contentService.getContent(id, version?.toString());
 
@@ -126,26 +126,13 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.post(
     "/",
     {
-      preHandler: [fastify.authenticate],
-      schema: {
-        body: {
-          type: "object",
-          required: ["title", "slug"],
-          properties: {
-            title: { type: "string", minLength: 1, maxLength: 255 },
-            slug: { type: "string", minLength: 1, maxLength: 255 },
-            body: { type: "string" },
-            status: {
-              type: "string",
-              enum: ["draft", "published"],
-              default: "draft",
-            },
-          },
-        },
-      },
+      preHandler: [
+        fastify.authenticate,
+        validate({ body: createContentSchema }),
+      ],
     },
     async (request, reply) => {
-      const contentData = request.body as any;
+      const contentData = request.body as CreateContentRequest;
       const user = request.user as any;
 
       const createData = {
@@ -176,32 +163,17 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.put(
     "/:id",
     {
-      preHandler: [fastify.authenticate],
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string" },
-          },
-        },
-        body: {
-          type: "object",
-          properties: {
-            title: { type: "string", minLength: 1, maxLength: 255 },
-            slug: { type: "string", minLength: 1, maxLength: 255 },
-            body: { type: "string" },
-            status: {
-              type: "string",
-              enum: ["draft", "published", "archived"],
-            },
-          },
-        },
-      },
+      preHandler: [
+        fastify.authenticate,
+        validate({
+          params: contentParamsSchema,
+          body: updateContentSchema,
+        }),
+      ],
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const updateData = request.body as any;
+      const { id } = request.params as ContentParams;
+      const updateData = request.body as UpdateContentRequest;
 
       const result = await contentService.updateContent(id, updateData);
 
@@ -226,19 +198,13 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.delete(
     "/:id",
     {
-      preHandler: [fastify.authenticate],
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string" },
-          },
-        },
-      },
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: contentParamsSchema }),
+      ],
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params as ContentParams;
 
       const result = await contentService.deleteContent(id);
 
@@ -263,19 +229,13 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.post(
     "/:id/publish",
     {
-      preHandler: [fastify.authenticate],
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string" },
-          },
-        },
-      },
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: contentParamsSchema }),
+      ],
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params as ContentParams;
 
       const result = await contentService.publishContent(id);
 
@@ -300,19 +260,13 @@ export const contentRoutes: FastifyPluginAsync = async (
   fastify.get(
     "/:id/versions",
     {
-      preHandler: [fastify.authenticate],
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string" },
-          },
-        },
-      },
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: contentParamsSchema }),
+      ],
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params as ContentParams;
 
       const result = await contentService.getContentVersions(id);
 

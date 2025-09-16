@@ -1,6 +1,13 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
 import type { IAuthService } from "../../../core/types/service.types";
+import { validate } from "../../../middleware/zod-validation";
+import {
+  loginSchema,
+  refreshTokenSchema,
+  type LoginRequest,
+  type RefreshTokenRequest,
+} from "../../../validations/zod/auth.schemas";
 
 /**
  * Authentication REST Routes
@@ -16,15 +23,8 @@ export const authRoutes: FastifyPluginAsync = async (
   fastify.post(
     "/login",
     {
+      preHandler: [validate({ body: loginSchema })],
       schema: {
-        body: {
-          type: "object",
-          required: ["email", "password"],
-          properties: {
-            email: { type: "string", format: "email" },
-            password: { type: "string", minLength: 6 },
-          },
-        },
         response: {
           200: {
             type: "object",
@@ -48,10 +48,7 @@ export const authRoutes: FastifyPluginAsync = async (
       },
     },
     async (request, reply) => {
-      const { email, password } = request.body as {
-        email: string;
-        password: string;
-      };
+      const { email, password } = request.body as LoginRequest;
 
       const result = await authService.authenticate({ email, password });
 
@@ -103,14 +100,8 @@ export const authRoutes: FastifyPluginAsync = async (
   fastify.post(
     "/refresh",
     {
+      preHandler: [validate({ body: refreshTokenSchema })],
       schema: {
-        body: {
-          type: "object",
-          required: ["refreshToken"],
-          properties: {
-            refreshToken: { type: "string" },
-          },
-        },
         response: {
           200: {
             type: "object",
@@ -133,7 +124,7 @@ export const authRoutes: FastifyPluginAsync = async (
       },
     },
     async (request, reply) => {
-      const { refreshToken } = request.body as { refreshToken: string };
+      const { refreshToken } = request.body as RefreshTokenRequest;
 
       const result = await authService.refreshToken(refreshToken);
 

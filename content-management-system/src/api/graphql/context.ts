@@ -1,12 +1,13 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { container } from "tsyringe";
 import type { IAuthService } from "../../core/types/service.types";
+import { createDataLoaders, type DataLoaders } from "./dataloaders";
 
 /**
  * GraphQL Context Builder
  *
  * Creates the context object for GraphQL resolvers with authenticated user,
- * data sources, and request/response objects.
+ * data sources, DataLoaders for N+1 prevention, and request/response objects.
  */
 export interface GraphQLContext {
   user?: any;
@@ -20,6 +21,7 @@ export interface GraphQLContext {
     searchService: any;
     userService: any;
   };
+  loaders: DataLoaders;
 }
 
 export const buildContext = async (
@@ -60,5 +62,6 @@ export const buildContext = async (
     request,
     reply,
     dataSources,
+    loaders: createDataLoaders(),
   };
 };

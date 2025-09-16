@@ -5,7 +5,6 @@
  * in the dependency injection container.
  */
 
-import { DependencyContainer } from "tsyringe";
 import { containerConfig, TOKENS } from "./index";
 import { config } from "../../config";
 import { logger } from "../../utils/logger";
@@ -15,10 +14,6 @@ import { db } from "../database/connection";
 
 // Import Redis client (will be created when needed)
 import Redis from "ioredis";
-import { vi } from "vitest";
-import { vi } from "vitest";
-import { vi } from "vitest";
-import { vi } from "vitest";
 import { vi } from "vitest";
 
 /**
@@ -38,13 +33,19 @@ export function registerInfrastructure(): void {
 
   // Register Redis client factory
   containerConfig.registerFactory(TOKENS.RedisClient, () => {
-    return new Redis(config.redis.uri, {
-      password: config.redis.password,
+    const redisOptions: Record<string, any> = {
       db: config.redis.db,
       maxRetriesPerRequest: config.redis.maxRetriesPerRequest,
       enableReadyCheck: false,
       lazyConnect: true,
-    });
+    };
+
+    // Only add password if it's defined
+    if (config.redis.password) {
+      redisOptions["password"] = config.redis.password;
+    }
+
+    return new Redis(config.redis.uri, redisOptions);
   });
 
   logger.info("Infrastructure services registered");
@@ -110,13 +111,18 @@ export function registerServices(): void {
     { token: TOKENS.AuthService, path: "../../services/auth.service" },
     { token: TOKENS.TenantService, path: "../../services/tenant.service" },
     { token: TOKENS.ContentService, path: "../../services/content.service" },
-    { token: TOKENS.MediaService, path: "../../services/media.service" },
+    {
+      token: TOKENS.MediaService,
+      path: "../../services/media-adapter.service",
+    },
     { token: TOKENS.SearchService, path: "../../services/search.service" },
     { token: TOKENS.CacheService, path: "../../services/cache.service" },
     { token: "QueueService", path: "../../services/queue.service" },
     { token: TOKENS.WebhookService, path: "../../services/webhook.service" },
     { token: TOKENS.AuditService, path: "../../services/audit.service" },
     { token: "MonitoringService", path: "../../services/monitoring.service" },
+    // Register the original MediaService with a different token
+    { token: "OriginalMediaService", path: "../../services/media.service" },
   ];
 
   for (const service of services) {

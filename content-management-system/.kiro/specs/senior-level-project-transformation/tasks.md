@@ -184,9 +184,9 @@
     - Implement request/response logging
     - _Requirements: 4.1, 4.3, 4.4_
 
-- [ ] 11. Build REST API endpoints
+- [x] 11. Build REST API endpoints
 
-  - [ ] 11.1 Create authentication REST endpoints
+  - [x] 11.1 Create authentication REST endpoints
 
     - Implement POST /auth/login endpoint
     - Implement POST /auth/logout endpoint
@@ -195,7 +195,7 @@
     - Add comprehensive integration tests
     - _Requirements: 4.5, 8.6_
 
-  - [ ] 11.2 Create content management REST endpoints
+  - [x] 11.2 Create content management REST endpoints
 
     - Implement GET /content endpoints with pagination
     - Implement POST /content endpoint for creation
@@ -205,7 +205,7 @@
     - Add comprehensive integration tests
     - _Requirements: 4.5, 8.6_
 
-  - [ ] 11.3 Create media management REST endpoints
+  - [x] 11.3 Create media management REST endpoints
     - Implement POST /media/upload endpoint
     - Implement GET /media/:id endpoint
     - Implement DELETE /media/:id endpoint

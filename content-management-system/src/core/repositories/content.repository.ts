@@ -1,4 +1,4 @@
-uimport { eq, and, ilike, or, desc, count } from "drizzle-orm";
+import { eq, and, ilike, or, desc, count } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import { TenantBaseRepository } from "./tenant-base.repository.js";
 import { contents, contentVersions, users } from "../database/schema/index.js";
@@ -39,7 +39,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result[0] ?? null,
       };
     } catch (error) {
       return {
@@ -57,7 +57,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
   /**
    * Find content by ID within tenant
    */
-  async findByIdInTenant(
+  override async findByIdInTenant(
     id: string,
     tenantId: string
   ): Promise<Result<Content | null, Error>> {
@@ -70,7 +70,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result[0] ?? null,
       };
     } catch (error) {
       return {
@@ -124,25 +124,19 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     tenantId?: string
   ): Promise<Result<Content[], Error>> {
     try {
-      let query = this.db
-        .select()
-        .from(contents)
-        .where(
-          and(eq(contents.authorId, authorId), eq(contents.status, "draft"))
-        )
-        .orderBy(desc(contents.updatedAt));
-
-      if (tenantId) {
-        query = query.where(
-          and(
+      const whereConditions = tenantId
+        ? and(
             eq(contents.authorId, authorId),
             eq(contents.status, "draft"),
             eq(contents.tenantId, tenantId)
           )
-        );
-      }
+        : and(eq(contents.authorId, authorId), eq(contents.status, "draft"));
 
-      const result = await query;
+      const result = await this.db
+        .select()
+        .from(contents)
+        .where(whereConditions)
+        .orderBy(desc(contents.updatedAt));
 
       return { success: true, data: result };
     } catch (error) {
@@ -170,58 +164,34 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     try {
       const searchPattern = `%${query.toLowerCase()}%`;
 
-      let dbQuery = this.db
+      // Build the search condition
+      const searchConditions = or(
+        ilike(contents.title, searchPattern),
+        ilike(contents.body, searchPattern),
+        ilike(contents.excerpt, searchPattern)
+      );
+
+      // Build the where condition based on filters
+      let whereConditions = searchConditions;
+
+      if (tenantId && status) {
+        whereConditions = and(
+          eq(contents.tenantId, tenantId),
+          eq(contents.status, status),
+          searchConditions
+        );
+      } else if (tenantId) {
+        whereConditions = and(eq(contents.tenantId, tenantId), searchConditions);
+      } else if (status) {
+        whereConditions = and(eq(contents.status, status), searchConditions);
+      }
+
+      const result = await this.db
         .select()
         .from(contents)
-        .where(
-          or(
-            ilike(contents.title, searchPattern),
-            ilike(contents.body, searchPattern),
-            ilike(contents.excerpt, searchPattern)
-          )
-        )
+        .where(whereConditions)
         .limit(limit)
         .orderBy(desc(contents.updatedAt));
-
-      // Add tenant filter if provided
-      if (tenantId) {
-        dbQuery = dbQuery.where(
-          and(
-            eq(contents.tenantId, tenantId),
-            or(
-              ilike(contents.title, searchPattern),
-              ilike(contents.body, searchPattern),
-              ilike(contents.excerpt, searchPattern)
-            )
-          )
-        );
-      }
-
-      // Add status filter if provided
-      if (status) {
-        const existingWhere = tenantId
-          ? and(
-              eq(contents.tenantId, tenantId),
-              eq(contents.status, status),
-              or(
-                ilike(contents.title, searchPattern),
-                ilike(contents.body, searchPattern),
-                ilike(contents.excerpt, searchPattern)
-              )
-            )
-          : and(
-              eq(contents.status, status),
-              or(
-                ilike(contents.title, searchPattern),
-                ilike(contents.body, searchPattern),
-                ilike(contents.excerpt, searchPattern)
-              )
-            );
-
-        dbQuery = dbQuery.where(existingWhere);
-      }
-
-      const result = await dbQuery;
 
       return { success: true, data: result };
     } catch (error) {
@@ -246,21 +216,27 @@ export class ContentRepository extends TenantBaseRepository<Content> {
     status?: ContentStatus
   ): Promise<Result<Content[], Error>> {
     try {
+      // Build where conditions
+      let whereConditions;
+
+      if (tenantId && status) {
+        whereConditions = and(
+          eq(contents.tenantId, tenantId),
+          eq(contents.status, status)
+        );
+      } else if (tenantId) {
+        whereConditions = eq(contents.tenantId, tenantId);
+      } else if (status) {
+        whereConditions = eq(contents.status, status);
+      }
+
       let query = this.db
         .select()
         .from(contents)
         .orderBy(desc(contents.updatedAt));
 
-      if (tenantId) {
-        query = query.where(eq(contents.tenantId, tenantId));
-      }
-
-      if (status) {
-        const existingWhere = tenantId
-          ? and(eq(contents.tenantId, tenantId), eq(contents.status, status))
-          : eq(contents.status, status);
-
-        query = query.where(existingWhere);
+      if (whereConditions) {
+        query = query.where(whereConditions);
       }
 
       const result = await query;
@@ -404,6 +380,18 @@ export class ContentRepository extends TenantBaseRepository<Content> {
         .values(versionData)
         .returning();
 
+      if (!result) {
+        return {
+          success: false,
+          error: new DatabaseError(
+            "Failed to create content version - no result returned",
+            "createVersion",
+            "contentVersions",
+            new Error("No result returned from insert")
+          ),
+        };
+      }
+
       return { success: true, data: result };
     } catch (error) {
       return {
@@ -466,7 +454,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result[0] ?? null,
       };
     } catch (error) {
       return {
@@ -504,15 +492,20 @@ export class ContentRepository extends TenantBaseRepository<Content> {
         .where(eq(contents.id, contentId))
         .limit(1);
 
-      if (result.length === 0 || !result[0].author) {
+      if (result.length === 0 || !result[0]?.author) {
+        return { success: true, data: null };
+      }
+
+      const firstResult = result[0];
+      if (!firstResult || !firstResult.author) {
         return { success: true, data: null };
       }
 
       return {
         success: true,
         data: {
-          content: result[0].content,
-          author: result[0].author,
+          content: firstResult.content,
+          author: firstResult.author,
         },
       };
     } catch (error) {
@@ -572,10 +565,10 @@ export class ContentRepository extends TenantBaseRepository<Content> {
       return {
         success: true,
         data: {
-          total: totalResult.count,
-          published: publishedResult.count,
-          draft: draftResult.count,
-          archived: archivedResult.count,
+          total: totalResult?.count ?? 0,
+          published: publishedResult?.count ?? 0,
+          draft: draftResult?.count ?? 0,
+          archived: archivedResult?.count ?? 0,
         },
       };
     } catch (error) {

@@ -4,6 +4,10 @@ import { tenantResolvers } from "./tenant.resolvers";
 import { contentResolvers } from "./content.resolvers";
 import { mediaResolvers } from "./media.resolvers";
 import { searchResolvers } from "./search.resolvers";
+import { userResolvers } from "./user.resolvers";
+import { webhookResolvers } from "./webhook.resolvers";
+import { workflowResolvers } from "./workflow.resolvers";
+import { contentTypeResolvers } from "./content-type.resolvers";
 
 /**
  * GraphQL Resolvers Builder
@@ -43,6 +47,10 @@ export const buildResolvers = (): IResolvers => {
       ...contentResolvers.Query,
       ...mediaResolvers.Query,
       ...searchResolvers.Query,
+      ...userResolvers.Query,
+      ...webhookResolvers.Query,
+      ...workflowResolvers.Query,
+      ...contentTypeResolvers.Query,
     },
 
     Mutation: {
@@ -50,6 +58,10 @@ export const buildResolvers = (): IResolvers => {
       ...tenantResolvers.Mutation,
       ...contentResolvers.Mutation,
       ...mediaResolvers.Mutation,
+      ...userResolvers.Mutation,
+      ...webhookResolvers.Mutation,
+      ...workflowResolvers.Mutation,
+      ...contentTypeResolvers.Mutation,
     },
 
     Subscription: {
@@ -57,49 +69,47 @@ export const buildResolvers = (): IResolvers => {
       ...mediaResolvers.Subscription,
     },
 
-    // Type resolvers for relationships
+    // Type resolvers for relationships using DataLoaders
     User: {
       tenant: async (parent: any, args: any, context: any) => {
         if (!parent.tenantId) return null;
-        return context.dataSources.tenantService.getTenant(parent.tenantId);
+        return context.loaders.tenantLoader.load(parent.tenantId);
       },
     },
 
     Tenant: {
       users: async (parent: any, args: any, context: any) => {
-        return context.dataSources.userService.getUsersByTenant(parent.id);
+        return context.loaders.usersByTenantLoader.load(parent.id);
       },
       contents: async (parent: any, args: any, context: any) => {
-        return context.dataSources.contentService.getContentsByTenant(
-          parent.id
-        );
+        return context.loaders.contentsByTenantLoader.load(parent.id);
       },
     },
 
     Content: {
       tenant: async (parent: any, args: any, context: any) => {
-        return context.dataSources.tenantService.getTenant(parent.tenantId);
+        return context.loaders.tenantLoader.load(parent.tenantId);
       },
       author: async (parent: any, args: any, context: any) => {
-        return context.dataSources.userService.getUser(parent.authorId);
+        return context.loaders.userLoader.load(parent.authorId);
       },
       versions: async (parent: any, args: any, context: any) => {
-        return context.dataSources.contentService.getContentVersions(parent.id);
+        return context.loaders.contentVersionsLoader.load(parent.id);
       },
     },
 
     ContentVersion: {
       content: async (parent: any, args: any, context: any) => {
-        return context.dataSources.contentService.getContent(parent.contentId);
+        return context.loaders.contentLoader.load(parent.contentId);
       },
     },
 
     Media: {
       tenant: async (parent: any, args: any, context: any) => {
-        return context.dataSources.tenantService.getTenant(parent.tenantId);
+        return context.loaders.tenantLoader.load(parent.tenantId);
       },
       uploader: async (parent: any, args: any, context: any) => {
-        return context.dataSources.userService.getUser(parent.uploadedBy);
+        return context.loaders.userLoader.load(parent.uploadedBy);
       },
     },
   };
