@@ -3,7 +3,7 @@
  * Handles all database operations for vendors
  */
 
-import { eq, and, ilike, or, sql, desc } from "drizzle-orm";
+import { eq, and, ilike, or, sql, desc, inArray } from "drizzle-orm";
 import { BaseRepository } from "./base.repository";
 import { Database } from "../database/connection";
 import {
@@ -356,5 +356,29 @@ export class VendorRepository extends BaseRepository<
       .limit(limit);
 
     return result;
+  }
+
+  // Get vendors by multiple IDs
+  async findByIds(ids: string[]): Promise<Vendor[]> {
+    if (ids.length === 0) return [];
+
+    return this.db.select().from(vendors).where(inArray(vendors.id, ids));
+  }
+
+  // Get vendors by multiple user IDs
+  async findByUserIds(userIds: string[]): Promise<Vendor[]> {
+    if (userIds.length === 0) return [];
+
+    return this.db
+      .select()
+      .from(vendors)
+      .where(inArray(vendors.userId, userIds));
+  }
+
+  // Get vendors by multiple slugs
+  async findBySlugs(slugs: string[]): Promise<Vendor[]> {
+    if (slugs.length === 0) return [];
+
+    return this.db.select().from(vendors).where(inArray(vendors.slug, slugs));
   }
 }

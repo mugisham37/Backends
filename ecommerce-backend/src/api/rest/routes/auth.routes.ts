@@ -28,9 +28,8 @@ interface RefreshTokenInput {
 export class AuthController {
   private router = Router();
 
-  constructor() // TODO: Inject AuthService when implemented
-  // private authService: AuthService
-  {
+  constructor() {
+    // private authService: AuthService // TODO: Inject AuthService when implemented
     this.initializeRoutes();
   }
 
@@ -77,13 +76,11 @@ export class AuthController {
         .json(ResponseBuilder.success(result, { requestId: req.id }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
-      res
-        .status(HTTP_STATUS.UNAUTHORIZED)
-        .json(
-          ResponseBuilder.error(message, "LOGIN_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(HTTP_STATUS.UNAUTHORIZED).json(
+        ResponseBuilder.error(message, "LOGIN_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 
@@ -122,13 +119,11 @@ export class AuthController {
         ? HTTP_STATUS.CONFLICT
         : HTTP_STATUS.BAD_REQUEST;
 
-      res
-        .status(status)
-        .json(
-          ResponseBuilder.error(message, "REGISTRATION_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(status).json(
+        ResponseBuilder.error(message, "REGISTRATION_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 
@@ -163,13 +158,11 @@ export class AuthController {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Token refresh failed";
-      res
-        .status(HTTP_STATUS.UNAUTHORIZED)
-        .json(
-          ResponseBuilder.error(message, "REFRESH_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(HTTP_STATUS.UNAUTHORIZED).json(
+        ResponseBuilder.error(message, "REFRESH_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 
@@ -183,13 +176,11 @@ export class AuthController {
       res.status(HTTP_STATUS.NO_CONTENT).send();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Logout failed";
-      res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json(
-          ResponseBuilder.error(message, "LOGOUT_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(HTTP_STATUS.BAD_REQUEST).json(
+        ResponseBuilder.error(message, "LOGOUT_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 
@@ -218,13 +209,11 @@ export class AuthController {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to send reset email";
-      res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json(
-          ResponseBuilder.error(message, "FORGOT_PASSWORD_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(HTTP_STATUS.BAD_REQUEST).json(
+        ResponseBuilder.error(message, "FORGOT_PASSWORD_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 
@@ -258,13 +247,11 @@ export class AuthController {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Password reset failed";
-      res
-        .status(HTTP_STATUS.BAD_REQUEST)
-        .json(
-          ResponseBuilder.error(message, "RESET_PASSWORD_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(HTTP_STATUS.BAD_REQUEST).json(
+        ResponseBuilder.error(message, "RESET_PASSWORD_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 
@@ -299,13 +286,11 @@ export class AuthController {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to fetch user";
-      res
-        .status(HTTP_STATUS.INTERNAL_SERVER_ERROR)
-        .json(
-          ResponseBuilder.error(message, "FETCH_USER_FAILED", undefined, {
-            requestId: req.id,
-          })
-        );
+      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json(
+        ResponseBuilder.error(message, "FETCH_USER_FAILED", undefined, {
+          requestId: req.id,
+        })
+      );
     }
   }
 

@@ -441,6 +441,35 @@ export class ProductRepository extends BaseRepository<
     return this.db.select().from(products).where(inArray(products.id, ids));
   }
 
+  // Get products by multiple vendor IDs
+  async findByVendorIds(vendorIds: string[]): Promise<Product[]> {
+    if (vendorIds.length === 0) return [];
+
+    return this.db
+      .select()
+      .from(products)
+      .where(inArray(products.vendorId, vendorIds))
+      .orderBy(desc(products.createdAt));
+  }
+
+  // Get products by multiple category IDs
+  async findByCategoryIds(categoryIds: string[]): Promise<Product[]> {
+    if (categoryIds.length === 0) return [];
+
+    return this.db
+      .select()
+      .from(products)
+      .where(inArray(products.categoryId, categoryIds))
+      .orderBy(desc(products.createdAt));
+  }
+
+  // Get products by multiple slugs
+  async findBySlugs(slugs: string[]): Promise<Product[]> {
+    if (slugs.length === 0) return [];
+
+    return this.db.select().from(products).where(inArray(products.slug, slugs));
+  }
+
   // Search products for autocomplete
   async searchForAutocomplete(
     query: string,

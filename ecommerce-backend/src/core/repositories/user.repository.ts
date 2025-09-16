@@ -3,7 +3,7 @@
  * Handles all database operations for users
  */
 
-import { eq, and, ilike, or, sql } from "drizzle-orm";
+import { eq, and, ilike, or, sql, inArray } from "drizzle-orm";
 import { BaseRepository } from "./base.repository";
 import { Database } from "../database/connection";
 import {
@@ -257,5 +257,19 @@ export class UserRepository extends BaseRepository<
       verified,
       unverified,
     };
+  }
+
+  // Get users by multiple IDs
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) return [];
+
+    return this.db.select().from(users).where(inArray(users.id, ids));
+  }
+
+  // Get users by multiple emails
+  async findByEmails(emails: string[]): Promise<User[]> {
+    if (emails.length === 0) return [];
+
+    return this.db.select().from(users).where(inArray(users.email, emails));
   }
 }
