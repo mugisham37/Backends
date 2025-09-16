@@ -8,7 +8,9 @@ import { z } from "zod";
 const envSchema = z.object({
   // Server
   PORT: z.string().transform(Number).default("3000"),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
   API_VERSION: z.string().default("v1"),
 
   // Database
@@ -31,7 +33,9 @@ const envSchema = z.object({
 
   // File Upload
   MAX_FILE_SIZE: z.string().transform(Number).default("10485760"), // 10MB
-  ALLOWED_FILE_TYPES: z.string().default("image/jpeg,image/png,image/webp,application/pdf"),
+  ALLOWED_FILE_TYPES: z
+    .string()
+    .default("image/jpeg,image/png,image/webp,application/pdf"),
 
   // Security
   BCRYPT_ROUNDS: z.string().transform(Number).default("12"),
@@ -64,20 +68,27 @@ export const config = {
   apiVersion: process.env.API_VERSION || "v1",
 
   database: {
-    url: process.env.DATABASE_URL || "postgresql://localhost:5432/ecommerce_dev",
+    url:
+      process.env.DATABASE_URL || "postgresql://localhost:5432/ecommerce_dev",
     maxConnections: Number(process.env.DB_MAX_CONNECTIONS) || 20,
   },
 
   redis: {
     url: process.env.REDIS_URL || "redis://localhost:6379",
+    host: process.env.REDIS_HOST || "localhost",
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD,
+    db: Number(process.env.REDIS_DB) || 0,
     maxRetries: Number(process.env.REDIS_MAX_RETRIES) || 3,
   },
 
   jwt: {
     accessSecret:
-      process.env.JWT_ACCESS_SECRET || "development-access-secret-key-change-in-production",
+      process.env.JWT_ACCESS_SECRET ||
+      "development-access-secret-key-change-in-production",
     refreshSecret:
-      process.env.JWT_REFRESH_SECRET || "development-refresh-secret-key-change-in-production",
+      process.env.JWT_REFRESH_SECRET ||
+      "development-refresh-secret-key-change-in-production",
   },
 
   email: {
