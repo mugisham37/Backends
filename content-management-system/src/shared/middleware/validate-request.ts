@@ -1,8 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
-import type Joi from "joi";
 import { ApiError } from "../utils/errors";
 
-export const validateRequest = (schema: Joi.ObjectSchema) => {
+// Simple Joi-like interface for backward compatibility
+interface ValidationSchema {
+  validate(data: any, options?: any): { error?: any; value: any };
+}
+
+export const validateRequest = (schema: ValidationSchema) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     const { error, value } = schema.validate(
       {
@@ -14,15 +18,16 @@ export const validateRequest = (schema: Joi.ObjectSchema) => {
     );
 
     if (error) {
-      const errorMessage = error.details
-        .map((detail) => detail.message)
-        .join(", ");
+      const errorMessage =
+        error.details?.map((detail: any) => detail.message).join(", ") ||
+        "Validation error";
 
-      const errorDetails = error.details.reduce((acc: any, detail) => {
-        const path = detail.path.join(".");
-        acc[path] = detail.message;
-        return acc;
-      }, {});
+      const errorDetails =
+        error.details?.reduce((acc: any, detail: any) => {
+          const path = detail.path?.join(".") || "unknown";
+          acc[path] = detail.message;
+          return acc;
+        }, {}) || {};
 
       return next(ApiError.validationError(errorMessage, errorDetails));
     }

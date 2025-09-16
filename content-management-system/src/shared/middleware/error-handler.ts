@@ -16,7 +16,7 @@ export const errorHandler = (
     return res.status(err.statusCode).json({
       status: "error",
       message: err.message,
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
     });
   }
 
@@ -25,7 +25,7 @@ export const errorHandler = (
     return res.status(400).json({
       status: "error",
       message: err.message,
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
     });
   }
 
@@ -34,7 +34,7 @@ export const errorHandler = (
     return res.status(409).json({
       status: "error",
       message: "Duplicate key error",
-      ...(process.env.NODE_ENV === "development" && {
+      ...(process.env["NODE_ENV"] === "development" && {
         stack: err.stack,
         details: err,
       }),
@@ -46,7 +46,7 @@ export const errorHandler = (
     return res.status(401).json({
       status: "error",
       message: "Invalid token",
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
     });
   }
 
@@ -54,7 +54,7 @@ export const errorHandler = (
     return res.status(401).json({
       status: "error",
       message: "Token expired",
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
     });
   }
 
@@ -63,7 +63,7 @@ export const errorHandler = (
     return res.status(400).json({
       status: "error",
       message: err.message,
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
     });
   }
 
@@ -71,6 +71,6 @@ export const errorHandler = (
   return res.status(500).json({
     status: "error",
     message: "Internal server error",
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
   });
 };

@@ -3,6 +3,7 @@ export * from "./tenant.schema";
 export * from "./auth.schema";
 export * from "./content.schema";
 export * from "./media.schema";
+export * from "./api-key.schema";
 
 // Re-export commonly used types
 export type {
@@ -55,6 +56,13 @@ export type {
   NewMediaUsage,
 } from "./media.schema";
 
+export type {
+  ApiKey,
+  NewApiKey,
+  ApiKeyScope,
+  ApiKeyWithRelations,
+} from "./api-key.schema";
+
 // Schema collections for easier imports
 import { tenantRelations, tenants } from "./tenant.schema";
 
@@ -89,6 +97,8 @@ import {
   mediaUsageRelations,
 } from "./media.schema";
 
+import { apiKeys } from "./api-key.schema";
+
 // All tables for migrations and schema operations
 export const allTables = {
   // Tenant tables
@@ -110,6 +120,9 @@ export const allTables = {
   mediaFolders,
   mediaTransformations,
   mediaUsage,
+
+  // API Key tables
+  apiKeys,
 };
 
 // All relations for Drizzle ORM

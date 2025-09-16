@@ -40,6 +40,20 @@ export const updateTenantSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// Tenant settings update schema
+export const updateTenantSettingsSchema = z.object({
+  settings: z.record(z.any()),
+});
+
+// Parameter schemas
+export const tenantParamsSchema = z.object({
+  id: uuidSchema,
+});
+
+export const tenantSlugParamsSchema = z.object({
+  slug: slugValidation,
+});
+
 // Tenant query schema
 export const tenantQuerySchema = paginationQuerySchema
   .merge(searchQuerySchema)

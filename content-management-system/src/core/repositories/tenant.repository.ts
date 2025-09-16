@@ -1,6 +1,9 @@
 import { eq, ilike, or, and, sql } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import { tenants } from "../database/schema/tenant.schema.js";
+import { users } from "../database/schema/auth.schema.js";
+import { contents } from "../database/schema/content.schema.js";
+import { media } from "../database/schema/media.schema.js";
 import { DatabaseError } from "../errors/database.error.js";
 import type {
   FilterOptions,
@@ -465,6 +468,127 @@ export class TenantRepository extends BaseRepository<Tenant> {
         error: new DatabaseError(
           "Failed to check subdomain availability",
           "isSubdomainAvailable",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Get user count for a tenant
+   */
+  async getUserCount(tenantId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.tenantId, tenantId));
+
+      return {
+        success: true,
+        data: result[0]?.count || 0,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to get user count",
+          "getUserCount",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Get content count for a tenant
+   */
+  async getContentCount(tenantId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(contents)
+        .where(eq(contents.tenantId, tenantId));
+
+      return {
+        success: true,
+        data: result[0]?.count || 0,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to get content count",
+          "getContentCount",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Get media count for a tenant
+   */
+  async getMediaCount(tenantId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(media)
+        .where(eq(media.tenantId, tenantId));
+
+      return {
+        success: true,
+        data: result[0]?.count || 0,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to get media count",
+          "getMediaCount",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Find tenants for a user
+   */
+  async findTenantsForUser(userId: string): Promise<Result<Tenant[], Error>> {
+    try {
+      const result = await this.db
+        .select({
+          id: tenants.id,
+          name: tenants.name,
+          slug: tenants.slug,
+          description: tenants.description,
+          domain: tenants.domain,
+          subdomain: tenants.subdomain,
+          isActive: tenants.isActive,
+          settings: tenants.settings,
+          metadata: tenants.metadata,
+          createdAt: tenants.createdAt,
+          updatedAt: tenants.updatedAt,
+        })
+        .from(tenants)
+        .innerJoin(users, eq(users.tenantId, tenants.id))
+        .where(eq(users.id, userId));
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to find tenants for user",
+          "findTenantsForUser",
           this.table._.name,
           error
         ),

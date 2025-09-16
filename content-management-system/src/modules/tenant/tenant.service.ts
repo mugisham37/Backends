@@ -1,16 +1,13 @@
 import { inject, injectable } from "tsyringe";
-import type {
-  NewTenant,
-  Tenant,
-} from "../../core/database/schema/tenant.schema";
+import type { Tenant } from "../../core/database/schema/tenant.schema";
 import {
   BusinessRuleError,
   ConflictError,
   NotFoundError,
   ValidationError,
 } from "../../core/errors";
-import { TenantRepository } from "./tenant.repository";
-import { UserRepository } from "../auth/auth.repository";
+import { TenantRepository } from "../../core/repositories/tenant.repository";
+import { UserRepository } from "../../core/repositories/user.repository";
 import type { Result } from "../../core/types/result.types";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
@@ -52,11 +49,11 @@ export class TenantService {
       if (!this.isValidSlug(slug)) {
         return {
           success: false,
-          error: new ValidationError("Invalid slug format", {
-            slug: [
-              "Slug must contain only lowercase letters, numbers, and hyphens",
-            ],
-          }),
+          error: new ValidationError(
+            "Slug must contain only lowercase letters, numbers, and hyphens",
+            "slug",
+            slug
+          ),
         };
       }
 
@@ -96,16 +93,16 @@ export class TenantService {
       }
 
       // Create tenant
-      const tenantData: NewTenant = {
+      const tenantData = {
         name: data.name,
         slug,
-        description: data.description,
-        domain: data.domain,
-        subdomain: data.subdomain,
-        settings: data.settings || {},
-        metadata: data.metadata || {},
+        description: data.description ?? null,
+        domain: data.domain ?? null,
+        subdomain: data.subdomain ?? null,
         isActive: true,
-      };
+        settings: data.settings || null,
+        metadata: data.metadata || null,
+      } as const;
 
       const result = await this.tenantRepository.create(tenantData);
       if (!result.success) {
@@ -142,7 +139,7 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `tenant:${id}`;
-      const cachedTenant = await this.cacheService.get(cacheKey);
+      const cachedTenant = await this.cacheService.get<Tenant>(cacheKey);
       if (cachedTenant) {
         return { success: true, data: cachedTenant };
       }
@@ -175,7 +172,7 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `tenant:slug:${slug}`;
-      const cachedTenant = await this.cacheService.get(cacheKey);
+      const cachedTenant = await this.cacheService.get<Tenant>(cacheKey);
       if (cachedTenant) {
         return { success: true, data: cachedTenant };
       }
@@ -424,7 +421,7 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `user:${userId}:tenants`;
-      const cachedTenants = await this.cacheService.get(cacheKey);
+      const cachedTenants = await this.cacheService.get<Tenant[]>(cacheKey);
       if (cachedTenants) {
         return { success: true, data: cachedTenants };
       }
@@ -457,7 +454,7 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `user:${userId}:tenant:${tenantId}:member`;
-      const cachedResult = await this.cacheService.get(cacheKey);
+      const cachedResult = await this.cacheService.get<boolean>(cacheKey);
       if (cachedResult !== null) {
         return { success: true, data: cachedResult };
       }
@@ -503,7 +500,12 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `tenant:${tenantId}:stats`;
-      const cachedStats = await this.cacheService.get(cacheKey);
+      const cachedStats = await this.cacheService.get<{
+        userCount: number;
+        contentCount: number;
+        mediaCount: number;
+        storageUsed: number;
+      }>(cacheKey);
       if (cachedStats) {
         return { success: true, data: cachedStats };
       }

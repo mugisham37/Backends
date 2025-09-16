@@ -54,4 +54,10 @@ export class ApiError extends Error {
   static paymentRequired(message: string): ApiError {
     return new ApiError(402, message);
   }
+
+  static validationError(message: string, details?: any): ApiError {
+    const error = new ApiError(400, message);
+    (error as any).details = details;
+    return error;
+  }
 }

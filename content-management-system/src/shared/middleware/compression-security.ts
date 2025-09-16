@@ -41,6 +41,7 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
         ip: request.ip,
       });
       reply.code(406).send({ error: "Not Acceptable" });
+      return '{"error": "Not Acceptable"}';
     },
   });
 
@@ -64,7 +65,6 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
         baseUri: ["'self'"],
         formAction: ["'self'"],
         frameAncestors: ["'none'"],
-        upgradeInsecureRequests: config.isProduction,
       },
     },
 
@@ -91,18 +91,6 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
       policy: ["strict-origin-when-cross-origin"],
     },
 
-    // Permissions Policy (formerly Feature Policy)
-    permissionsPolicy: {
-      camera: ["none"],
-      microphone: ["none"],
-      geolocation: ["none"],
-      payment: ["none"],
-      usb: ["none"],
-      magnetometer: ["none"],
-      gyroscope: ["none"],
-      accelerometer: ["none"],
-    },
-
     // Cross-Origin Embedder Policy
     crossOriginEmbedderPolicy: false, // Disable for API compatibility
 
@@ -118,14 +106,6 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
 
     // Hide X-Powered-By header
     hidePoweredBy: true,
-
-    // Expect-CT header
-    expectCt: config.isProduction
-      ? {
-          maxAge: 86400, // 24 hours
-          enforce: true,
-        }
-      : false,
   });
 
   // ============================================================================
@@ -145,7 +125,7 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
       }
 
       // Check for wildcard subdomains
-      const isAllowed = allowedOrigins.some((allowedOrigin) => {
+      const isAllowed = allowedOrigins.some((allowedOrigin: string) => {
         if (allowedOrigin.startsWith("*.")) {
           const domain = allowedOrigin.slice(2);
           return origin.endsWith(`.${domain}`) || origin === domain;
@@ -238,11 +218,6 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
       "x-ratelimit-reset": true,
     },
 
-    // Skip rate limiting for health checks
-    skip: (request: FastifyRequest) => {
-      return request.url === "/health" || request.url === "/metrics";
-    },
-
     // Custom hook for rate limit events
     onExceeding: (request: FastifyRequest) => {
       logger.warn("Rate limit approaching", {
@@ -260,6 +235,17 @@ export async function compressionSecurityPlugin(fastify: FastifyInstance) {
       });
     },
   });
+
+  // Add skip logic as a separate hook instead of in the rate limit options
+  fastify.addHook(
+    "preHandler",
+    async (request: FastifyRequest, _reply: FastifyReply) => {
+      // Skip rate limiting for health checks
+      if (request.url === "/health" || request.url === "/metrics") {
+        (request as any).skipRateLimit = true;
+      }
+    }
+  );
 
   // ============================================================================
   // REQUEST SIZE LIMITS

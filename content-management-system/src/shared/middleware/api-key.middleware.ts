@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { container } from "tsyringe";
 import { ApiKeyScope } from "../db/models/api-key.model";
 import { ApiKeyService } from "../services/api-key.service";
 import { ApiError } from "../utils/errors";
@@ -8,7 +9,7 @@ export class ApiKeyMiddleware {
   private apiKeyService: ApiKeyService;
 
   constructor() {
-    this.apiKeyService = new ApiKeyService();
+    this.apiKeyService = container.resolve(ApiKeyService);
   }
 
   /**

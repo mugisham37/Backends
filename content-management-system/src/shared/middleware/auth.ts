@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { container } from "tsyringe";
 import { config } from "../config";
-import { UserModel } from "../db/models/user.model";
+import { UserRepository } from "../../core/repositories/user.repository";
 import { ApiError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -38,14 +39,19 @@ export const authMiddleware = async (
       // Verify token
       const decoded = jwt.verify(token, config.jwt.secret) as DecodedToken;
 
-      // Find user
-      const user = await UserModel.findById(decoded.id).select("-password");
+      // Get user repository from container
+      const userRepository = container.resolve(UserRepository);
 
-      if (!user) {
+      // Find user
+      const userResult = await userRepository.findById(decoded.id);
+
+      if (!userResult.success || !userResult.data) {
         return next();
       }
-      // Attach user to request
-      (req as any).user = user;
+
+      // Attach user to request (excluding password)
+      const { passwordHash, ...userWithoutPassword } = userResult.data;
+      (req as any).user = userWithoutPassword;
       (req as any).token = token;
 
       next();

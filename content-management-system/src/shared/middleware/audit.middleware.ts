@@ -43,41 +43,58 @@ export const auditMiddleware = async (
   } as any);
 
   // Hook into response to log completion
-  reply.addHook("onSend", async (request: any, reply: any, payload: any) => {
+  reply.hijack();
+  const originalSend = reply.send.bind(reply);
+  reply.send = function (payload: any) {
     const responseTime = Date.now() - startTime;
     const statusCode = reply.statusCode;
 
-    // Log API request to audit service
-    await auditService.logApiRequest({
-      method,
-      url,
-      statusCode,
-      responseTime,
-      userId,
-      tenantId,
-      sessionId,
-      ip,
-      userAgent: userAgent || undefined,
-      requestId,
-      requestSize: request.headers["content-length"]
-        ? parseInt(request.headers["content-length"] as string, 10)
-        : undefined,
-      responseSize: typeof payload === "string" ? payload.length : undefined,
+    // Log API request to audit service asynchronously
+    setImmediate(async () => {
+      try {
+        const apiRequestData: any = {
+          method,
+          url,
+          statusCode,
+          responseTime,
+          requestId,
+        };
+
+        // Only add optional properties if they have values
+        if (userId) apiRequestData.userId = userId;
+        if (tenantId) apiRequestData.tenantId = tenantId;
+        if (sessionId) apiRequestData.sessionId = sessionId;
+        if (ip) apiRequestData.ip = ip;
+        if (userAgent) apiRequestData.userAgent = userAgent;
+        if (request.headers["content-length"]) {
+          apiRequestData.requestSize = parseInt(
+            request.headers["content-length"] as string,
+            10
+          );
+        }
+        if (typeof payload === "string") {
+          apiRequestData.responseSize = payload.length;
+        }
+
+        await auditService.logApiRequest(apiRequestData);
+
+        // Log request completion
+        request.log.info("Request completed", {
+          requestId,
+          method,
+          url,
+          statusCode,
+          responseTime,
+          userId: userId || undefined,
+          tenantId: tenantId || undefined,
+        } as any);
+      } catch (error) {
+        request.log.warn("Audit logging failed:", error as any);
+      }
     });
 
-    // Log request completion
-    request.log.info("Request completed", {
-      requestId,
-      method,
-      url,
-      statusCode,
-      responseTime,
-      userId,
-      tenantId,
-    });
-
-    return payload;
-  });
+    return originalSend(payload);
+  };
 };
 
 /**
@@ -101,9 +118,8 @@ export const createAuditMiddleware = (options: {
 
       // Log user action
       if (user?.id) {
-        await auditService.logUserAction({
+        const userActionData: any = {
           userId: user.id,
-          tenantId: user.tenantId,
           action: options.action,
           resource: options.resource,
           details: {
@@ -115,8 +131,14 @@ export const createAuditMiddleware = (options: {
             body: request.body,
           },
           ip: request.ip,
-          userAgent: request.headers["user-agent"] || undefined,
-        });
+        };
+
+        // Only add optional properties if they have values
+        if (user.tenantId) userActionData.tenantId = user.tenantId;
+        if (request.headers["user-agent"])
+          userActionData.userAgent = request.headers["user-agent"];
+
+        await auditService.logUserAction(userActionData);
       }
     } catch (error) {
       // Don't block the request if audit logging fails
@@ -261,28 +283,35 @@ export const performanceMiddleware = async (
   const startTime = Date.now();
   const operation = `${request.method} ${request.url}`;
 
-  reply.addHook("onSend", async () => {
+  // Hook into the reply to capture end time
+  const originalSend = reply.send.bind(reply);
+  reply.send = function (payload: any) {
     const duration = Date.now() - startTime;
 
-    try {
-      const auditService = container.resolve(AuditService);
-      const user = (request as any).user;
+    // Log performance metrics asynchronously
+    setImmediate(async () => {
+      try {
+        const auditService = container.resolve(AuditService);
+        const user = (request as any).user;
 
-      await auditService.logPerformanceMetrics({
-        operation,
-        duration,
-        userId: user?.id,
-        tenantId: user?.tenantId,
-        metadata: {
-          method: request.method,
-          url: request.url,
-          statusCode: reply.statusCode,
-        },
-      });
-    } catch (error) {
-      logger.warn("Performance logging failed:", error);
-    }
-  });
+        await auditService.logPerformanceMetrics({
+          operation,
+          duration,
+          userId: user?.id,
+          tenantId: user?.tenantId,
+          metadata: {
+            method: request.method,
+            url: request.url,
+            statusCode: reply.statusCode,
+          },
+        });
+      } catch (error) {
+        logger.warn("Performance logging failed:", error);
+      }
+    });
+
+    return originalSend(payload);
+  };
 };
 
 /**

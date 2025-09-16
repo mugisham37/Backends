@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { container } from "tsyringe";
-import type { IAuthService } from "../core/types/service.types";
+import type { IAuthService } from "../../core/types/service.types";
 
 /**
  * Fastify Authentication Plugin
@@ -38,9 +38,9 @@ async function authPlugin(fastify: FastifyInstance) {
         }
 
         // Attach user to request
-        request.user = result.data;
+        (request as any).user = result.data;
       } catch (error) {
-        request.log.error("Authentication error:", error);
+        request.log.error(`Authentication error: ${error}`);
         return reply.status(401).send({
           error: "Unauthorized",
           message: "Authentication failed",

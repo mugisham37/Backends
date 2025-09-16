@@ -1,89 +1,133 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { ITenantService } from "../../../core/types/service.types";
+import { TenantController } from "../../../modules/tenant/tenant.controller";
+import { validate } from "../../../shared/middleware/zod-validation";
+import {
+  createTenantSchema,
+  updateTenantSchema,
+  tenantQuerySchema,
+  updateTenantSettingsSchema,
+  tenantParamsSchema,
+  tenantSlugParamsSchema,
+} from "../../../modules/tenant/tenant.schemas";
 
+/**
+ * Tenant routes plugin for Fastify
+ * Registers all tenant-related routes with proper validation and authentication
+ */
 export const tenantRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const _tenantService = container.resolve<ITenantService>("TenantService");
+  const tenantController = container.resolve(TenantController);
 
-  // Get all tenants for user
+  // Get user tenants
   fastify.get(
-    "/",
+    "/my",
     {
       preHandler: [fastify.authenticate],
     },
-    async (_request, reply) => {
-      // Implementation placeholder
-      return reply.status(501).send({
-        error: "Not Implemented",
-        message: "Tenant listing endpoint not yet implemented",
-        timestamp: new Date().toISOString(),
-      });
-    }
+    tenantController.getUserTenants
+  );
+
+  // List tenants with pagination and filtering
+  fastify.get(
+    "/",
+    {
+      preHandler: [
+        fastify.authenticate,
+        validate({ querystring: tenantQuerySchema }),
+      ],
+    },
+    tenantController.listTenants
   );
 
   // Create tenant
   fastify.post(
     "/",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        validate({ body: createTenantSchema }),
+      ],
     },
-    async (_request, reply) => {
-      // Implementation placeholder
-      return reply.status(501).send({
-        error: "Not Implemented",
-        message: "Tenant creation endpoint not yet implemented",
-        timestamp: new Date().toISOString(),
-      });
-    }
+    tenantController.createTenant
   );
 
-  // Get specific tenant
+  // Get tenant by slug
+  fastify.get(
+    "/slug/:slug",
+    {
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: tenantSlugParamsSchema }),
+      ],
+    },
+    tenantController.getTenantBySlug
+  );
+
+  // Get tenant by ID
   fastify.get(
     "/:id",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: tenantParamsSchema }),
+      ],
     },
-    async (_request, reply) => {
-      // Implementation placeholder
-      return reply.status(501).send({
-        error: "Not Implemented",
-        message: "Tenant retrieval endpoint not yet implemented",
-        timestamp: new Date().toISOString(),
-      });
-    }
+    tenantController.getTenantById
   );
 
   // Update tenant
   fastify.put(
     "/:id",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        validate({
+          params: tenantParamsSchema,
+          body: updateTenantSchema,
+        }),
+      ],
     },
-    async (_request, reply) => {
-      // Implementation placeholder
-      return reply.status(501).send({
-        error: "Not Implemented",
-        message: "Tenant update endpoint not yet implemented",
-        timestamp: new Date().toISOString(),
-      });
-    }
+    tenantController.updateTenant
   );
 
   // Delete tenant
   fastify.delete(
     "/:id",
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: tenantParamsSchema }),
+      ],
     },
-    async (_request, reply) => {
-      // Implementation placeholder
-      return reply.status(501).send({
-        error: "Not Implemented",
-        message: "Tenant deletion endpoint not yet implemented",
-        timestamp: new Date().toISOString(),
-      });
-    }
+    tenantController.deleteTenant
+  );
+
+  // Get tenant statistics
+  fastify.get(
+    "/:id/stats",
+    {
+      preHandler: [
+        fastify.authenticate,
+        validate({ params: tenantParamsSchema }),
+      ],
+    },
+    tenantController.getTenantStats
+  );
+
+  // Update tenant settings
+  fastify.patch(
+    "/:id/settings",
+    {
+      preHandler: [
+        fastify.authenticate,
+        validate({
+          params: tenantParamsSchema,
+          body: updateTenantSettingsSchema,
+        }),
+      ],
+    },
+    tenantController.updateTenantSettings
   );
 };

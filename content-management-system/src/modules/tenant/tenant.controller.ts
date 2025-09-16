@@ -1,47 +1,112 @@
-import type { NextFunction, Request, Response } from "express";
-import {
-  type TenantPlan,
-  type TenantStatus,
-  TenantUserRole,
-} from "../db/models/tenant.model";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { inject, injectable } from "tsyringe";
 import { TenantService } from "./tenant.service";
-import { ApiError } from "../utils/errors";
+import { parsePaginationParams } from "../utils/helpers";
+import type { User } from "../../core/repositories/user.repository";
 
+// Type definitions for Fastify requests
+interface TenantQueryParams extends Record<string, unknown> {
+  page?: string;
+  limit?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  search?: string;
+  isActive?: string;
+}
+
+interface TenantParams {
+  id?: string;
+  slug?: string;
+  userId?: string;
+}
+
+interface CreateTenantBody {
+  name: string;
+  slug?: string;
+  description?: string;
+  domain?: string;
+  subdomain?: string;
+  settings?: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+interface UpdateTenantBody {
+  name?: string;
+  description?: string;
+  domain?: string;
+  subdomain?: string;
+  settings?: Record<string, any>;
+  metadata?: Record<string, any>;
+  isActive?: boolean;
+}
+
+interface UpdateTenantSettingsBody {
+  settings: Record<string, any>;
+}
+
+/**
+ * Tenant controller for Fastify
+ * Handles tenant management operations with proper authentication and validation
+ */
+@injectable()
 export class TenantController {
-  private tenantService: TenantService;
-
-  constructor() {
-    this.tenantService = new TenantService();
-  }
+  constructor(@inject("TenantService") private tenantService: TenantService) {}
 
   /**
    * Create a new tenant
    */
   public createTenant = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { name, slug, description, plan } = req.body;
-      const userId = (req as any).user.id;
+      const user = request.user as User;
+      const tenantData = request.body as CreateTenantBody;
 
-      const tenant = await this.tenantService.createTenant({
-        name,
-        slug,
-        description,
-        plan: plan as TenantPlan,
-        ownerId: userId,
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.tenantService.createTenant({
+        name: tenantData.name,
+        ...(tenantData.slug && { slug: tenantData.slug }),
+        ...(tenantData.description && { description: tenantData.description }),
+        ...(tenantData.domain && { domain: tenantData.domain }),
+        ...(tenantData.subdomain && { subdomain: tenantData.subdomain }),
+        ...(tenantData.settings && { settings: tenantData.settings }),
+        ...(tenantData.metadata && { metadata: tenantData.metadata }),
       });
 
-      res.status(201).json({
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(201).send({
         status: "success",
         data: {
-          tenant,
+          tenant: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error creating tenant: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -49,23 +114,145 @@ export class TenantController {
    * Get tenant by ID
    */
   public getTenantById = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = request.params as TenantParams;
+      const user = request.user as User;
 
-      const tenant = await this.tenantService.getTenantById(id);
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      res.status(200).json({
+      if (!id) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Tenant ID is required",
+          code: "VALIDATION_ERROR",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if user has access to this tenant
+      const memberResult = await this.tenantService.isUserMemberOfTenant(
+        id,
+        user.id
+      );
+      if (!memberResult.success || !memberResult.data) {
+        return reply.status(403).send({
+          status: "error",
+          message: "You do not have access to this tenant",
+          code: "FORBIDDEN",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.tenantService.getTenantById(id);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          tenant,
+          tenant: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error getting tenant: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  };
+
+  /**
+   * Get tenant by slug
+   */
+  public getTenantBySlug = async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    try {
+      const { slug } = request.params as TenantParams;
+      const user = request.user as User;
+
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (!slug) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Tenant slug is required",
+          code: "VALIDATION_ERROR",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.tenantService.getTenantBySlug(slug);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Check if user has access to this tenant
+      const memberResult = await this.tenantService.isUserMemberOfTenant(
+        result.data.id,
+        user.id
+      );
+      if (!memberResult.success || !memberResult.data) {
+        return reply.status(403).send({
+          status: "error",
+          message: "You do not have access to this tenant",
+          code: "FORBIDDEN",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
+        status: "success",
+        data: {
+          tenant: result.data,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      request.log.error(`Error getting tenant by slug: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -73,102 +260,211 @@ export class TenantController {
    * Update tenant
    */
   public updateTenant = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Params: TenantParams;
+      Body: UpdateTenantBody;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
-      const { name, description, settings, billingInfo } = req.body;
+      const { id } = request.params;
+      const user = request.user as User;
+      const updateData = request.body;
 
-      // Check if user has permission to update tenant
-      const userId = (req as any).user.id;
-      const userRole = await this.tenantService.getUserRoleInTenant(id, userId);
-
-      if (
-        !userRole ||
-        ![TenantUserRole.OWNER, TenantUserRole.ADMIN].includes(userRole)
-      ) {
-        throw ApiError.forbidden(
-          "You do not have permission to update this tenant"
-        );
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
       }
 
-      // Only allow certain fields to be updated
-      const updateData: any = {};
-      if (name) updateData.name = name;
-      if (description) updateData.description = description;
-      if (settings) updateData.settings = settings;
-      if (billingInfo) updateData.billingInfo = billingInfo;
+      if (!id) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Tenant ID is required",
+          code: "VALIDATION_ERROR",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      const tenant = await this.tenantService.updateTenant(id, updateData);
+      // Check if user has access to this tenant
+      const memberResult = await this.tenantService.isUserMemberOfTenant(
+        id,
+        user.id
+      );
+      if (!memberResult.success || !memberResult.data) {
+        return reply.status(403).send({
+          status: "error",
+          message: "You do not have access to this tenant",
+          code: "FORBIDDEN",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      res.status(200).json({
+      const result = await this.tenantService.updateTenant(id, updateData);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          tenant,
+          tenant: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error updating tenant: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * Delete tenant
+   * Delete tenant (soft delete by deactivating)
    */
   public deleteTenant = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Params: TenantParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
+      const { id } = request.params;
+      const user = request.user as User;
 
-      // Check if user has permission to delete tenant
-      const userId = (req as any).user.id;
-      const userRole = await this.tenantService.getUserRoleInTenant(id, userId);
-
-      if (!userRole || userRole !== TenantUserRole.OWNER) {
-        throw ApiError.forbidden("Only the tenant owner can delete the tenant");
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
       }
 
-      await this.tenantService.deleteTenant(id);
+      if (!id) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Tenant ID is required",
+          code: "VALIDATION_ERROR",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      res.status(200).json({
+      // Check if user has access to this tenant
+      const memberResult = await this.tenantService.isUserMemberOfTenant(
+        id,
+        user.id
+      );
+      if (!memberResult.success || !memberResult.data) {
+        return reply.status(403).send({
+          status: "error",
+          message: "You do not have access to this tenant",
+          code: "FORBIDDEN",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.tenantService.deleteTenant(id);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         message: "Tenant deleted successfully",
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error deleting tenant: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * List tenants
+   * List tenants with pagination and filtering
    */
   public listTenants = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Querystring: TenantQueryParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { page, limit, status, search, plan } = req.query;
+      const user = request.user as User;
 
-      const result = await this.tenantService.listTenants({
-        page: page ? Number.parseInt(page as string, 10) : undefined,
-        limit: limit ? Number.parseInt(limit as string, 10) : undefined,
-        status: status as TenantStatus,
-        search: search as string,
-        plan: plan as TenantPlan,
-      });
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      res.status(200).json({
+      // Parse query parameters
+      const { page, limit } = parsePaginationParams(request.query);
+
+      // Build filter options
+      const options: any = {
+        page,
+        limit,
+        search: request.query.search as string,
+        isActive: request.query.isActive
+          ? request.query.isActive === "true"
+          : undefined,
+      };
+
+      const result = await this.tenantService.listTenants(options);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
-        data: result,
+        data: result.data,
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error listing tenants: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
@@ -176,302 +472,225 @@ export class TenantController {
    * Get user tenants
    */
   public getUserTenants = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const userId = (req as any).user.id;
+      const user = request.user as User;
 
-      const tenants = await this.tenantService.getUserTenants(userId);
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      res.status(200).json({
+      const result = await this.tenantService.getUserTenants(user.id);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          tenants,
+          tenants: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error getting user tenants: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * Add user to tenant
+   * Get tenant statistics
    */
-  public addUserToTenant = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  public getTenantStats = async (
+    request: FastifyRequest<{
+      Params: TenantParams;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id } = req.params;
-      const { userId, role } = req.body;
-      const currentUserId = (req as any).user.id;
+      const { id } = request.params;
+      const user = request.user as User;
 
-      // Check if current user has permission to add users
-      const userRole = await this.tenantService.getUserRoleInTenant(
-        id,
-        currentUserId
-      );
-
-      if (
-        !userRole ||
-        ![TenantUserRole.OWNER, TenantUserRole.ADMIN].includes(userRole)
-      ) {
-        throw ApiError.forbidden(
-          "You do not have permission to add users to this tenant"
-        );
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
       }
 
-      const tenant = await this.tenantService.addUserToTenant(id, {
-        userId,
-        role: role as TenantUserRole,
-        invitedBy: currentUserId,
-      });
+      if (!id) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Tenant ID is required",
+          code: "VALIDATION_ERROR",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-      res.status(200).json({
+      // Check if user has access to this tenant
+      const memberResult = await this.tenantService.isUserMemberOfTenant(
+        id,
+        user.id
+      );
+      if (!memberResult.success || !memberResult.data) {
+        return reply.status(403).send({
+          status: "error",
+          message: "You do not have access to this tenant",
+          code: "FORBIDDEN",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.tenantService.getTenantStats(id);
+
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
-        data: {
-          tenant,
-        },
+        data: result.data,
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error getting tenant stats: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * Update user role in tenant
+   * Update tenant settings
    */
-  public updateUserRole = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+  public updateTenantSettings = async (
+    request: FastifyRequest<{
+      Params: TenantParams;
+      Body: UpdateTenantSettingsBody;
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { id, userId } = req.params;
-      const { role } = req.body;
-      const currentUserId = (req as any).user.id;
+      const { id } = request.params;
+      const user = request.user as User;
+      const { settings } = request.body;
 
-      // Check if current user has permission to update user roles
-      const userRole = await this.tenantService.getUserRoleInTenant(
-        id,
-        currentUserId
-      );
-
-      if (
-        !userRole ||
-        ![TenantUserRole.OWNER, TenantUserRole.ADMIN].includes(userRole)
-      ) {
-        throw ApiError.forbidden(
-          "You do not have permission to update user roles in this tenant"
-        );
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "Authentication required",
+          code: "UNAUTHORIZED",
+          timestamp: new Date().toISOString(),
+        });
       }
 
-      // If current user is admin, they cannot update the role of the owner or other admins
-      if (userRole === TenantUserRole.ADMIN) {
-        const targetUserRole = await this.tenantService.getUserRoleInTenant(
-          id,
-          userId
-        );
-        if (
-          targetUserRole === TenantUserRole.OWNER ||
-          (targetUserRole === TenantUserRole.ADMIN &&
-            role !== TenantUserRole.MEMBER)
-        ) {
-          throw ApiError.forbidden(
-            "Admins cannot change the role of owners or other admins"
-          );
-        }
+      if (!id) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Tenant ID is required",
+          code: "VALIDATION_ERROR",
+          timestamp: new Date().toISOString(),
+        });
       }
 
-      const tenant = await this.tenantService.updateUserRole(
+      // Check if user has access to this tenant
+      const memberResult = await this.tenantService.isUserMemberOfTenant(
         id,
-        userId,
-        role as TenantUserRole
+        user.id
+      );
+      if (!memberResult.success || !memberResult.data) {
+        return reply.status(403).send({
+          status: "error",
+          message: "You do not have access to this tenant",
+          code: "FORBIDDEN",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.tenantService.updateTenantSettings(
+        id,
+        settings
       );
 
-      res.status(200).json({
+      if (!result.success) {
+        const statusCode = this.getErrorStatusCode(result.error);
+        return reply.status(statusCode).send({
+          status: "error",
+          message: result.error.message,
+          code: result.error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         data: {
-          tenant,
+          tenant: result.data,
         },
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      next(error);
+      request.log.error(`Error updating tenant settings: ${error}`);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   /**
-   * Remove user from tenant
+   * Helper method to map errors to HTTP status codes
    */
-  public removeUserFromTenant = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const { id, userId } = req.params;
-      const currentUserId = (req as any).user.id;
+  private getErrorStatusCode(error: Error): number {
+    const errorName = error.constructor.name;
 
-      // Check if current user has permission to remove users
-      const userRole = await this.tenantService.getUserRoleInTenant(
-        id,
-        currentUserId
-      );
-
-      if (
-        !userRole ||
-        ![TenantUserRole.OWNER, TenantUserRole.ADMIN].includes(userRole)
-      ) {
-        throw ApiError.forbidden(
-          "You do not have permission to remove users from this tenant"
-        );
-      }
-
-      // If current user is admin, they cannot remove the owner or other admins
-      if (userRole === TenantUserRole.ADMIN) {
-        const targetUserRole = await this.tenantService.getUserRoleInTenant(
-          id,
-          userId
-        );
-        if (
-          targetUserRole === TenantUserRole.OWNER ||
-          targetUserRole === TenantUserRole.ADMIN
-        ) {
-          throw ApiError.forbidden(
-            "Admins cannot remove owners or other admins"
-          );
-        }
-      }
-
-      const tenant = await this.tenantService.removeUserFromTenant(id, userId);
-
-      res.status(200).json({
-        status: "success",
-        data: {
-          tenant,
-        },
-      });
-    } catch (error) {
-      next(error);
+    switch (errorName) {
+      case "NotFoundError":
+        return 404;
+      case "ConflictError":
+        return 409;
+      case "ValidationError":
+        return 400;
+      case "BusinessRuleError":
+        return 422;
+      case "UnauthorizedError":
+        return 401;
+      case "ForbiddenError":
+        return 403;
+      default:
+        return 500;
     }
-  };
-
-  /**
-   * Update tenant plan
-   */
-  public updateTenantPlan = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const { id } = req.params;
-      const { plan } = req.body;
-
-      // This endpoint would typically be restricted to system admins or called by a billing service
-      // For now, we'll just check if the user is the tenant owner
-      const userId = (req as any).user.id;
-      const userRole = await this.tenantService.getUserRoleInTenant(id, userId);
-
-      if (!userRole || userRole !== TenantUserRole.OWNER) {
-        throw ApiError.forbidden(
-          "Only the tenant owner can update the tenant plan"
-        );
-      }
-
-      const tenant = await this.tenantService.updateTenantPlan(
-        id,
-        plan as TenantPlan
-      );
-
-      res.status(200).json({
-        status: "success",
-        data: {
-          tenant,
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Update tenant status
-   */
-  public updateTenantStatus = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      // This endpoint would typically be restricted to system admins
-      // For now, we'll just check if the user is the tenant owner
-      const userId = (req as any).user.id;
-      const userRole = await this.tenantService.getUserRoleInTenant(id, userId);
-
-      if (!userRole || userRole !== TenantUserRole.OWNER) {
-        throw ApiError.forbidden(
-          "Only the tenant owner can update the tenant status"
-        );
-      }
-
-      const tenant = await this.tenantService.updateTenantStatus(
-        id,
-        status as TenantStatus
-      );
-
-      res.status(200).json({
-        status: "success",
-        data: {
-          tenant,
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Get tenant usage
-   */
-  public getTenantUsage = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const { id } = req.params;
-
-      // Check if user has permission to view tenant usage
-      const userId = (req as any).user.id;
-      const isMember = await this.tenantService.isUserMemberOfTenant(
-        id,
-        userId
-      );
-
-      if (!isMember) {
-        throw ApiError.forbidden(
-          "You do not have permission to view this tenant's usage"
-        );
-      }
-
-      const tenant = await this.tenantService.getTenantById(id);
-
-      res.status(200).json({
-        status: "success",
-        data: {
-          usage: tenant.currentUsage,
-          limits: tenant.usageLimits,
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
+  }
 }

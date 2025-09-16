@@ -1,13 +1,69 @@
-import rateLimit from "express-rate-limit";
-import Redis from "ioredis";
-import RedisStore from "rate-limit-redis";
+// Legacy rate limit middleware - replaced by Fastify rate limiting
+import type { NextFunction, Request, Response } from "express";
 import { config } from "../config";
 import { logger } from "../utils/logger";
 
-// Create Redis client for rate limiting if Redis is enabled
-let redisClient: Redis | null = null;
+// Simple in-memory rate limiting for backward compatibility
+const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
-if (config.redis.enabled) {
+// Cleanup function to remove expired entries
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, data] of requestCounts.entries()) {
+    if (now > data.resetTime) {
+      requestCounts.delete(key);
+    }
+  }
+}, 60000); // Cleanup every minute
+
+/**
+ * Create rate limiting middleware
+ */
+export const createRateLimit = (options: {
+  windowMs?: number;
+  max?: number;
+  message?: string;
+  keyGenerator?: (req: Request) => string;
+}) => {
+  const windowMs = options.windowMs || config.rateLimit.windowMs;
+  const max = options.max || config.rateLimit.max;
+  const message = options.message || "Too many requests";
+  const keyGenerator = options.keyGenerator || ((req: Request) => req.ip);
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    const key = keyGenerator(req);
+    const now = Date.now();
+    const windowStart = now - windowMs;
+
+    let requestData = requestCounts.get(key);
+    
+    if (!requestData || requestData.resetTime <= now) {
+      requestData = { count: 1, resetTime: now + windowMs };
+      requestCounts.set(key, requestData);
+      return next();
+    }
+
+    requestData.count++;
+    
+    if (requestData.count > max) {
+      logger.warn(`Rate limit exceeded for ${key}`, {
+        count: requestData.count,
+        max,
+        ip: req.ip,
+      });
+      
+      return res.status(429).json({
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message,
+          retryAfter: Math.ceil((requestData.resetTime - now) / 1000),
+        },
+      });
+    }
+
+    next();
+  };
+};
   try {
     const options: any = {};
     if (config.redis.password) {

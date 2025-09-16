@@ -65,7 +65,11 @@
     "setex",
     "incrby",
     "dbsize",
-    "reindexing"
+    "reindexing",
+    "HSTS",
+    "hsts",
+    "frameguard",
+    "nosniff"
   ],
   "ignorePaths": [
     "node_modules/**",

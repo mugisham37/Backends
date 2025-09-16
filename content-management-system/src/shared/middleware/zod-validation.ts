@@ -91,7 +91,7 @@ export const zodValidation = (
         request.validationSchemas = schemas;
       }
     } catch (error) {
-      request.log.error("Validation middleware error:", error);
+      request.log.error("Validation middleware error:", error as Error);
       return reply.status(500).send({
         success: false,
         error: {
@@ -122,7 +122,7 @@ export const validateResponse = (
         });
 
         // In development, return validation errors
-        if (process.env.NODE_ENV === "development") {
+        if (process.env["NODE_ENV"] === "development") {
           return reply.status(500).send({
             success: false,
             error: {

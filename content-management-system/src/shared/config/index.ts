@@ -101,6 +101,7 @@ export const config = {
   // CORS configuration
   cors: {
     origin: process.env["CORS_ORIGIN"]?.split(",") || true,
+    allowedOrigins: process.env["CORS_ORIGIN"]?.split(",") || ["*"],
     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -118,6 +119,10 @@ export const config = {
       process.env["RATE_LIMIT_WINDOW_MS"] || "900000",
       10
     ), // 15 minutes
+    timeWindow: Number.parseInt(
+      process.env["RATE_LIMIT_WINDOW_MS"] || "900000",
+      10
+    ), // 15 minutes (alias for windowMs)
     max: Number.parseInt(process.env["RATE_LIMIT_MAX"] || "100", 10),
     standardHeaders: true,
     legacyHeaders: false,
