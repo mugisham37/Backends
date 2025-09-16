@@ -23,25 +23,25 @@ export interface AuditEvent {
   id: string;
   type: AuditEventType;
   timestamp: Date;
-  userId?: string;
-  tenantId?: string;
-  sessionId?: string;
-  ip?: string;
-  userAgent?: string;
-  resource?: string;
-  action?: string;
+  userId?: string | undefined;
+  tenantId?: string | undefined;
+  sessionId?: string | undefined;
+  ip?: string | undefined;
+  userAgent?: string | undefined;
+  resource?: string | undefined;
+  action?: string | undefined;
   details: Record<string, unknown>;
   severity: "low" | "medium" | "high" | "critical";
-  tags?: string[];
+  tags?: string[] | undefined;
 }
 
 export interface PerformanceMetrics {
   operation: string;
   duration: number;
   timestamp: Date;
-  metadata?: Record<string, unknown>;
-  tenantId?: string;
-  userId?: string;
+  metadata?: Record<string, unknown> | undefined;
+  tenantId?: string | undefined;
+  userId?: string | undefined;
 }
 
 export interface SystemHealthMetrics {
@@ -112,7 +112,7 @@ export class AuditService {
       // Cache recent events for quick access (last 1000 events, 1 hour TTL)
       const cacheKey = `audit:recent:${event.type}`;
       const recentEvents =
-        (await this.cacheService.get<AuditEvent[]>(cacheKey)) || [];
+        (await this._cacheService.get<AuditEvent[]>(cacheKey)) || [];
       recentEvents.unshift(event);
 
       // Keep only last 100 events per type
@@ -120,7 +120,7 @@ export class AuditService {
         recentEvents.splice(100);
       }
 
-      await this.cacheService.set(cacheKey, recentEvents, 3600);
+      await this._cacheService.set(cacheKey, recentEvents, 3600);
 
       // Track metrics
       await this.trackEventMetrics(event);
@@ -142,15 +142,15 @@ export class AuditService {
     try {
       const metricsKey = `metrics:audit:${event.type}`;
       const currentCount =
-        (await this.cacheService.get<number>(metricsKey)) || 0;
-      await this.cacheService.set(metricsKey, currentCount + 1, 3600);
+        (await this._cacheService.get<number>(metricsKey)) || 0;
+      await this._cacheService.set(metricsKey, currentCount + 1, 3600);
 
       // Track security events separately
       if (event.severity === "high" || event.severity === "critical") {
         const securityKey = `metrics:security:${event.type}`;
         const securityCount =
-          (await this.cacheService.get<number>(securityKey)) || 0;
-        await this.cacheService.set(securityKey, securityCount + 1, 3600);
+          (await this._cacheService.get<number>(securityKey)) || 0;
+        await this._cacheService.set(securityKey, securityCount + 1, 3600);
       }
     } catch (error) {
       logger.warn("Failed to track event metrics:", error);
@@ -233,8 +233,8 @@ export class AuditService {
       // Increment critical event counter
       const criticalKey = "metrics:security:critical";
       const criticalCount =
-        (await this.cacheService.get<number>(criticalKey)) || 0;
-      await this.cacheService.set(criticalKey, criticalCount + 1, 3600);
+        (await this._cacheService.get<number>(criticalKey)) || 0;
+      await this._cacheService.set(criticalKey, criticalCount + 1, 3600);
 
       // Log critical event for external monitoring systems
       this.securityLogger.fatal("CRITICAL SECURITY EVENT", {
@@ -416,69 +416,39 @@ export class AuditService {
 
       // Track requests per minute
       const rpmKey = `metrics:api:rpm:${minute}`;
-      const currentRpm = (await this.cacheService.get<number>(rpmKey)) || 0;
-      await this.cacheService.set(rpmKey, currentRpm + 1, 120); // 2 minute TTL
+      const currentRpm = (await this._cacheService.get<number>(rpmKey)) || 0;
+      await this._cacheService.set(rpmKey, currentRpm + 1, 120); // 2 minute TTL
 
       // Track response times
       const responseTimeKey = `metrics:api:response_times:${minute}`;
       const responseTimes =
-        (await this.cacheService.get<number[]>(responseTimeKey)) || [];
+        (await this._cacheService.get<number[]>(responseTimeKey)) || [];
       responseTimes.push(data.responseTime);
-      await this.cacheService.set(responseTimeKey, responseTimes, 120);
+      await this._cacheService.set(responseTimeKey, responseTimes, 120);
 
       // Track error rates
       if (data.statusCode >= 400) {
         const errorKey = `metrics:api:errors:${minute}`;
         const currentErrors =
-          (await this.cacheService.get<number>(errorKey)) || 0;
-        await this.cacheService.set(errorKey, currentErrors + 1, 120);
+          (await this._cacheService.get<number>(errorKey)) || 0;
+        await this._cacheService.set(errorKey, currentErrors + 1, 120);
       }
 
       // Track by endpoint
       const endpointKey = `metrics:api:endpoint:${data.method}:${data.url}:${minute}`;
       const endpointCount =
-        (await this.cacheService.get<number>(endpointKey)) || 0;
-      await this.cacheService.set(endpointKey, endpointCount + 1, 120);
+        (await this._cacheService.get<number>(endpointKey)) || 0;
+      await this._cacheService.set(endpointKey, endpointCount + 1, 120);
 
       // Track by tenant if available
       if (data.tenantId) {
         const tenantKey = `metrics:api:tenant:${data.tenantId}:${minute}`;
         const tenantCount =
-          (await this.cacheService.get<number>(tenantKey)) || 0;
-        await this.cacheService.set(tenantKey, tenantCount + 1, 120);
+          (await this._cacheService.get<number>(tenantKey)) || 0;
+        await this._cacheService.set(tenantKey, tenantCount + 1, 120);
       }
     } catch (error) {
       logger.warn("Failed to track API metrics:", error);
-    }
-  }
-
-  /**
-   * Log system error
-   */
-  async logSystemError(data: {
-    error: Error;
-    context?: Record<string, unknown>;
-    userId?: string;
-    tenantId?: string;
-  }): Promise<Result<void, Error>> {
-    try {
-      logger.error("System error", {
-        type: "system_error",
-        message: data.error.message,
-        stack: data.error.stack,
-        context: data.context,
-        userId: data.userId,
-        tenantId: data.tenantId,
-        timestamp: new Date(),
-      });
-
-      return { success: true, data: undefined };
-    } catch (error) {
-      logger.error("Failed to log system error:", error);
-      return {
-        success: false,
-        error: new Error("Failed to log system error"),
-      };
     }
   }
 
@@ -547,42 +517,18 @@ export class AuditService {
 
       // Track operation performance
       const perfKey = `metrics:performance:${metrics.operation}:${minute}`;
-      const perfData = (await this.cacheService.get<number[]>(perfKey)) || [];
+      const perfData = (await this._cacheService.get<number[]>(perfKey)) || [];
       perfData.push(metrics.duration);
-      await this.cacheService.set(perfKey, perfData, 300); // 5 minute TTL
+      await this._cacheService.set(perfKey, perfData, 300); // 5 minute TTL
 
       // Track slow operations
       if (metrics.duration > 1000) {
         const slowKey = `metrics:performance:slow:${minute}`;
-        const slowCount = (await this.cacheService.get<number>(slowKey)) || 0;
-        await this.cacheService.set(slowKey, slowCount + 1, 300);
+        const slowCount = (await this._cacheService.get<number>(slowKey)) || 0;
+        await this._cacheService.set(slowKey, slowCount + 1, 300);
       }
     } catch (error) {
       logger.warn("Failed to track performance metrics:", error);
-    }
-  }
-
-  /**
-   * Get audit logs with filtering
-   */
-  async getAuditLogs(_filter: {
-    type?: string;
-    userId?: string;
-    tenantId?: string;
-    startDate?: Date;
-    endDate?: Date;
-    limit?: number;
-  }): Promise<Result<any[], Error>> {
-    try {
-      // In a real implementation, this would query a database or log aggregation service
-      // For now, return empty array
-      return { success: true, data: [] };
-    } catch (error) {
-      logger.error("Failed to get audit logs:", error);
-      return {
-        success: false,
-        error: new Error("Failed to get audit logs"),
-      };
     }
   }
 
@@ -698,20 +644,19 @@ export class AuditService {
   }> {
     try {
       const [requests, errors, responseTimes, slowOps] = await Promise.all([
-        this.cacheService.get<number>(`metrics:api:rpm:${minute}`) || 0,
-        this.cacheService.get<number>(`metrics:api:errors:${minute}`) || 0,
-        this.cacheService.get<number[]>(
+        this._cacheService.get<number>(`metrics:api:rpm:${minute}`),
+        this._cacheService.get<number>(`metrics:api:errors:${minute}`),
+        this._cacheService.get<number[]>(
           `metrics:api:response_times:${minute}`
-        ) || [],
-        this.cacheService.get<number>(`metrics:performance:slow:${minute}`) ||
-          0,
+        ),
+        this._cacheService.get<number>(`metrics:performance:slow:${minute}`),
       ]);
 
       return {
-        requests,
-        errors,
-        responseTimes,
-        slowOperations: slowOps,
+        requests: requests || 0,
+        errors: errors || 0,
+        responseTimes: responseTimes || [],
+        slowOperations: slowOps || 0,
         uniqueUsers: [], // Would be populated from actual user tracking
       };
     } catch (_error) {
@@ -734,11 +679,14 @@ export class AuditService {
   }> {
     try {
       const [securityEvents, criticalEvents] = await Promise.all([
-        this.cacheService.get<number>("metrics:security:security_event") || 0,
-        this.cacheService.get<number>("metrics:security:critical") || 0,
+        this._cacheService.get<number>("metrics:security:security_event"),
+        this._cacheService.get<number>("metrics:security:critical"),
       ]);
 
-      return { securityEvents, criticalEvents };
+      return {
+        securityEvents: securityEvents || 0,
+        criticalEvents: criticalEvents || 0,
+      };
     } catch (_error) {
       return { securityEvents: 0, criticalEvents: 0 };
     }
@@ -872,6 +820,10 @@ export class AuditService {
     startDate?: Date;
     endDate?: Date;
     limit?: number;
+    entityType?: string;
+    entityId?: string;
+    action?: string;
+    userEmail?: string;
   }): Promise<Result<AuditEvent[], Error>> {
     try {
       const limit = filter.limit || 100;
@@ -881,7 +833,7 @@ export class AuditService {
       if (filter.type) {
         const cacheKey = `audit:recent:${filter.type}`;
         const typeEvents =
-          (await this.cacheService.get<AuditEvent[]>(cacheKey)) || [];
+          (await this._cacheService.get<AuditEvent[]>(cacheKey)) || [];
         events.push(...typeEvents);
       } else {
         // Get events from all types
@@ -903,7 +855,7 @@ export class AuditService {
         for (const type of eventTypes) {
           const cacheKey = `audit:recent:${type}`;
           const typeEvents =
-            (await this.cacheService.get<AuditEvent[]>(cacheKey)) || [];
+            (await this._cacheService.get<AuditEvent[]>(cacheKey)) || [];
           events.push(...typeEvents);
         }
       }
@@ -938,6 +890,30 @@ export class AuditService {
       if (filter.endDate) {
         filteredEvents = filteredEvents.filter(
           (e) => e.timestamp <= filter.endDate!
+        );
+      }
+
+      if (filter.action) {
+        filteredEvents = filteredEvents.filter(
+          (e) => e.action === filter.action
+        );
+      }
+
+      if (filter.entityType || filter.entityId) {
+        filteredEvents = filteredEvents.filter((e) => {
+          // For entity filters, we check if the event details contain entity information
+          const details = e.details;
+          const matchesType =
+            !filter.entityType || details["entityType"] === filter.entityType;
+          const matchesId =
+            !filter.entityId || details["entityId"] === filter.entityId;
+          return matchesType && matchesId;
+        });
+      }
+
+      if (filter.userEmail) {
+        filteredEvents = filteredEvents.filter(
+          (e) => e.details["userEmail"] === filter.userEmail
         );
       }
 
