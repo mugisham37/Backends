@@ -1,0 +1,92 @@
+/**
+ * Authentication Controller
+ * Handles authentication endpoints: login, register, refresh, logout
+ */
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { AuthService } from "./auth.service.js";
+import { JWTService } from "./jwt.service.js";
+import {
+  loginSchema,
+  registerSchema,
+  refreshTokenSchema,
+  changePasswordSchema,
+  type LoginInput,
+  type RegisterInput,
+  type RefreshTokenInput,
+  type ChangePasswordInput,
+} from "../../shared/validators/auth.validators.js";
+import { AppError } from "../../core/errors/app-error.js";
+import type { AuthenticatedRequest } from "../../shared/middleware/auth.middleware.js";
+
+export class AuthController {
+  constructor(
+    private readonly authService: AuthService,
+    private readonly jwtService: JWTService
+  ) {}
+
+  /**
+   * Register a new user
+   */
+  async register(
+    request: FastifyRequest<{ Body: RegisterInput }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    const validatedInput = registerSchema.parse(request.body);
+
+    const result = await this.authService.register(validatedInput);
+
+    reply.status(201).send({
+      success: true,
+      message: "User registered successfully",
+      data: {
+        user: result.user,
+        tokens: result.tokens,
+      },
+    });
+  }
+
+  /**
+   * Login user
+   */
+  async login(
+    request: FastifyRequest<{ Body: LoginInput }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    const validatedInput = loginSchema.parse(request.body);
+
+    const result = await this.authService.login(validatedInput);
+
+    reply.send({
+      success: true,
+      message: "Login successful",
+      data: {
+        user: result.user,
+        tokens: result.tokens,
+      },
+    });
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(
+    request: FastifyRequest<{ Body: RefreshTokenInput }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    const validatedInput = refreshTokenSchema.parse(request.body);
+
+    const result = await this.authService.refreshToken(validatedInput);
+
+    reply.send({
+      success: true,
+      message: "Token refreshed successfully",
+      data: result,
+    });
+  }
+
+  /**
+   * Get current user profile
+   */
+  async getProfile(request: AuthenticatedRequest, reply: FastifyReply): Promise<void> {
+    const us

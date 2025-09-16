@@ -192,7 +192,7 @@
   - Create login/logout endpoints in modules/auth/auth.controller.ts with proper security
   - _Requirements: 6.1, 6.6_
 
-- [ ] 7.2 Implement role-based access control (RBAC)
+- [x] 7.2 Implement role-based access control (RBAC)
 
   - Create role and permission system
   - Implement authorization middleware for different roles
@@ -200,7 +200,7 @@
   - Create admin panel for role management
   - _Requirements: 6.2, 6.6_
 
-- [ ] 7.3 Add rate limiting and security middleware
+- [x] 7.3 Add rate limiting and security middleware
 
   - Implement Redis-based rate limiting per endpoint
   - Add security headers (helmet, CORS, etc.)
