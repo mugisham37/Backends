@@ -14,7 +14,7 @@ import {
   bruteForceConfigs,
 } from "../../../shared/middleware/rate-limit.middleware.js";
 import { securityMiddleware } from "../../../shared/middleware/security.middleware.js";
-import { getDatabase } from "../../../core/database/connection.js";
+import { db } from "../../../core/database/connection.js";
 import {
   loginSchema,
   registerSchema,
@@ -27,7 +27,7 @@ export async function authRoutes(
   options: FastifyPluginOptions
 ): Promise<void> {
   // Initialize services
-  const db = getDatabase();
+  // const db = getDatabase(); // Database instance is already exported as 'db'
   const jwtService = new JWTService();
   const authService = new AuthService(db, jwtService);
   const authController = new AuthController(authService, jwtService);
