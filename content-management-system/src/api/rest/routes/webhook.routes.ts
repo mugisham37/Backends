@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
-import { container } from "tsyringe";
-import type { IWebhookService } from "../../../core/types/service.types";
+// import { container } from "tsyringe";
+// import type { IWebhookService } from "../../../core/types/service.types";
 
 export const webhookRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const _webhookService = container.resolve<IWebhookService>("WebhookService");
+  // TODO: Implement webhook service integration
+  // const webhookService = container.resolve<IWebhookService>("WebhookService");
 
   // Get all webhooks
   fastify.get(

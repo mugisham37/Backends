@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
-import { container } from "tsyringe";
-import type { ISearchService } from "../../../core/types/service.types";
+// import { container } from "tsyringe";
+// import type { ISearchService } from "../../../core/types/service.types";
 
 export const searchRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const _searchService = container.resolve<ISearchService>("SearchService");
+  // TODO: Implement search service integration
+  // const searchService = container.resolve<ISearchService>("SearchService");
 
   // Search endpoint
   fastify.get(

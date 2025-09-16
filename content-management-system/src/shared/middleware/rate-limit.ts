@@ -1,7 +1,38 @@
-// Legacy rate limit middleware - replaced by Fastify rate limiting
+// Rate limit middleware for Express and Fastify compatibility
 import type { NextFunction, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
+import Redis from "ioredis";
 import { config } from "../config";
 import { logger } from "../utils/logger";
+
+// Redis client for rate limiting
+let redisClient: Redis | null = null;
+
+// Initialize Redis client if Redis URI is configured
+if (config.redis?.uri && config.redis.enabled) {
+  try {
+    const options: any = {
+      maxRetriesPerRequest: config.redis.maxRetriesPerRequest,
+      db: config.redis.db,
+    };
+    if (config.redis.password) {
+      options.password = config.redis.password;
+    }
+
+    redisClient = new Redis(config.redis.uri, options);
+
+    redisClient.on("error", (error: Error) => {
+      logger.error("Redis rate limit error:", error);
+    });
+
+    redisClient.on("connect", () => {
+      logger.info("Redis connected for rate limiting");
+    });
+  } catch (error) {
+    logger.error("Failed to initialize Redis for rate limiting:", error);
+    redisClient = null;
+  }
+}
 
 // Simple in-memory rate limiting for backward compatibility
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
@@ -17,7 +48,7 @@ setInterval(() => {
 }, 60000); // Cleanup every minute
 
 /**
- * Create rate limiting middleware
+ * Create rate limiting middleware for Express
  */
 export const createRateLimit = (options: {
   windowMs?: number;
@@ -28,15 +59,15 @@ export const createRateLimit = (options: {
   const windowMs = options.windowMs || config.rateLimit.windowMs;
   const max = options.max || config.rateLimit.max;
   const message = options.message || "Too many requests";
-  const keyGenerator = options.keyGenerator || ((req: Request) => req.ip);
+  const keyGenerator =
+    options.keyGenerator || ((req: Request) => req.ip || "unknown");
 
   return (req: Request, res: Response, next: NextFunction) => {
     const key = keyGenerator(req);
     const now = Date.now();
-    const windowStart = now - windowMs;
 
     let requestData = requestCounts.get(key);
-    
+
     if (!requestData || requestData.resetTime <= now) {
       requestData = { count: 1, resetTime: now + windowMs };
       requestCounts.set(key, requestData);
@@ -44,14 +75,14 @@ export const createRateLimit = (options: {
     }
 
     requestData.count++;
-    
+
     if (requestData.count > max) {
       logger.warn(`Rate limit exceeded for ${key}`, {
         count: requestData.count,
         max,
         ip: req.ip,
       });
-      
+
       return res.status(429).json({
         error: {
           code: "RATE_LIMIT_EXCEEDED",
@@ -64,25 +95,8 @@ export const createRateLimit = (options: {
     next();
   };
 };
-  try {
-    const options: any = {};
-    if (config.redis.password) {
-      options.password = config.redis.password;
-    }
 
-    redisClient = new Redis(config.redis.uri, options);
-
-    redisClient.on("error", (error) => {
-      logger.error("Redis rate limit error:", error);
-      redisClient = null;
-    });
-  } catch (error) {
-    logger.error("Failed to initialize Redis for rate limiting:", error);
-    redisClient = null;
-  }
-}
-
-// Create rate limiter
+// Create rate limiter using express-rate-limit (in-memory store)
 export const apiRateLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.max,
@@ -93,14 +107,6 @@ export const apiRateLimiter = rateLimit({
     code: "RATE_LIMIT_EXCEEDED",
     message: "Too many requests, please try again later.",
   },
-  // Use Redis store if available
-  ...(redisClient
-    ? {
-        store: new RedisStore({
-          sendCommand: (...args: string[]) => redisClient?.call(...args),
-        }),
-      }
-    : {}),
 });
 
 // Create more restrictive rate limiter for auth routes
@@ -114,12 +120,7 @@ export const authRateLimiter = rateLimit({
     code: "RATE_LIMIT_EXCEEDED",
     message: "Too many authentication attempts, please try again later.",
   },
-  // Use Redis store if available
-  ...(redisClient
-    ? {
-        store: new RedisStore({
-          sendCommand: (...args: string[]) => redisClient?.call(...args),
-        }),
-      }
-    : {}),
 });
+
+// Export Redis client for use in other parts of the application
+export { redisClient };

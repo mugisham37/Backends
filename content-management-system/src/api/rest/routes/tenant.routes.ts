@@ -11,6 +11,35 @@ import {
   tenantSlugParamsSchema,
 } from "../../../modules/tenant/tenant.schemas";
 
+// Type definitions
+interface TenantQueryParams extends Record<string, unknown> {
+  page?: string;
+  limit?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  search?: string;
+  isActive?: string;
+}
+
+interface TenantParams {
+  id: string;
+  slug?: string;
+}
+
+interface UpdateTenantBody {
+  name?: string;
+  description?: string;
+  domain?: string;
+  subdomain?: string;
+  settings?: Record<string, any>;
+  metadata?: Record<string, any>;
+  isActive?: boolean;
+}
+
+interface UpdateTenantSettingsBody {
+  settings: Record<string, any>;
+}
+
 /**
  * Tenant routes plugin for Fastify
  * Registers all tenant-related routes with proper validation and authentication
@@ -30,7 +59,9 @@ export const tenantRoutes: FastifyPluginAsync = async (
   );
 
   // List tenants with pagination and filtering
-  fastify.get(
+  fastify.get<{
+    Querystring: TenantQueryParams;
+  }>(
     "/",
     {
       preHandler: [
@@ -78,7 +109,10 @@ export const tenantRoutes: FastifyPluginAsync = async (
   );
 
   // Update tenant
-  fastify.put(
+  fastify.put<{
+    Params: TenantParams;
+    Body: UpdateTenantBody;
+  }>(
     "/:id",
     {
       preHandler: [
@@ -93,7 +127,9 @@ export const tenantRoutes: FastifyPluginAsync = async (
   );
 
   // Delete tenant
-  fastify.delete(
+  fastify.delete<{
+    Params: TenantParams;
+  }>(
     "/:id",
     {
       preHandler: [
@@ -105,7 +141,9 @@ export const tenantRoutes: FastifyPluginAsync = async (
   );
 
   // Get tenant statistics
-  fastify.get(
+  fastify.get<{
+    Params: TenantParams;
+  }>(
     "/:id/stats",
     {
       preHandler: [
@@ -117,7 +155,10 @@ export const tenantRoutes: FastifyPluginAsync = async (
   );
 
   // Update tenant settings
-  fastify.patch(
+  fastify.patch<{
+    Params: TenantParams;
+    Body: UpdateTenantSettingsBody;
+  }>(
     "/:id/settings",
     {
       preHandler: [

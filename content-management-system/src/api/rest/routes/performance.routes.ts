@@ -5,13 +5,14 @@ import {
   getConnectionStats,
 } from "../../../core/database/connection.js";
 import { CacheService } from "../../../modules/cache/cache.service.js";
+import { PerformanceMonitorService } from "../../../shared/services/performance-monitor.service";
 import { logger } from "../../../shared/utils/logger.js";
 
 /**
  * Performance monitoring and optimization routes
  */
 export async function performanceRoutes(fastify: FastifyInstance) {
-  const performanceMonitor = container.resolve(PerformanceMonitorService);
+  const performanceMonitor = new PerformanceMonitorService();
   const cacheService = container.resolve(CacheService);
 
   // ============================================================================
@@ -97,7 +98,7 @@ export async function performanceRoutes(fastify: FastifyInstance) {
     },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
-        const report = await performanceMonitor.getPerformanceReport();
+        const report = await performanceMonitor.getReport();
 
         return reply.send({
           ...report,
@@ -403,33 +404,44 @@ export async function performanceRoutes(fastify: FastifyInstance) {
     },
     async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
-        const [metrics, connectionStats, cacheHealth] = await Promise.all([
-          performanceMonitor.getMetrics(),
-          getConnectionStats(),
-          cacheService.healthCheck(),
-        ]);
+        const [metricsResult, connectionStats, cacheHealth] = await Promise.all(
+          [
+            performanceMonitor.getReport(),
+            getConnectionStats(),
+            cacheService.healthCheck(),
+          ]
+        );
+
+        if (!metricsResult.success) {
+          return reply.status(500).send({
+            error: "Failed to get metrics",
+            message: metricsResult.error.message,
+          });
+        }
+
+        const { metrics, health, recommendations } = metricsResult.data;
 
         const components = {
           application: {
-            healthy: metrics.health.overall !== "poor",
-            score: metrics.health.score,
+            healthy: health.overall !== "poor",
+            score: health.score,
             details: {
-              avgResponseTime: metrics.requests.avgResponseTime,
-              errorRate:
-                metrics.requests.failed / (metrics.requests.total || 1),
+              avgResponseTime: metrics.averageResponseTime,
+              errorRate: metrics.errorRate,
+              requestCount: metrics.requestCount,
             },
           },
           database: {
             healthy: connectionStats.poolHealth.healthy,
             details: {
-              avgQueryTime: metrics.database.avgQueryTime,
-              poolUtilization: metrics.database.connectionPoolUtilization,
+              activeConnections: metrics.activeConnections,
+              connectionPoolHealth: connectionStats.poolHealth.healthy,
             },
           },
           cache: {
             healthy: cacheHealth,
             details: {
-              hitRate: metrics.cache.hitRate,
+              cacheServiceHealthy: cacheHealth,
             },
           },
         };
@@ -447,13 +459,13 @@ export async function performanceRoutes(fastify: FastifyInstance) {
         else status = "unhealthy";
 
         const allRecommendations = [
-          ...metrics.recommendations,
+          ...recommendations.map((r: any) => r.description),
           ...connectionStats.recommendations,
         ];
 
         return reply.send({
           status,
-          score: Math.round((metrics.health.score + healthPercentage) / 2),
+          score: Math.round((health.score + healthPercentage) / 2),
           components,
           recommendations: allRecommendations,
           timestamp: new Date().toISOString(),

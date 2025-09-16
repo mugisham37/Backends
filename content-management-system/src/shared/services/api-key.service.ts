@@ -60,14 +60,14 @@ export class ApiKeyService {
         _id: apiKey.id,
         name: apiKey.name,
         scopes: apiKey.scopes as string[],
-        tenantId: apiKey.tenantId || undefined,
+        tenantId: apiKey.tenantId ?? undefined,
         isActive: apiKey.isActive,
-        expiresAt: apiKey.expiresAt || undefined,
-        lastUsedAt: apiKey.lastUsedAt || undefined,
+        expiresAt: apiKey.expiresAt ?? undefined,
+        lastUsedAt: apiKey.lastUsedAt ?? undefined,
         usageCount: apiKey.usageCount,
         createdAt: apiKey.createdAt,
         updatedAt: apiKey.updatedAt,
-      };
+      } as ApiKeyModel;
     } catch (error) {
       logger.error("Failed to validate API key:", error);
       throw error;
@@ -108,11 +108,15 @@ export class ApiKeyService {
           keyHash,
           keyPrefix: prefix,
           scopes: data.scopes,
-          tenantId: data.tenantId,
-          expiresAt: data.expiresAt,
+          tenantId: data.tenantId ?? null,
+          expiresAt: data.expiresAt ?? null,
           createdBy: data.createdBy,
         })
         .returning();
+
+      if (!newApiKey) {
+        throw new Error("Failed to create API key");
+      }
 
       return {
         apiKey: fullKey,
@@ -152,18 +156,21 @@ export class ApiKeyService {
 
       const results = await query;
 
-      return results.map((apiKey: any) => ({
-        _id: apiKey.id,
-        name: apiKey.name,
-        scopes: apiKey.scopes as string[],
-        tenantId: apiKey.tenantId || undefined,
-        isActive: apiKey.isActive,
-        expiresAt: apiKey.expiresAt || undefined,
-        lastUsedAt: apiKey.lastUsedAt || undefined,
-        usageCount: apiKey.usageCount,
-        createdAt: apiKey.createdAt,
-        updatedAt: apiKey.updatedAt,
-      }));
+      return results.map(
+        (apiKey: any) =>
+          ({
+            _id: apiKey.id,
+            name: apiKey.name,
+            scopes: apiKey.scopes as string[],
+            tenantId: apiKey.tenantId ?? undefined,
+            isActive: apiKey.isActive,
+            expiresAt: apiKey.expiresAt ?? undefined,
+            lastUsedAt: apiKey.lastUsedAt ?? undefined,
+            usageCount: apiKey.usageCount,
+            createdAt: apiKey.createdAt,
+            updatedAt: apiKey.updatedAt,
+          } as ApiKeyModel)
+      );
     } catch (error) {
       logger.error("Failed to list API keys:", error);
       throw error;

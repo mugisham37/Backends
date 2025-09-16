@@ -1,6 +1,11 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { IContentService } from "../../../modules/content/content.types";
+import type {
+  IContentService,
+  CreateContentData,
+  UpdateContentData,
+  ContentStatus,
+} from "../../../modules/content/content.types";
 import { validate } from "../../../shared/middleware/zod-validation";
 import {
   type ContentParams,
@@ -63,7 +68,7 @@ export const contentRoutes: FastifyPluginAsync = async (
       const result = await contentService.getContentsByTenant(user.tenantId, {
         page,
         limit,
-        status,
+        status: status as ContentStatus | undefined,
         authorId,
         search,
         tags: tags ? tags.split(",") : undefined,
@@ -135,8 +140,19 @@ export const contentRoutes: FastifyPluginAsync = async (
       const contentData = request.body as CreateContentRequest;
       const user = request.user as any;
 
-      const createData = {
-        ...contentData,
+      const createData: CreateContentData = {
+        title: contentData.title,
+        slug: contentData.slug,
+        body: contentData.body || "",
+        excerpt: contentData.excerpt,
+        status: contentData.status as ContentStatus,
+        tags: contentData.tags,
+        categoryId: contentData.categoryId,
+        featuredImage: contentData.featuredImage,
+        seoTitle: contentData.seoTitle,
+        seoDescription: contentData.seoDescription,
+        publishedAt: contentData.publishedAt,
+        metadata: contentData.metadata,
         authorId: user.id,
         tenantId: user.tenantId,
       };
@@ -173,7 +189,22 @@ export const contentRoutes: FastifyPluginAsync = async (
     },
     async (request, reply) => {
       const { id } = request.params as ContentParams;
-      const updateData = request.body as UpdateContentRequest;
+      const requestData = request.body as UpdateContentRequest;
+
+      const updateData: UpdateContentData = {
+        title: requestData.title,
+        slug: requestData.slug,
+        body: requestData.body,
+        excerpt: requestData.excerpt,
+        status: requestData.status as ContentStatus | undefined,
+        tags: requestData.tags,
+        categoryId: requestData.categoryId,
+        featuredImage: requestData.featuredImage,
+        seoTitle: requestData.seoTitle,
+        seoDescription: requestData.seoDescription,
+        publishedAt: requestData.publishedAt,
+        metadata: requestData.metadata,
+      };
 
       const result = await contentService.updateContent(id, updateData);
 

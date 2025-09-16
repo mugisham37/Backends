@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
-import { container } from "tsyringe";
-import type { IAuditService } from "../../../core/types/service.types";
+// import { container } from "tsyringe";
+// import type { IAuditService } from "../../../core/types/service.types";
 
 export const auditRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
-  const _auditService = container.resolve<IAuditService>("AuditService");
+  // TODO: Implement audit service integration
+  // const auditService = container.resolve<IAuditService>("AuditService");
 
   // Get audit logs
   fastify.get(

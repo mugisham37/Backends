@@ -1,4 +1,5 @@
 import type { User } from "../../core/database/schema/auth.schema.js";
+import type { Result } from "../../core/types/result.types";
 
 export interface LoginCredentials {
   email: string;
@@ -40,4 +41,16 @@ export interface AuthConfig {
   jwtExpiresIn: string;
   refreshTokenExpiresIn: string;
   bcryptRounds: number;
+}
+
+export interface IAuthService {
+  authenticate(credentials: LoginCredentials): Promise<Result<AuthResult>>;
+  refreshToken(refreshToken: string): Promise<Result<TokenPair>>;
+  createUser(userData: CreateUserData): Promise<Result<User>>;
+  updateUser(id: string, userData: UpdateUserData): Promise<Result<User>>;
+  deleteUser(id: string): Promise<Result<void>>;
+  getUserById(id: string): Promise<Result<User>>;
+  getUserByEmail(email: string): Promise<Result<User>>;
+  validateToken(token: string): Promise<Result<UserPayload>>;
+  revokeToken(token: string): Promise<Result<void>>;
 }

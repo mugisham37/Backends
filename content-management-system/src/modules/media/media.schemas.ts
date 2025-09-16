@@ -63,6 +63,10 @@ export const bulkDeleteMediaSchema = z.object({
   mediaIds: z.array(uuidSchema).min(1, "At least one media ID is required"),
 });
 
+export const mediaParamsSchema = z.object({
+  id: uuidSchema,
+});
+
 export const createFolderSchema = z.object({
   name: z
     .string()
@@ -234,6 +238,7 @@ export const createFolderEndpoint = {
 export type UploadMediaRequest = z.infer<typeof uploadMediaSchema>;
 export type UpdateMediaRequest = z.infer<typeof updateMediaSchema>;
 export type MediaQueryParams = z.infer<typeof mediaQuerySchema>;
+export type MediaParams = z.infer<typeof mediaParamsSchema>;
 export type ImageTransform = z.infer<typeof imageTransformSchema>;
 export type CdnOptions = z.infer<typeof cdnOptionsSchema>;
 export type BulkDeleteMediaRequest = z.infer<typeof bulkDeleteMediaSchema>;

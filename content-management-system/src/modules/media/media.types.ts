@@ -1,3 +1,5 @@
+import type { Result } from "../../core/types/result.types";
+
 export interface Media {
   id: string;
   filename: string;
@@ -47,17 +49,17 @@ export interface FileUpload {
 }
 
 export interface ImageTransform {
-  width?: number;
-  height?: number;
-  quality?: number;
-  format?: "jpeg" | "png" | "webp";
-  crop?: "center" | "top" | "bottom" | "left" | "right";
+  width?: number | undefined;
+  height?: number | undefined;
+  quality?: number | undefined;
+  format?: "jpeg" | "png" | "webp" | "avif" | undefined;
+  crop?: "center" | "top" | "bottom" | "left" | "right" | undefined;
 }
 
 export interface CdnOptions {
   transforms?: ImageTransform[];
   cache?: boolean;
-  expires?: number;
+  expires?: number | undefined;
 }
 
 export interface MediaFilter {
@@ -70,10 +72,71 @@ export interface MediaFilter {
 }
 
 export interface MediaSearchOptions {
-  query?: string;
+  query?: string | undefined;
+  type?: string | undefined;
   filters?: MediaFilter;
-  sortBy?: string;
+  sortBy?: string | undefined;
   sortOrder?: "asc" | "desc";
-  page?: number;
-  limit?: number;
+  page?: number | undefined;
+  limit?: number | undefined;
+  search?: string | undefined;
+  tags?: string[] | undefined;
+}
+
+export interface MediaListResult {
+  items: Media[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface FileUploadRequest {
+  buffer: Buffer;
+  filename: string;
+  mimetype: string;
+}
+
+export interface UploadMetadata {
+  filename?: string;
+  mimetype?: string;
+  size?: number;
+  alt?: string;
+  caption?: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
+  tenantId: string;
+  uploadedBy: string;
+}
+
+export interface IMediaService {
+  uploadMedia(
+    file: FileUpload,
+    metadata?: Partial<MediaMetadata>
+  ): Promise<Result<Media>>;
+  uploadFile(
+    file: FileUploadRequest,
+    metadata: UploadMetadata
+  ): Promise<Result<Media>>;
+  updateMedia(id: string, data: UpdateMediaData): Promise<Result<Media>>;
+  deleteMedia(id: string): Promise<Result<void>>;
+  getMedia(id: string): Promise<Result<Media>>;
+  getMediaByTenant(
+    tenantId: string,
+    options: MediaSearchOptions
+  ): Promise<Result<MediaListResult>>;
+  transformImage(
+    id: string,
+    transforms: ImageTransform
+  ): Promise<Result<string>>;
+  processImage(
+    id: string,
+    transforms: ImageTransform[]
+  ): Promise<Result<Media>>;
+  getCdnUrl(id: string, options?: CdnOptions): Promise<Result<string>>;
+  generateCdnUrl(
+    id: string,
+    options: CdnOptions
+  ): Promise<Result<{ url: string; expires?: string }>>;
+  searchMedia(options: MediaSearchOptions): Promise<Result<MediaListResult>>;
 }

@@ -37,7 +37,7 @@ async function validationPlugin(fastify: FastifyInstance) {
         // Attach validated data to request
         request.validated = result.data;
       } catch (error) {
-        request.log.error("Validation error:", error);
+        request.log.error(`Validation error: ${error}`);
         return reply.status(400).send({
           error: "Validation Error",
           message: "Request validation failed",

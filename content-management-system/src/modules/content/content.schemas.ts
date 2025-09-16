@@ -86,6 +86,10 @@ export const contentVersionQuerySchema = z.object({
   version: z.coerce.number().int().min(1).optional(),
 });
 
+export const contentParamsSchema = z.object({
+  id: uuidSchema,
+});
+
 export const publishContentSchema = z.object({
   publishedAt: z.coerce.date().optional(),
   notifySubscribers: z.boolean().default(false),
@@ -201,6 +205,7 @@ export type CreateContentRequest = z.infer<typeof createContentSchema>;
 export type UpdateContentRequest = z.infer<typeof updateContentSchema>;
 export type ContentQueryParams = z.infer<typeof contentQuerySchema>;
 export type ContentVersionQuery = z.infer<typeof contentVersionQuerySchema>;
+export type ContentParams = z.infer<typeof contentParamsSchema>;
 export type PublishContentRequest = z.infer<typeof publishContentSchema>;
 export type Content = z.infer<typeof contentSchema>;
 export type ContentWithAuthor = z.infer<typeof contentWithAuthorSchema>;

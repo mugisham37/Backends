@@ -91,15 +91,11 @@ export const zodValidation = (
         request.validationSchemas = schemas;
       }
     } catch (error) {
-      request.log.error("Validation middleware error:", error as Error);
-      return reply.status(500).send({
-        success: false,
-        error: {
-          code: "VALIDATION_MIDDLEWARE_ERROR",
-          message: "Internal validation error",
-        },
-        timestamp: new Date().toISOString(),
-      });
+      request.log.error(`Validation middleware error: ${error}`);
+      // Throw the error instead of sending response directly
+      const validationError = new Error("Internal validation error");
+      (validationError as any).statusCode = 500;
+      throw validationError;
     }
   };
 };
@@ -115,11 +111,11 @@ export const validateResponse = (
     try {
       const result = responseSchema.safeParse(payload);
       if (!result.success) {
-        request.log.error("Response validation failed:", {
-          statusCode,
-          errors: result.error.errors,
-          payload,
-        });
+        request.log.error(
+          `Response validation failed: Status: ${statusCode}, Errors: ${JSON.stringify(
+            result.error.errors
+          )}, Payload: ${JSON.stringify(payload)}`
+        );
 
         // In development, return validation errors
         if (process.env["NODE_ENV"] === "development") {
@@ -147,7 +143,7 @@ export const validateResponse = (
 
       return result.data;
     } catch (error) {
-      request.log.error("Response validation middleware error:", error);
+      request.log.error(`Response validation middleware error: ${error}`);
       throw error;
     }
   };

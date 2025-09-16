@@ -7,12 +7,10 @@ import {
   type ImageTransform,
   type MediaParams,
   type MediaQueryParams,
-  type UploadMediaRequest,
   cdnOptionsSchema,
   imageTransformSchema,
   mediaParamsSchema,
   mediaQuerySchema,
-  uploadMediaSchema,
 } from "../../../modules/media/media.schemas";
 
 /**
@@ -129,17 +127,24 @@ export const mediaRoutes: FastifyPluginAsync = async (
         const user = request.user as any;
         const buffer = await data.toBuffer();
 
+        const getFieldValue = (field: any) => {
+          if (Array.isArray(field)) {
+            return field[0]?.value;
+          }
+          return field?.value;
+        };
+
         const metadata = {
           filename: data.filename,
           mimetype: data.mimetype,
           size: buffer.length,
-          alt: data.fields?.alt?.value,
-          caption: data.fields?.caption?.value,
-          tags: data.fields?.tags?.value
-            ? JSON.parse(data.fields.tags.value)
+          alt: getFieldValue(data.fields?.["alt"]),
+          caption: getFieldValue(data.fields?.["caption"]),
+          tags: data.fields?.["tags"]
+            ? JSON.parse(getFieldValue(data.fields["tags"]) || "[]")
             : undefined,
-          metadata: data.fields?.metadata?.value
-            ? JSON.parse(data.fields.metadata.value)
+          metadata: data.fields?.["metadata"]
+            ? JSON.parse(getFieldValue(data.fields["metadata"]) || "{}")
             : undefined,
         };
 
@@ -321,7 +326,8 @@ export const mediaRoutes: FastifyPluginAsync = async (
       const result = await mediaService.processImage(id, [transformations]);
 
       if (!result.success) {
-        const statusCode = result.error.code === "NOT_FOUND" ? 404 : 400;
+        const statusCode =
+          (result.error as any)?.code === "NOT_FOUND" ? 404 : 400;
         return reply.status(statusCode).send({
           error: "Image Processing Failed",
           message: result.error.message,
@@ -375,7 +381,8 @@ export const mediaRoutes: FastifyPluginAsync = async (
       const result = await mediaService.generateCdnUrl(id, options);
 
       if (!result.success) {
-        const statusCode = result.error.code === "NOT_FOUND" ? 404 : 500;
+        const statusCode =
+          (result.error as any)?.code === "NOT_FOUND" ? 404 : 500;
         return reply.status(statusCode).send({
           error: "CDN URL Generation Failed",
           message: result.error.message,

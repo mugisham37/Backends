@@ -98,7 +98,7 @@ export const checkTenantMembership = async (
 /**
  * Middleware to check if user has specific role in tenant
  */
-export const checkTenantRole = (roles: TenantUserRole[]) => {
+export const checkTenantRole = (_roles: TenantUserRole[]) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!(req as any).tenant) {
@@ -150,7 +150,7 @@ export const trackTenantApiRequest = async (
 
       // Increment API request count asynchronously
       // We don't await this to avoid blocking the request
-      const tenantService = getTenantService();
+      // const tenantService = getTenantService();
       // Note: incrementApiRequestCount method would need to be implemented in TenantService
       logger.debug(`API request tracked for tenant ${tenantId}`);
       // tenantService.incrementApiRequestCount?.(tenantId).catch((error: any) => {
@@ -180,7 +180,7 @@ export const checkTenantLimit = (limitType: string) => {
 
       const tenantId = (req as any).tenant._id;
 
-      const tenantService = getTenantService();
+      // const tenantService = getTenantService();
       // Note: checkTenantLimit method would need to be implemented in TenantService
       // For now, we'll skip this check
       logger.debug(
