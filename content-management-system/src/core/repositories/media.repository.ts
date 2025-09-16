@@ -9,7 +9,6 @@ import {
 } from "../database/schema/index.js";
 import type {
   Media,
-  NewMedia,
   MediaFolder,
   NewMediaFolder,
   MediaTransformation,
@@ -18,7 +17,6 @@ import type {
 } from "../database/schema/index.js";
 import type { Result } from "../types/result.types.js";
 import { DatabaseError } from "../errors/database.error.js";
-import { NotFoundError } from "../errors/not-found.error.js";
 
 /**
  * Media repository with file management and transformation methods
@@ -45,7 +43,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
@@ -63,7 +61,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
   /**
    * Find media by ID within tenant
    */
-  async findByIdInTenant(
+  override async findByIdInTenant(
     id: string,
     tenantId: string
   ): Promise<Result<Media | null, Error>> {
@@ -76,7 +74,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
@@ -194,7 +192,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
               ilike(media.description, searchPattern)
             )
           )
-        );
+        ) as typeof dbQuery;
       }
 
       const result = await dbQuery;
@@ -232,7 +230,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
       if (tenantId) {
         query = query.where(
           and(eq(media.isPublic, true), eq(media.tenantId, tenantId))
-        );
+        ) as typeof query;
       }
 
       if (mediaType) {
@@ -244,7 +242,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
             )
           : and(eq(media.isPublic, true), eq(media.mediaType, mediaType));
 
-        query = query.where(existingWhere);
+        query = query.where(existingWhere) as typeof query;
       }
 
       const result = await query;
@@ -298,18 +296,21 @@ export class MediaRepository extends TenantBaseRepository<Media> {
     context?: Record<string, unknown>
   ): Promise<Result<MediaUsage, Error>> {
     try {
+      const insertData: any = {
+        mediaId,
+        entityType,
+        entityId,
+      };
+
+      if (field !== undefined) insertData.field = field;
+      if (context !== undefined) insertData.context = context;
+
       const [result] = await this.db
         .insert(mediaUsage)
-        .values({
-          mediaId,
-          entityType,
-          entityId,
-          field,
-          context,
-        })
+        .values(insertData)
         .returning();
 
-      return { success: true, data: result };
+      return { success: true, data: result! };
     } catch (error) {
       return {
         success: false,
@@ -405,7 +406,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
         .values(transformationData)
         .returning();
 
-      return { success: true, data: result };
+      return { success: true, data: result! };
     } catch (error) {
       return {
         success: false,
@@ -454,7 +455,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
         .values(folderData)
         .returning();
 
-      return { success: true, data: result };
+      return { success: true, data: result! };
     } catch (error) {
       return {
         success: false,
@@ -483,7 +484,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
@@ -521,22 +522,22 @@ export class MediaRepository extends TenantBaseRepository<Media> {
             eq(mediaFolders.tenantId, tenantId),
             eq(mediaFolders.parentId, parentId)
           )
-        );
+        ) as typeof query;
       } else {
         query = query.where(
           and(
             eq(mediaFolders.slug, slug),
             eq(mediaFolders.tenantId, tenantId),
-            eq(mediaFolders.parentId, null)
+            eq(mediaFolders.parentId, null as any)
           )
-        );
+        ) as typeof query;
       }
 
       const result = await query.limit(1);
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
@@ -602,7 +603,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
           )
         );
 
-      return { success: true, data: result[0].count > 0 };
+      return { success: true, data: (result[0]?.count ?? 0) > 0 };
     } catch (error) {
       return {
         success: false,
@@ -663,10 +664,10 @@ export class MediaRepository extends TenantBaseRepository<Media> {
       return {
         success: true,
         data: {
-          total: totalResult.count,
+          total: totalResult?.count ?? 0,
           byType: byType as Record<MediaType, number>,
           totalSize,
-          publicCount: publicResult.count,
+          publicCount: publicResult?.count ?? 0,
         },
       };
     } catch (error) {

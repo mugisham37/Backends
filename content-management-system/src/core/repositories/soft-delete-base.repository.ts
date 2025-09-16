@@ -203,18 +203,26 @@ export abstract class SoftDeleteBaseRepository<
 
       // Apply where conditions but ensure we only get deleted records
       if (filterWithDeleted?.where) {
-        const whereConditions = this.buildWhereConditions(
-          filterWithDeleted.where
-        );
+        const cleanedWhere = Object.fromEntries(
+          Object.entries(filterWithDeleted.where).filter(
+            ([_, value]) => value !== undefined
+          )
+        ) as Partial<T>;
+
+        const whereConditions = this.buildWhereConditions(cleanedWhere);
         if (whereConditions) {
           query = query.where(
             and(whereConditions, isNotNull((this.table as any).deletedAt))
-          ) as any;
+          ) as typeof query;
         } else {
-          query = query.where(isNotNull((this.table as any).deletedAt)) as any;
+          query = query.where(
+            isNotNull((this.table as any).deletedAt)
+          ) as typeof query;
         }
       } else {
-        query = query.where(isNotNull((this.table as any).deletedAt)) as any;
+        query = query.where(
+          isNotNull((this.table as any).deletedAt)
+        ) as typeof query;
       }
 
       // Apply sorting

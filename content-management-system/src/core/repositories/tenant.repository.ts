@@ -2,7 +2,7 @@ import { eq, ilike, and, count } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository.js";
 import { tenants, users } from "../database/schema/index.js";
-import type { Tenant, NewTenant, User } from "../database/schema/index.js";
+import type { Tenant, User } from "../database/schema/index.js";
 import type { Result } from "../types/result.types.js";
 import { DatabaseError } from "../errors/database.error.js";
 import { NotFoundError } from "../errors/not-found.error.js";
@@ -29,12 +29,12 @@ export class TenantRepository extends BaseRepository<Tenant> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {
         success: false,
-        error: new DatabaseError("Failed to find tenant by slug", error),
+        error: new DatabaseError("Failed to find tenant by slug", String(error)),
       };
     }
   }
@@ -52,7 +52,7 @@ export class TenantRepository extends BaseRepository<Tenant> {
 
       return {
         success: true,
-        data: result.length > 0 ? result[0] : null,
+        data: result.length > 0 ? result[0] ?? null : null,
       };
     } catch (error) {
       return {

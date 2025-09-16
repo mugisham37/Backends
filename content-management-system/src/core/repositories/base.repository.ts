@@ -120,7 +120,7 @@ export abstract class BaseRepository<
       if (options?.where) {
         const whereConditions = this.buildWhereConditions(options.where);
         if (whereConditions) {
-          query = query.where(whereConditions) as any;
+          query = query.where(whereConditions) as typeof query;
         }
       }
 
@@ -129,14 +129,14 @@ export abstract class BaseRepository<
         const orderByConditions = options.orderBy.map((sort) =>
           this.buildOrderByCondition(sort)
         );
-        query = query.orderBy(...orderByConditions) as any;
+        query = query.orderBy(...orderByConditions) as typeof query;
       }
 
       // Apply pagination
       if (options?.pagination) {
         const { limit, offset } = options.pagination;
-        if (limit) query = query.limit(limit) as any;
-        if (offset) query = query.offset(offset) as any;
+        if (limit) query = query.limit(limit) as typeof query;
+        if (offset) query = query.offset(offset) as typeof query;
       }
 
       const result = await query;
@@ -303,12 +303,12 @@ export abstract class BaseRepository<
       if (filter) {
         const whereConditions = this.buildWhereConditions(filter);
         if (whereConditions) {
-          query = query.where(whereConditions) as any;
+          query = query.where(whereConditions) as typeof query;
         }
       }
 
       const result = await query;
-      const totalCount = result[0]?.count || 0;
+      const totalCount = result[0]?.count ?? 0;
 
       return { success: true, data: totalCount };
     } catch (error) {
@@ -388,7 +388,10 @@ export abstract class BaseRepository<
 
     // Handle regular field conditions
     for (const [key, value] of Object.entries(filter)) {
-      if (key.startsWith("_") || value === undefined) continue;
+      if (key.startsWith("_")) continue;
+
+      // Skip undefined values but allow null values
+      if (value === undefined) continue;
 
       const column = (this.table as any)[key];
       if (column) {
