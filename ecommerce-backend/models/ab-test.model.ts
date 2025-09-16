@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 // Define variant schema
 const variantSchema = new mongoose.Schema(
@@ -24,8 +24,8 @@ const variantSchema = new mongoose.Schema(
       default: {},
     },
   },
-  { _id: false },
-)
+  { _id: false }
+);
 
 // Define A/B test schema
 const abTestSchema = new mongoose.Schema(
@@ -63,12 +63,15 @@ const abTestSchema = new mongoose.Schema(
         validator: (variants: any[]) => {
           // Must have at least 2 variants
           if (variants.length < 2) {
-            return false
+            return false;
           }
 
           // Total traffic allocation must be 100%
-          const totalAllocation = variants.reduce((sum, variant) => sum + variant.trafficAllocation, 0)
-          return totalAllocation === 100
+          const totalAllocation = variants.reduce(
+            (sum, variant) => sum + variant.trafficAllocation,
+            0
+          );
+          return totalAllocation === 100;
         },
         message: "Must have at least 2 variants and total traffic allocation must be 100%",
       },
@@ -123,8 +126,8 @@ const abTestSchema = new mongoose.Schema(
       type: String,
     },
   },
-  { timestamps: true },
-)
+  { timestamps: true }
+);
 
 // Define user test assignment schema
 const userTestAssignmentSchema = new mongoose.Schema(
@@ -164,14 +167,14 @@ const userTestAssignmentSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true },
-)
+  { timestamps: true }
+);
 
 // Create compound index for user and test
-userTestAssignmentSchema.index({ user: 1, test: 1 }, { unique: true })
+userTestAssignmentSchema.index({ user: 1, test: 1 }, { unique: true });
 
 // Create models
-const ABTest = mongoose.model("ABTest", abTestSchema)
-const UserTestAssignment = mongoose.model("UserTestAssignment", userTestAssignmentSchema)
+const ABTest = mongoose.model("ABTest", abTestSchema);
+const UserTestAssignment = mongoose.model("UserTestAssignment", userTestAssignmentSchema);
 
-export { ABTest, UserTestAssignment }
+export { ABTest, UserTestAssignment };

@@ -1,23 +1,26 @@
-import { Router } from "express"
-import * as adminController from "../controllers/admin.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
-import schedulerRoutes from "./scheduler.routes"
-import * as adminDashboardController from "../controllers/admin.dashboard.controller"
-import * as settingsController from "../controllers/settings.controller"
-import * as reportController from "../controllers/report.controller"
-import * as batchController from "../controllers/batch.controller"
-import { validate } from "../middleware/validation.middleware"
-import { batchLoyaltyPointsSchema } from "../utils/validation.schemas"
-import * as notificationController from "../controllers/notification.controller"
-import { sendLoyaltyNotificationSchema, sendBatchLoyaltyNotificationsSchema } from "../utils/validation.schemas"
+import { Router } from "express";
+import * as adminController from "../controllers/admin.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
+import schedulerRoutes from "./scheduler.routes";
+import * as adminDashboardController from "../controllers/admin.dashboard.controller";
+import * as settingsController from "../controllers/settings.controller";
+import * as reportController from "../controllers/report.controller";
+import * as batchController from "../controllers/batch.controller";
+import { validate } from "../middleware/validation.middleware";
+import { batchLoyaltyPointsSchema } from "../utils/validation.schemas";
+import * as notificationController from "../controllers/notification.controller";
+import {
+  sendLoyaltyNotificationSchema,
+  sendBatchLoyaltyNotificationsSchema,
+} from "../utils/validation.schemas";
 
-const router = Router()
+const router = Router();
 
 // All routes require admin authentication
-router.use(authenticate, authorize(["admin", "superadmin"]))
+router.use(authenticate, authorize(["admin", "superadmin"]));
 
 // Scheduler routes
-router.use("/scheduler", schedulerRoutes)
+router.use("/scheduler", schedulerRoutes);
 
 /**
  * @swagger
@@ -52,9 +55,9 @@ router.use("/scheduler", schedulerRoutes)
  *                     productsSummary:
  *                       type: object
  */
-router.get("/dashboard", adminController.getDashboardData)
+router.get("/dashboard", adminController.getDashboardData);
 
-router.get("/dashboard/loyalty", adminDashboardController.getLoyaltyDashboard)
+router.get("/dashboard/loyalty", adminDashboardController.getLoyaltyDashboard);
 
 /**
  * @swagger
@@ -105,7 +108,7 @@ router.get("/dashboard/loyalty", adminDashboardController.getLoyaltyDashboard)
  *                       items:
  *                         type: object
  */
-router.get("/sales", adminController.getSalesData)
+router.get("/sales", adminController.getSalesData);
 
 /**
  * @swagger
@@ -169,7 +172,7 @@ router.get("/sales", adminController.getSalesData)
  *                     pagination:
  *                       type: object
  */
-router.get("/orders", adminController.getOrdersData)
+router.get("/orders", adminController.getOrdersData);
 
 /**
  * @swagger
@@ -233,7 +236,7 @@ router.get("/orders", adminController.getOrdersData)
  *                     pagination:
  *                       type: object
  */
-router.get("/users", adminController.getUsersData)
+router.get("/users", adminController.getUsersData);
 
 /**
  * @swagger
@@ -299,7 +302,7 @@ router.get("/users", adminController.getUsersData)
  *                     pagination:
  *                       type: object
  */
-router.get("/products", adminController.getProductsData)
+router.get("/products", adminController.getProductsData);
 
 /**
  * @swagger
@@ -360,14 +363,14 @@ router.get("/products", adminController.getProductsData)
  *                     pagination:
  *                       type: object
  */
-router.get("/inventory", adminController.getInventoryData)
+router.get("/inventory", adminController.getInventoryData);
 
-router.get("/settings/:key", settingsController.getSetting)
-router.put("/settings/:key", settingsController.setSetting)
-router.get("/settings/group/:group", settingsController.getSettingsByGroup)
-router.delete("/settings/:key", settingsController.deleteSetting)
+router.get("/settings/:key", settingsController.getSetting);
+router.put("/settings/:key", settingsController.setSetting);
+router.get("/settings/group/:group", settingsController.getSettingsByGroup);
+router.delete("/settings/:key", settingsController.deleteSetting);
 
-router.post("/reports/loyalty", reportController.generateLoyaltyReport)
+router.post("/reports/loyalty", reportController.generateLoyaltyReport);
 
 /**
  * @swagger
@@ -422,7 +425,11 @@ router.post("/reports/loyalty", reportController.generateLoyaltyReport)
  *                 data:
  *                   type: object
  */
-router.post("/batch/loyalty-points", validate(batchLoyaltyPointsSchema), batchController.processBatchLoyaltyPoints)
+router.post(
+  "/batch/loyalty-points",
+  validate(batchLoyaltyPointsSchema),
+  batchController.processBatchLoyaltyPoints
+);
 
 /**
  * @swagger
@@ -457,7 +464,7 @@ router.post("/batch/loyalty-points", validate(batchLoyaltyPointsSchema), batchCo
  *                 data:
  *                   type: object
  */
-router.post("/batch/expired-points", batchController.processBatchExpiredPoints)
+router.post("/batch/expired-points", batchController.processBatchExpiredPoints);
 
 /**
  * @swagger
@@ -507,8 +514,8 @@ router.post("/batch/expired-points", batchController.processBatchExpiredPoints)
 router.post(
   "/notifications/loyalty",
   validate(sendLoyaltyNotificationSchema),
-  notificationController.sendLoyaltyNotification,
-)
+  notificationController.sendLoyaltyNotification
+);
 
 /**
  * @swagger
@@ -562,7 +569,7 @@ router.post(
 router.post(
   "/notifications/loyalty/batch",
   validate(sendBatchLoyaltyNotificationsSchema),
-  notificationController.sendBatchLoyaltyNotifications,
-)
+  notificationController.sendBatchLoyaltyNotifications
+);
 
-export default router
+export default router;

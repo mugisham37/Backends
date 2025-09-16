@@ -1,10 +1,10 @@
-import { Router } from "express"
-import * as taxController from "../controllers/tax.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
-import { validateRequest } from "../middleware/validation.middleware"
-import * as taxValidation from "../validations/tax.validation"
+import { Router } from "express";
+import * as taxController from "../controllers/tax.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validateRequest } from "../middleware/validation.middleware";
+import * as taxValidation from "../validations/tax.validation";
 
-const router = Router()
+const router = Router();
 
 /**
  * @swagger
@@ -58,7 +58,7 @@ const router = Router()
  *                             items:
  *                               type: string
  */
-router.get("/", taxController.getAllTaxRates)
+router.get("/", taxController.getAllTaxRates);
 
 /**
  * @swagger
@@ -115,7 +115,7 @@ router.get("/", taxController.getAllTaxRates)
  *                           items:
  *                             type: string
  */
-router.get("/:id", taxController.getTaxRateById)
+router.get("/:id", taxController.getTaxRateById);
 
 /**
  * @swagger
@@ -212,8 +212,8 @@ router.post(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(taxValidation.createTaxRateSchema),
-  taxController.createTaxRate,
-)
+  taxController.createTaxRate
+);
 
 /**
  * @swagger
@@ -313,8 +313,8 @@ router.put(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(taxValidation.updateTaxRateSchema),
-  taxController.updateTaxRate,
-)
+  taxController.updateTaxRate
+);
 
 /**
  * @swagger
@@ -373,7 +373,12 @@ router.put(
  *                           items:
  *                             type: string
  */
-router.delete("/:id", authenticate, authorize(["admin", "superadmin"]), taxController.deleteTaxRate)
+router.delete(
+  "/:id",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  taxController.deleteTaxRate
+);
 
 /**
  * @swagger
@@ -445,7 +450,7 @@ router.delete("/:id", authenticate, authorize(["admin", "superadmin"]), taxContr
  *                           items:
  *                             type: string
  */
-router.get("/applicable", taxController.getApplicableTaxRate)
+router.get("/applicable", taxController.getApplicableTaxRate);
 
 /**
  * @swagger
@@ -510,6 +515,6 @@ router.get("/applicable", taxController.getApplicableTaxRate)
  *                     totalAmount:
  *                       type: number
  */
-router.get("/calculate", taxController.calculateTax)
+router.get("/calculate", taxController.calculateTax);
 
-export default router
+export default router;

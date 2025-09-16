@@ -1,8 +1,8 @@
-import type { Request, Response } from "express"
-import asyncHandler from "express-async-handler"
-import * as notificationService from "../services/notification.service"
-import { createRequestLogger } from "../config/logger"
-import Joi from "joi"
+import type { Request, Response } from "express";
+import asyncHandler from "express-async-handler";
+import * as notificationService from "../services/notification.service";
+import { createRequestLogger } from "../config/logger";
+import Joi from "joi";
 
 // Validation schema for sending loyalty notification
 const sendLoyaltyNotificationSchema = {
@@ -15,7 +15,14 @@ const sendLoyaltyNotificationSchema = {
         "any.required": "User ID is required",
       }),
     type: Joi.string()
-      .valid("points_earned", "points_expired", "tier_upgrade", "reward_redeemed", "reward_approved", "reward_rejected")
+      .valid(
+        "points_earned",
+        "points_expired",
+        "tier_upgrade",
+        "reward_redeemed",
+        "reward_approved",
+        "reward_rejected"
+      )
       .required()
       .messages({
         "any.only":
@@ -26,7 +33,7 @@ const sendLoyaltyNotificationSchema = {
       "any.required": "Data is required",
     }),
   }),
-}
+};
 
 // Validation schema for sending batch loyalty notifications
 const sendBatchLoyaltyNotificationsSchema = {
@@ -48,7 +55,7 @@ const sendBatchLoyaltyNotificationsSchema = {
               "tier_upgrade",
               "reward_redeemed",
               "reward_approved",
-              "reward_rejected",
+              "reward_rejected"
             )
             .required()
             .messages({
@@ -59,7 +66,7 @@ const sendBatchLoyaltyNotificationsSchema = {
           data: Joi.object().required().messages({
             "any.required": "Data is required",
           }),
-        }),
+        })
       )
       .min(1)
       .required()
@@ -68,7 +75,7 @@ const sendBatchLoyaltyNotificationsSchema = {
         "any.required": "Notifications are required",
       }),
   }),
-}
+};
 
 /**
  * Send loyalty notification
@@ -76,11 +83,11 @@ const sendBatchLoyaltyNotificationsSchema = {
  * @access Private (Admin)
  */
 export const sendLoyaltyNotification = asyncHandler(async (req: Request, res: Response) => {
-  const requestLogger = createRequestLogger(req.id)
-  requestLogger.info("Sending loyalty notification")
+  const requestLogger = createRequestLogger(req.id);
+  requestLogger.info("Sending loyalty notification");
 
-  const { userId, type, data } = req.body
-  const result = await notificationService.sendLoyaltyNotification(userId, type, data, req.id)
+  const { userId, type, data } = req.body;
+  const result = await notificationService.sendLoyaltyNotification(userId, type, data, req.id);
 
   res.status(200).json({
     status: "success",
@@ -88,8 +95,8 @@ export const sendLoyaltyNotification = asyncHandler(async (req: Request, res: Re
     data: {
       success: result,
     },
-  })
-})
+  });
+});
 
 /**
  * Send batch loyalty notifications
@@ -97,15 +104,15 @@ export const sendLoyaltyNotification = asyncHandler(async (req: Request, res: Re
  * @access Private (Admin)
  */
 export const sendBatchLoyaltyNotifications = asyncHandler(async (req: Request, res: Response) => {
-  const requestLogger = createRequestLogger(req.id)
-  requestLogger.info("Sending batch loyalty notifications")
+  const requestLogger = createRequestLogger(req.id);
+  requestLogger.info("Sending batch loyalty notifications");
 
-  const { notifications } = req.body
-  const result = await notificationService.sendBatchLoyaltyNotifications(notifications, req.id)
+  const { notifications } = req.body;
+  const result = await notificationService.sendBatchLoyaltyNotifications(notifications, req.id);
 
   res.status(200).json({
     status: "success",
     requestId: req.id,
     data: result,
-  })
-})
+  });
+});

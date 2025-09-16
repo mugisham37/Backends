@@ -1,6 +1,6 @@
-import { createRequestLogger } from "../config/logger"
-import * as emailService from "./email.service"
-import User from "../models/user.model"
+import { createRequestLogger } from "../config/logger";
+import * as emailService from "./email.service";
+import User from "../models/user.model";
 
 /**
  * Send loyalty notification
@@ -12,19 +12,25 @@ import User from "../models/user.model"
  */
 export const sendLoyaltyNotification = async (
   userId: string,
-  type: "points_earned" | "points_expired" | "tier_upgrade" | "reward_redeemed" | "reward_approved" | "reward_rejected",
+  type:
+    | "points_earned"
+    | "points_expired"
+    | "tier_upgrade"
+    | "reward_redeemed"
+    | "reward_approved"
+    | "reward_rejected",
   data: Record<string, any>,
-  requestId?: string,
+  requestId?: string
 ): Promise<boolean> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending loyalty notification of type ${type} to user ${userId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending loyalty notification of type ${type} to user ${userId}`);
 
   try {
     // Get user
-    const user = await User.findById(userId)
+    const user = await User.findById(userId);
     if (!user || !user.email) {
-      logger.warn(`User ${userId} not found or has no email`)
-      return false
+      logger.warn(`User ${userId} not found or has no email`);
+      return false;
     }
 
     // Define notification templates
@@ -101,13 +107,13 @@ export const sendLoyaltyNotification = async (
           <p>If you have any questions, please contact our customer support.</p>
         `,
       },
-    }
+    };
 
     // Get template
-    const template = templates[type]
+    const template = templates[type];
     if (!template) {
-      logger.error(`Notification template not found for type ${type}`)
-      return false
+      logger.error(`Notification template not found for type ${type}`);
+      return false;
     }
 
     // Send email
@@ -119,15 +125,15 @@ export const sendLoyaltyNotification = async (
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      requestId,
-    )
+      requestId
+    );
 
-    return true
+    return true;
   } catch (error) {
-    logger.error(`Error sending loyalty notification: ${error.message}`)
-    return false
+    logger.error(`Error sending loyalty notification: ${error.message}`);
+    return false;
   }
-}
+};
 
 /**
  * Send batch loyalty notifications
@@ -137,38 +143,38 @@ export const sendLoyaltyNotification = async (
  */
 export const sendBatchLoyaltyNotifications = async (
   notifications: Array<{
-    userId: string
+    userId: string;
     type:
       | "points_earned"
       | "points_expired"
       | "tier_upgrade"
       | "reward_redeemed"
       | "reward_approved"
-      | "reward_rejected"
-    data: Record<string, any>
+      | "reward_rejected";
+    data: Record<string, any>;
   }>,
-  requestId?: string,
+  requestId?: string
 ): Promise<{
-  success: boolean
+  success: boolean;
   results: Array<{
-    userId: string
-    type: string
-    success: boolean
-    error?: string
-  }>
+    userId: string;
+    type: string;
+    success: boolean;
+    error?: string;
+  }>;
 }> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending batch loyalty notifications for ${notifications.length} notifications`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending batch loyalty notifications for ${notifications.length} notifications`);
 
-  const results = []
-  let hasErrors = false
+  const results = [];
+  let hasErrors = false;
 
   // Process notifications in chunks to avoid overwhelming the email service
-  const CHUNK_SIZE = 20
-  const chunks = []
+  const CHUNK_SIZE = 20;
+  const chunks = [];
 
   for (let i = 0; i < notifications.length; i += CHUNK_SIZE) {
-    chunks.push(notifications.slice(i, i + CHUNK_SIZE))
+    chunks.push(notifications.slice(i, i + CHUNK_SIZE));
   }
 
   for (const chunk of chunks) {
@@ -180,31 +186,31 @@ export const sendBatchLoyaltyNotifications = async (
             notification.userId,
             notification.type,
             notification.data,
-            requestId,
-          )
+            requestId
+          );
 
           return {
             userId: notification.userId,
             type: notification.type,
             success,
-          }
+          };
         } catch (error) {
-          hasErrors = true
+          hasErrors = true;
           return {
             userId: notification.userId,
             type: notification.type,
             success: false,
             error: error.message,
-          }
+          };
         }
-      }),
-    )
+      })
+    );
 
-    results.push(...chunkResults)
+    results.push(...chunkResults);
   }
 
   return {
     success: !hasErrors,
     results,
-  }
-}
+  };
+};

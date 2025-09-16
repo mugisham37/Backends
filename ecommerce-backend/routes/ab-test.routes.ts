@@ -1,11 +1,11 @@
-import { Router } from "express"
-import * as abTestController from "../controllers/ab-test.controller"
-import { authenticate } from "../middleware/auth.middleware"
-import { authorize } from "../middleware/role.middleware"
-import { validateRequest } from "../middleware/validation.middleware"
-import { abTestValidation } from "../validations/ab-test.validation"
+import { Router } from "express";
+import * as abTestController from "../controllers/ab-test.controller";
+import { authenticate } from "../middleware/auth.middleware";
+import { authorize } from "../middleware/role.middleware";
+import { validateRequest } from "../middleware/validation.middleware";
+import { abTestValidation } from "../validations/ab-test.validation";
 
-const router = Router()
+const router = Router();
 
 // Admin routes
 router
@@ -15,8 +15,8 @@ router
     authenticate,
     authorize(["admin", "superadmin"]),
     validateRequest(abTestValidation.createTest),
-    abTestController.createTest,
-  )
+    abTestController.createTest
+  );
 
 router
   .route("/:testId")
@@ -25,22 +25,41 @@ router
     authenticate,
     authorize(["admin", "superadmin"]),
     validateRequest(abTestValidation.updateTest),
-    abTestController.updateTest,
+    abTestController.updateTest
   )
-  .delete(authenticate, authorize(["admin", "superadmin"]), abTestController.deleteTest)
+  .delete(authenticate, authorize(["admin", "superadmin"]), abTestController.deleteTest);
 
 // Start/stop test
-router.patch("/:testId/start", authenticate, authorize(["admin", "superadmin"]), abTestController.startTest)
+router.patch(
+  "/:testId/start",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  abTestController.startTest
+);
 
-router.patch("/:testId/stop", authenticate, authorize(["admin", "superadmin"]), abTestController.stopTest)
+router.patch(
+  "/:testId/stop",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  abTestController.stopTest
+);
 
 // Get test results
-router.get("/:testId/results", authenticate, authorize(["admin", "superadmin"]), abTestController.getTestResults)
+router.get(
+  "/:testId/results",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  abTestController.getTestResults
+);
 
 // Public route to get variant for a user
-router.get("/variant/:testId", abTestController.getVariantForUser)
+router.get("/variant/:testId", abTestController.getVariantForUser);
 
 // Track conversion
-router.post("/track/:testId", validateRequest(abTestValidation.trackConversion), abTestController.trackConversion)
+router.post(
+  "/track/:testId",
+  validateRequest(abTestValidation.trackConversion),
+  abTestController.trackConversion
+);
 
-export default router
+export default router;

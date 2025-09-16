@@ -1,94 +1,94 @@
-import mongoose, { Schema, type Document, type Model } from "mongoose"
-import bcrypt from "bcryptjs"
-import validator from "validator"
-import { ApiError } from "../utils/api-error"
+import mongoose, { Schema, type Document, type Model } from "mongoose";
+import bcrypt from "bcryptjs";
+import validator from "validator";
+import { ApiError } from "../utils/api-error";
 
 export interface IVendorAddress {
-  street: string
-  city: string
-  state: string
-  postalCode: string
-  country: string
-  isDefault: boolean
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
 }
 
 export interface IBankAccount {
-  accountName: string
-  accountNumber: string
-  bankName: string
-  routingNumber: string
-  swiftCode?: string
-  isDefault: boolean
+  accountName: string;
+  accountNumber: string;
+  bankName: string;
+  routingNumber: string;
+  swiftCode?: string;
+  isDefault: boolean;
 }
 
 export interface ITaxInformation {
-  taxId: string
-  businessType: string
-  taxDocuments: string[]
-  vatRegistered: boolean
-  vatNumber?: string
+  taxId: string;
+  businessType: string;
+  taxDocuments: string[];
+  vatRegistered: boolean;
+  vatNumber?: string;
 }
 
 export interface IVendorDocument extends Document {
-  businessName: string
-  slug: string
-  email: string
-  password: string
-  phone: string
-  description: string
-  logo?: string
-  bannerImage?: string
-  website?: string
+  businessName: string;
+  slug: string;
+  email: string;
+  password: string;
+  phone: string;
+  description: string;
+  logo?: string;
+  bannerImage?: string;
+  website?: string;
   socialMedia: {
-    facebook?: string
-    twitter?: string
-    instagram?: string
-    pinterest?: string
-    youtube?: string
-  }
-  addresses: IVendorAddress[]
-  bankAccounts: IBankAccount[]
-  taxInformation: ITaxInformation
-  commissionRate: number
-  minimumPayoutAmount: number
-  payoutSchedule: "daily" | "weekly" | "biweekly" | "monthly"
-  status: "pending" | "approved" | "rejected" | "suspended"
-  verificationDocuments: string[]
-  verificationNotes?: string
-  returnPolicy?: string
-  shippingPolicy?: string
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    pinterest?: string;
+    youtube?: string;
+  };
+  addresses: IVendorAddress[];
+  bankAccounts: IBankAccount[];
+  taxInformation: ITaxInformation;
+  commissionRate: number;
+  minimumPayoutAmount: number;
+  payoutSchedule: "daily" | "weekly" | "biweekly" | "monthly";
+  status: "pending" | "approved" | "rejected" | "suspended";
+  verificationDocuments: string[];
+  verificationNotes?: string;
+  returnPolicy?: string;
+  shippingPolicy?: string;
   rating: {
-    average: number
-    count: number
-  }
+    average: number;
+    count: number;
+  };
   metrics: {
-    totalSales: number
-    totalOrders: number
-    totalProducts: number
-    conversionRate: number
-    averageOrderValue: number
-  }
+    totalSales: number;
+    totalOrders: number;
+    totalProducts: number;
+    conversionRate: number;
+    averageOrderValue: number;
+  };
   contactPerson: {
-    firstName: string
-    lastName: string
-    email: string
-    phone: string
-    position: string
-  }
-  createdAt: Date
-  updatedAt: Date
-  active: boolean
-  passwordChangedAt?: Date
-  passwordResetToken?: string
-  passwordResetExpires?: Date
-  lastLogin?: Date
-  comparePassword(candidatePassword: string): Promise<boolean>
-  changedPasswordAfter(JWTTimestamp: number): boolean
-  createPasswordResetToken(): string
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    position: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+  active: boolean;
+  passwordChangedAt?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  lastLogin?: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  changedPasswordAfter(JWTTimestamp: number): boolean;
+  createPasswordResetToken(): string;
 }
 
 export interface IVendorModel extends Model<IVendorDocument> {
-  findByEmail(email: string): Promise<IVendorDocument>
+  findByEmail(email: string): Promise<IVendorDocument>;
 }
 
 const vendorSchema = new Schema<IVendorDocument>(
@@ -423,79 +423,81 @@ const vendorSchema = new Schema<IVendorDocument>(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  },
-)
+  }
+);
 
 // Virtual for products
 vendorSchema.virtual("products", {
   ref: "Product",
   localField: "_id",
   foreignField: "vendor",
-})
+});
 
 // Virtual for payouts
 vendorSchema.virtual("payouts", {
   ref: "Payout",
   localField: "_id",
   foreignField: "vendor",
-})
+});
 
 // Indexes
-vendorSchema.index({ businessName: 1 })
-vendorSchema.index({ email: 1 })
-vendorSchema.index({ status: 1 })
-vendorSchema.index({ "rating.average": -1 })
-vendorSchema.index({ createdAt: -1 })
+vendorSchema.index({ businessName: 1 });
+vendorSchema.index({ email: 1 });
+vendorSchema.index({ status: 1 });
+vendorSchema.index({ "rating.average": -1 });
+vendorSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to hash password
 vendorSchema.pre("save", async function (next) {
   // Only hash the password if it's modified or new
-  if (!this.isModified("password")) return next()
+  if (!this.isModified("password")) return next();
 
   try {
     // Hash password with cost of 12
-    this.password = await bcrypt.hash(this.password, 12)
+    this.password = await bcrypt.hash(this.password, 12);
 
     // Update passwordChangedAt if not a new document
     if (!this.isNew) {
-      this.passwordChangedAt = new Date(Date.now() - 1000) // Subtract 1 second to account for delay
+      this.passwordChangedAt = new Date(Date.now() - 1000); // Subtract 1 second to account for delay
     }
 
-    next()
+    next();
   } catch (error: any) {
-    next(new ApiError(`Error hashing password: ${error.message}`, 500))
+    next(new ApiError(`Error hashing password: ${error.message}`, 500));
   }
-})
+});
 
 // Method to compare passwords
-vendorSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
-  return await bcrypt.compare(candidatePassword, this.password)
-}
+vendorSchema.methods.comparePassword = async function (
+  candidatePassword: string
+): Promise<boolean> {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 // Method to check if password was changed after JWT was issued
 vendorSchema.methods.changedPasswordAfter = function (JWTTimestamp: number): boolean {
   if (this.passwordChangedAt) {
-    const changedTimestamp = Math.floor(this.passwordChangedAt.getTime() / 1000)
-    return JWTTimestamp < changedTimestamp
+    const changedTimestamp = Math.floor(this.passwordChangedAt.getTime() / 1000);
+    return JWTTimestamp < changedTimestamp;
   }
-  return false
-}
+  return false;
+};
 
 // Method to create password reset token
 vendorSchema.methods.createPasswordResetToken = function (): string {
-  const resetToken = crypto.randomBytes(32).toString("hex")
+  const resetToken = crypto.randomBytes(32).toString("hex");
 
-  this.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex")
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000 // 10 minutes
+  this.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-  return resetToken
-}
+  return resetToken;
+};
 
 // Static method to find vendor by email
 vendorSchema.statics.findByEmail = async function (email: string): Promise<IVendorDocument> {
-  return this.findOne({ email })
-}
+  return this.findOne({ email });
+};
 
-const Vendor = mongoose.model<IVendorDocument, IVendorModel>("Vendor", vendorSchema)
+const Vendor = mongoose.model<IVendorDocument, IVendorModel>("Vendor", vendorSchema);
 
-export default Vendor
+export default Vendor;

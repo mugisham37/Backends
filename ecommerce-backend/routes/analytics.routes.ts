@@ -1,11 +1,11 @@
-import { Router } from "express"
-import * as analyticsController from "../controllers/analytics.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
+import { Router } from "express";
+import * as analyticsController from "../controllers/analytics.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
 
-const router = Router()
+const router = Router();
 
 // All routes require admin authentication
-router.use(authenticate, authorize(["admin", "superadmin"]))
+router.use(authenticate, authorize(["admin", "superadmin"]));
 
 /**
  * @swagger
@@ -64,7 +64,7 @@ router.use(authenticate, authorize(["admin", "superadmin"]))
  *                     comparison:
  *                       type: object
  */
-router.get("/sales", analyticsController.getSalesAnalytics)
+router.get("/sales", analyticsController.getSalesAnalytics);
 
 /**
  * @swagger
@@ -123,7 +123,7 @@ router.get("/sales", analyticsController.getSalesAnalytics)
  *                     inventorySummary:
  *                       type: object
  */
-router.get("/products", analyticsController.getProductAnalytics)
+router.get("/products", analyticsController.getProductAnalytics);
 
 /**
  * @swagger
@@ -177,7 +177,7 @@ router.get("/products", analyticsController.getProductAnalytics)
  *                     userRetention:
  *                       type: object
  */
-router.get("/users", analyticsController.getUserAnalytics)
+router.get("/users", analyticsController.getUserAnalytics);
 
 /**
  * @swagger
@@ -231,6 +231,6 @@ router.get("/users", analyticsController.getUserAnalytics)
  *                     salesByCategory:
  *                       type: array
  */
-router.get("/dashboard", analyticsController.getDashboardAnalytics)
+router.get("/dashboard", analyticsController.getDashboardAnalytics);
 
-export default router
+export default router;

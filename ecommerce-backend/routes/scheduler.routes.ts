@@ -1,11 +1,11 @@
-import { Router } from "express"
-import * as schedulerController from "../controllers/scheduler.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
+import { Router } from "express";
+import * as schedulerController from "../controllers/scheduler.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
 
-const router = Router()
+const router = Router();
 
 // All routes require admin authentication
-router.use(authenticate, authorize(["admin", "superadmin"]))
+router.use(authenticate, authorize(["admin", "superadmin"]));
 
 /**
  * @swagger
@@ -42,7 +42,7 @@ router.use(authenticate, authorize(["admin", "superadmin"]))
  *                             type: string
  *                             format: date-time
  */
-router.get("/status", schedulerController.getJobStatus)
+router.get("/status", schedulerController.getJobStatus);
 
 /**
  * @swagger
@@ -76,7 +76,7 @@ router.get("/status", schedulerController.getJobStatus)
  *                   type: string
  *                   example: Job processEmailQueue started successfully
  */
-router.post("/start/:jobName", schedulerController.startJob)
+router.post("/start/:jobName", schedulerController.startJob);
 
 /**
  * @swagger
@@ -110,7 +110,7 @@ router.post("/start/:jobName", schedulerController.startJob)
  *                   type: string
  *                   example: Job processEmailQueue stopped successfully
  */
-router.post("/stop/:jobName", schedulerController.stopJob)
+router.post("/stop/:jobName", schedulerController.stopJob);
 
 /**
  * @swagger
@@ -144,7 +144,7 @@ router.post("/stop/:jobName", schedulerController.stopJob)
  *                   type: string
  *                   example: Job processEmailQueue executed successfully
  */
-router.post("/run/:jobName", schedulerController.runJobNow)
+router.post("/run/:jobName", schedulerController.runJobNow);
 
 /**
  * @swagger
@@ -171,7 +171,7 @@ router.post("/run/:jobName", schedulerController.runJobNow)
  *                   type: string
  *                   example: All jobs started successfully
  */
-router.post("/start-all", schedulerController.startAllJobs)
+router.post("/start-all", schedulerController.startAllJobs);
 
 /**
  * @swagger
@@ -198,6 +198,6 @@ router.post("/start-all", schedulerController.startAllJobs)
  *                   type: string
  *                   example: All jobs stopped successfully
  */
-router.post("/stop-all", schedulerController.stopAllJobs)
+router.post("/stop-all", schedulerController.stopAllJobs);
 
-export default router
+export default router;

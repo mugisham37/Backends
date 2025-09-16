@@ -1,18 +1,18 @@
-import mongoose, { type Document, Schema } from "mongoose"
+import mongoose, { type Document, Schema } from "mongoose";
 
 export interface ICountry extends Document {
-  code: string
-  name: string
-  isActive: boolean
-  phoneCode: string
-  currency: mongoose.Types.ObjectId
-  defaultLanguage: string
+  code: string;
+  name: string;
+  isActive: boolean;
+  phoneCode: string;
+  currency: mongoose.Types.ObjectId;
+  defaultLanguage: string;
   states?: {
-    code: string
-    name: string
-  }[]
-  createdAt: Date
-  updatedAt: Date
+    code: string;
+    name: string;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const countrySchema = new Schema<ICountry>(
@@ -67,13 +67,13 @@ const countrySchema = new Schema<ICountry>(
   },
   {
     timestamps: true,
-  },
-)
+  }
+);
 
 // Create index for efficient country lookup
-countrySchema.index({ code: 1 })
-countrySchema.index({ name: "text" })
+countrySchema.index({ code: 1 });
+countrySchema.index({ name: "text" });
 
-const Country = mongoose.model<ICountry>("Country", countrySchema)
+const Country = mongoose.model<ICountry>("Country", countrySchema);
 
-export default Country
+export default Country;

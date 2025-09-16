@@ -1,17 +1,17 @@
-import mongoose from "mongoose"
-import Product from "../models/product.model"
-import Category from "../models/category.model"
-import Vendor from "../models/vendor.model"
-import { createRequestLogger } from "../config/logger"
-import { getCache, setCache } from "../config/redis"
-import { ApiError } from "../utils/api-error"
+import mongoose from "mongoose";
+import Product from "../models/product.model";
+import Category from "../models/category.model";
+import Vendor from "../models/vendor.model";
+import { createRequestLogger } from "../config/logger";
+import { getCache, setCache } from "../config/redis";
+import { ApiError } from "../utils/api-error";
 
 // Cache TTL in seconds
 const CACHE_TTL = {
   SEARCH_RESULTS: 1800, // 30 minutes
   FACETS: 3600, // 1 hour
   SUGGESTIONS: 1800, // 30 minutes
-}
+};
 
 /**
  * Advanced search with faceted navigation
@@ -21,77 +21,77 @@ const CACHE_TTL = {
  */
 export const advancedSearch = async (
   options: {
-    query?: string
-    filters?: Record<string, any>
-    page?: number
-    limit?: number
-    sort?: string
-    includeFacets?: boolean
+    query?: string;
+    filters?: Record<string, any>;
+    page?: number;
+    limit?: number;
+    sort?: string;
+    includeFacets?: boolean;
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<{
-  products: any[]
-  count: number
-  facets?: Record<string, any>
+  products: any[];
+  count: number;
+  facets?: Record<string, any>;
   pagination: {
-    page: number
-    limit: number
-    totalPages: number
-    totalResults: number
-  }
+    page: number;
+    limit: number;
+    totalPages: number;
+    totalResults: number;
+  };
 }> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Performing advanced search with query: ${options.query || ""}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Performing advanced search with query: ${options.query || ""}`);
 
   // Set default options
-  const query = options.query || ""
-  const filters = options.filters || {}
-  const page = options.page || 1
-  const limit = options.limit || 10
-  const sort = options.sort || "relevance"
-  const includeFacets = options.includeFacets !== undefined ? options.includeFacets : true
+  const query = options.query || "";
+  const filters = options.filters || {};
+  const page = options.page || 1;
+  const limit = options.limit || 10;
+  const sort = options.sort || "relevance";
+  const includeFacets = options.includeFacets !== undefined ? options.includeFacets : true;
 
   // Build search query
   const searchQuery: Record<string, any> = {
     active: true,
-  }
+  };
 
   // Add text search if query is provided
   if (query && query.trim()) {
-    searchQuery.$text = { $search: query }
+    searchQuery.$text = { $search: query };
   }
 
   // Process filters
-  await processSearchFilters(searchQuery, filters, requestId)
+  await processSearchFilters(searchQuery, filters, requestId);
 
   // Try to get from cache
-  const cacheKey = `advanced_search:${JSON.stringify({ query, filters, page, limit, sort, includeFacets })}`
-  const cachedData = await getCache<any>(cacheKey)
+  const cacheKey = `advanced_search:${JSON.stringify({ query, filters, page, limit, sort, includeFacets })}`;
+  const cachedData = await getCache<any>(cacheKey);
 
   if (cachedData) {
-    logger.info(`Retrieved advanced search results from cache`)
-    return cachedData
+    logger.info(`Retrieved advanced search results from cache`);
+    return cachedData;
   }
 
   try {
     // Determine sort order
-    const sortOptions = determineSortOptions(sort, query)
+    const sortOptions = determineSortOptions(sort, query);
 
     // Calculate skip value for pagination
-    const skip = (page - 1) * limit
+    const skip = (page - 1) * limit;
 
     // Execute search query with projection
     const searchOptions: any = {
       skip,
       limit,
       sort: sortOptions,
-    }
+    };
 
     // Add text score projection if using text search
     if (query && query.trim()) {
       searchOptions.projection = {
         score: { $meta: "textScore" },
-      }
+      };
     }
 
     // Get products
@@ -101,18 +101,18 @@ export const advancedSearch = async (
       .limit(limit)
       .populate("category", "name slug")
       .populate("vendor", "businessName slug")
-      .lean()
+      .lean();
 
     // Get total count
-    const count = await Product.countDocuments(searchQuery)
+    const count = await Product.countDocuments(searchQuery);
 
     // Calculate total pages
-    const totalPages = Math.ceil(count / limit)
+    const totalPages = Math.ceil(count / limit);
 
     // Get facets if requested
-    let facets = null
+    let facets = null;
     if (includeFacets) {
-      facets = await getFacets(searchQuery, requestId)
+      facets = await getFacets(searchQuery, requestId);
     }
 
     // Prepare result
@@ -126,17 +126,17 @@ export const advancedSearch = async (
         totalPages,
         totalResults: count,
       },
-    }
+    };
 
     // Cache the results
-    await setCache(cacheKey, result, CACHE_TTL.SEARCH_RESULTS)
+    await setCache(cacheKey, result, CACHE_TTL.SEARCH_RESULTS);
 
-    return result
+    return result;
   } catch (error: any) {
-    logger.error(`Error performing advanced search: ${error.message}`)
-    throw new ApiError(`Failed to perform search: ${error.message}`, 500)
+    logger.error(`Error performing advanced search: ${error.message}`);
+    throw new ApiError(`Failed to perform search: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Process search filters
@@ -147,22 +147,22 @@ export const advancedSearch = async (
 async function processSearchFilters(
   searchQuery: Record<string, any>,
   filters: Record<string, any>,
-  requestId?: string,
+  requestId?: string
 ): Promise<void> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Processing search filters: ${JSON.stringify(filters)}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Processing search filters: ${JSON.stringify(filters)}`);
 
   try {
     // Process category filter
     if (filters.category) {
       // Check if it's a category ID or slug
       if (mongoose.Types.ObjectId.isValid(filters.category)) {
-        searchQuery.category = filters.category
+        searchQuery.category = filters.category;
       } else {
         // Find category by slug
-        const category = await Category.findOne({ slug: filters.category })
+        const category = await Category.findOne({ slug: filters.category });
         if (category) {
-          searchQuery.category = category._id
+          searchQuery.category = category._id;
         }
       }
     }
@@ -171,12 +171,12 @@ async function processSearchFilters(
     if (filters.vendor) {
       // Check if it's a vendor ID or slug
       if (mongoose.Types.ObjectId.isValid(filters.vendor)) {
-        searchQuery.vendor = filters.vendor
+        searchQuery.vendor = filters.vendor;
       } else {
         // Find vendor by slug
-        const vendor = await Vendor.findOne({ slug: filters.vendor })
+        const vendor = await Vendor.findOne({ slug: filters.vendor });
         if (vendor) {
-          searchQuery.vendor = vendor._id
+          searchQuery.vendor = vendor._id;
         }
       }
     }
@@ -186,34 +186,36 @@ async function processSearchFilters(
       searchQuery.price = {
         $gte: Number(filters.minPrice),
         $lte: Number(filters.maxPrice),
-      }
+      };
     } else if (filters.minPrice !== undefined) {
-      searchQuery.price = { $gte: Number(filters.minPrice) }
+      searchQuery.price = { $gte: Number(filters.minPrice) };
     } else if (filters.maxPrice !== undefined) {
-      searchQuery.price = { $lte: Number(filters.maxPrice) }
+      searchQuery.price = { $lte: Number(filters.maxPrice) };
     }
 
     // Process rating filter
     if (filters.rating) {
-      searchQuery["ratings.average"] = { $gte: Number(filters.rating) }
+      searchQuery["ratings.average"] = { $gte: Number(filters.rating) };
     }
 
     // Process stock filter
     if (filters.inStock !== undefined) {
-      searchQuery.quantity = filters.inStock === "true" ? { $gt: 0 } : { $lte: 0 }
+      searchQuery.quantity = filters.inStock === "true" ? { $gt: 0 } : { $lte: 0 };
     }
 
     // Process featured filter
     if (filters.featured !== undefined) {
-      searchQuery.featured = filters.featured === "true"
+      searchQuery.featured = filters.featured === "true";
     }
 
     // Process attributes filter
     if (filters.attributes) {
-      const attributeFilters = Array.isArray(filters.attributes) ? filters.attributes : [filters.attributes]
+      const attributeFilters = Array.isArray(filters.attributes)
+        ? filters.attributes
+        : [filters.attributes];
 
       const attributeQueries = attributeFilters.map((attr: string) => {
-        const [name, value] = attr.split(":")
+        const [name, value] = attr.split(":");
         return {
           attributes: {
             $elemMatch: {
@@ -221,40 +223,40 @@ async function processSearchFilters(
               value,
             },
           },
-        }
-      })
+        };
+      });
 
       if (attributeQueries.length > 0) {
-        searchQuery.$and = searchQuery.$and || []
-        searchQuery.$and.push(...attributeQueries)
+        searchQuery.$and = searchQuery.$and || [];
+        searchQuery.$and.push(...attributeQueries);
       }
     }
 
     // Process tags filter
     if (filters.tags) {
-      const tags = Array.isArray(filters.tags) ? filters.tags : [filters.tags]
-      searchQuery.tags = { $in: tags }
+      const tags = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
+      searchQuery.tags = { $in: tags };
     }
 
     // Process discount filter
     if (filters.onSale === "true") {
-      searchQuery.compareAtPrice = { $gt: 0, $gt: "$price" }
+      searchQuery.compareAtPrice = { $gt: 0, $gt: "$price" };
     }
 
     // Process date filter
     if (filters.createdAfter) {
-      searchQuery.createdAt = { $gte: new Date(filters.createdAfter) }
+      searchQuery.createdAt = { $gte: new Date(filters.createdAfter) };
     }
 
     if (filters.createdBefore) {
       searchQuery.createdAt = {
         ...searchQuery.createdAt,
         $lte: new Date(filters.createdBefore),
-      }
+      };
     }
   } catch (error: any) {
-    logger.error(`Error processing search filters: ${error.message}`)
-    throw error
+    logger.error(`Error processing search filters: ${error.message}`);
+    throw error;
   }
 }
 
@@ -265,32 +267,32 @@ async function processSearchFilters(
  * @returns Sort options
  */
 function determineSortOptions(sort: string, query: string): Record<string, any> {
-  let sortOptions: Record<string, any> = {}
+  let sortOptions: Record<string, any> = {};
 
   if (sort === "relevance" && query && query.trim()) {
-    sortOptions = { score: { $meta: "textScore" } }
+    sortOptions = { score: { $meta: "textScore" } };
   } else if (sort === "price_asc") {
-    sortOptions = { price: 1 }
+    sortOptions = { price: 1 };
   } else if (sort === "price_desc") {
-    sortOptions = { price: -1 }
+    sortOptions = { price: -1 };
   } else if (sort === "newest") {
-    sortOptions = { createdAt: -1 }
+    sortOptions = { createdAt: -1 };
   } else if (sort === "oldest") {
-    sortOptions = { createdAt: 1 }
+    sortOptions = { createdAt: 1 };
   } else if (sort === "rating") {
-    sortOptions = { "ratings.average": -1 }
+    sortOptions = { "ratings.average": -1 };
   } else if (sort === "popularity") {
-    sortOptions = { "ratings.count": -1 }
+    sortOptions = { "ratings.count": -1 };
   } else if (sort === "name_asc") {
-    sortOptions = { name: 1 }
+    sortOptions = { name: 1 };
   } else if (sort === "name_desc") {
-    sortOptions = { name: -1 }
+    sortOptions = { name: -1 };
   } else {
     // Default sort
-    sortOptions = { createdAt: -1 }
+    sortOptions = { createdAt: -1 };
   }
 
-  return sortOptions
+  return sortOptions;
 }
 
 /**
@@ -299,17 +301,20 @@ function determineSortOptions(sort: string, query: string): Record<string, any> 
  * @param requestId Request ID for logging
  * @returns Facets for search results
  */
-export const getFacets = async (baseQuery: Record<string, any>, requestId?: string): Promise<Record<string, any>> => {
-  const logger = createRequestLogger(requestId)
-  logger.info("Getting facets for search results")
+export const getFacets = async (
+  baseQuery: Record<string, any>,
+  requestId?: string
+): Promise<Record<string, any>> => {
+  const logger = createRequestLogger(requestId);
+  logger.info("Getting facets for search results");
 
   // Try to get from cache
-  const cacheKey = `facets:${JSON.stringify(baseQuery)}`
-  const cachedFacets = await getCache<Record<string, any>>(cacheKey)
+  const cacheKey = `facets:${JSON.stringify(baseQuery)}`;
+  const cachedFacets = await getCache<Record<string, any>>(cacheKey);
 
   if (cachedFacets) {
-    logger.info(`Retrieved facets from cache`)
-    return cachedFacets
+    logger.info(`Retrieved facets from cache`);
+    return cachedFacets;
   }
 
   try {
@@ -323,7 +328,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
           max: { $max: "$price" },
         },
       },
-    ])
+    ]);
 
     // Get categories
     const categories = await Product.aggregate([
@@ -353,7 +358,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
           count: 1,
         },
       },
-    ])
+    ]);
 
     // Get vendors
     const vendors = await Product.aggregate([
@@ -383,7 +388,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
           count: 1,
         },
       },
-    ])
+    ]);
 
     // Get ratings distribution
     const ratings = await Product.aggregate([
@@ -395,7 +400,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
         },
       },
       { $sort: { _id: -1 } },
-    ])
+    ]);
 
     // Get attributes
     const attributes = await Product.aggregate([
@@ -423,7 +428,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
         },
       },
       { $sort: { totalCount: -1 } },
-    ])
+    ]);
 
     // Get tags
     const tags = await Product.aggregate([
@@ -437,7 +442,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
       },
       { $sort: { count: -1 } },
       { $limit: 30 },
-    ])
+    ]);
 
     // Get discount status
     const discountStatus = await Product.aggregate([
@@ -448,7 +453,7 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
           count: { $sum: 1 },
         },
       },
-    ])
+    ]);
 
     // Compile facets
     const facets = {
@@ -468,17 +473,17 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
         onSale: d._id,
         count: d.count,
       })),
-    }
+    };
 
     // Cache the facets
-    await setCache(cacheKey, facets, CACHE_TTL.FACETS)
+    await setCache(cacheKey, facets, CACHE_TTL.FACETS);
 
-    return facets
+    return facets;
   } catch (error: any) {
-    logger.error(`Error getting facets: ${error.message}`)
-    throw new ApiError(`Failed to get facets: ${error.message}`, 500)
+    logger.error(`Error getting facets: ${error.message}`);
+    throw new ApiError(`Failed to get facets: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Get product suggestions for autocomplete
@@ -490,35 +495,36 @@ export const getFacets = async (baseQuery: Record<string, any>, requestId?: stri
 export const getProductSuggestions = async (
   query: string,
   options: {
-    limit?: number
-    includeCategories?: boolean
-    includeVendors?: boolean
+    limit?: number;
+    includeCategories?: boolean;
+    includeVendors?: boolean;
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<{
-  products: any[]
-  categories?: any[]
-  vendors?: any[]
+  products: any[];
+  categories?: any[];
+  vendors?: any[];
 }> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting product suggestions for query: ${query}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting product suggestions for query: ${query}`);
 
   if (!query || query.trim().length < 2) {
-    return { products: [] }
+    return { products: [] };
   }
 
   // Set default options
-  const limit = options.limit || 5
-  const includeCategories = options.includeCategories !== undefined ? options.includeCategories : true
-  const includeVendors = options.includeVendors !== undefined ? options.includeVendors : true
+  const limit = options.limit || 5;
+  const includeCategories =
+    options.includeCategories !== undefined ? options.includeCategories : true;
+  const includeVendors = options.includeVendors !== undefined ? options.includeVendors : true;
 
   // Try to get from cache
-  const cacheKey = `suggestions:${query}:${limit}:${includeCategories}:${includeVendors}`
-  const cachedSuggestions = await getCache<any>(cacheKey)
+  const cacheKey = `suggestions:${query}:${limit}:${includeCategories}:${includeVendors}`;
+  const cachedSuggestions = await getCache<any>(cacheKey);
 
   if (cachedSuggestions) {
-    logger.info(`Retrieved suggestions from cache`)
-    return cachedSuggestions
+    logger.info(`Retrieved suggestions from cache`);
+    return cachedSuggestions;
   }
 
   try {
@@ -535,20 +541,20 @@ export const getProductSuggestions = async (
         slug: 1,
         price: 1,
         images: 1,
-      },
+      }
     )
       .sort({ score: { $meta: "textScore" } })
       .limit(limit)
-      .lean()
+      .lean();
 
     // Prepare result
     const result: {
-      products: any[]
-      categories?: any[]
-      vendors?: any[]
+      products: any[];
+      categories?: any[];
+      vendors?: any[];
     } = {
       products,
-    }
+    };
 
     // Search for categories if requested
     if (includeCategories) {
@@ -561,13 +567,13 @@ export const getProductSuggestions = async (
           _id: 1,
           name: 1,
           slug: 1,
-        },
+        }
       )
         .sort({ score: { $meta: "textScore" } })
         .limit(3)
-        .lean()
+        .lean();
 
-      result.categories = categories
+      result.categories = categories;
     }
 
     // Search for vendors if requested
@@ -582,24 +588,24 @@ export const getProductSuggestions = async (
           _id: 1,
           businessName: 1,
           slug: 1,
-        },
+        }
       )
         .sort({ score: { $meta: "textScore" } })
         .limit(3)
-        .lean()
+        .lean();
 
-      result.vendors = vendors
+      result.vendors = vendors;
     }
 
     // Cache the suggestions
-    await setCache(cacheKey, result, CACHE_TTL.SUGGESTIONS)
+    await setCache(cacheKey, result, CACHE_TTL.SUGGESTIONS);
 
-    return result
+    return result;
   } catch (error: any) {
-    logger.error(`Error getting product suggestions: ${error.message}`)
-    throw new ApiError(`Failed to get product suggestions: ${error.message}`, 500)
+    logger.error(`Error getting product suggestions: ${error.message}`);
+    throw new ApiError(`Failed to get product suggestions: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Get popular searches
@@ -608,8 +614,8 @@ export const getProductSuggestions = async (
  * @returns Popular searches
  */
 export const getPopularSearches = async (limit = 10, requestId?: string): Promise<string[]> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting popular searches, limit: ${limit}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting popular searches, limit: ${limit}`);
 
   // This is a placeholder implementation
   // In a real application, you would track search queries and their frequency
@@ -625,5 +631,5 @@ export const getPopularSearches = async (limit = 10, requestId?: string): Promis
     "gaming console",
     "wireless earbuds",
     "smart tv",
-  ]
-}
+  ];
+};

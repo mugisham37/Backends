@@ -1,4 +1,4 @@
-import Joi from "joi"
+import Joi from "joi";
 
 // Create loyalty tier schema
 export const createLoyaltyTierSchema = {
@@ -36,7 +36,7 @@ export const createLoyaltyTierSchema = {
       }),
     icon: Joi.string().trim().allow(null, ""),
   }),
-}
+};
 
 // Update loyalty tier schema
 export const updateLoyaltyTierSchema = {
@@ -69,7 +69,7 @@ export const updateLoyaltyTierSchema = {
       }),
     icon: Joi.string().trim().allow(null, ""),
   }),
-}
+};
 
 // Create reward schema
 export const createRewardSchema = {
@@ -97,9 +97,12 @@ export const createRewardSchema = {
       .messages({
         "string.pattern.base": "Required tier must be a valid ID",
       }),
-    type: Joi.string().valid("discount", "freeProduct", "freeShipping", "giftCard", "other").default("other").messages({
-      "any.only": "Type must be one of: discount, freeProduct, freeShipping, giftCard, other",
-    }),
+    type: Joi.string()
+      .valid("discount", "freeProduct", "freeShipping", "giftCard", "other")
+      .default("other")
+      .messages({
+        "any.only": "Type must be one of: discount, freeProduct, freeShipping, giftCard, other",
+      }),
     value: Joi.number().min(0).allow(null).messages({
       "number.base": "Value must be a number",
       "number.min": "Value must be at least 0",
@@ -127,7 +130,7 @@ export const createRewardSchema = {
     }),
     image: Joi.string().trim().allow(null, ""),
   }),
-}
+};
 
 // Update reward schema
 export const updateRewardSchema = {
@@ -150,9 +153,11 @@ export const updateRewardSchema = {
       .messages({
         "string.pattern.base": "Required tier must be a valid ID",
       }),
-    type: Joi.string().valid("discount", "freeProduct", "freeShipping", "giftCard", "other").messages({
-      "any.only": "Type must be one of: discount, freeProduct, freeShipping, giftCard, other",
-    }),
+    type: Joi.string()
+      .valid("discount", "freeProduct", "freeShipping", "giftCard", "other")
+      .messages({
+        "any.only": "Type must be one of: discount, freeProduct, freeShipping, giftCard, other",
+      }),
     value: Joi.number().min(0).allow(null).messages({
       "number.base": "Value must be a number",
       "number.min": "Value must be at least 0",
@@ -180,7 +185,7 @@ export const updateRewardSchema = {
     }),
     image: Joi.string().trim().allow(null, ""),
   }),
-}
+};
 
 // Redeem reward schema
 export const redeemRewardSchema = {
@@ -194,7 +199,7 @@ export const redeemRewardSchema = {
         "any.required": "Reward ID is required",
       }),
   }),
-}
+};
 
 // Apply referral code schema
 export const applyReferralCodeSchema = {
@@ -204,19 +209,22 @@ export const applyReferralCodeSchema = {
       "any.required": "Referral code is required",
     }),
   }),
-}
+};
 
 // Update redemption status schema
 export const updateRedemptionStatusSchema = {
   body: Joi.object({
-    status: Joi.string().valid("pending", "approved", "rejected", "used", "expired").required().messages({
-      "string.empty": "Status is required",
-      "any.required": "Status is required",
-      "any.only": "Status must be one of: pending, approved, rejected, used, expired",
-    }),
+    status: Joi.string()
+      .valid("pending", "approved", "rejected", "used", "expired")
+      .required()
+      .messages({
+        "string.empty": "Status is required",
+        "any.required": "Status is required",
+        "any.only": "Status must be one of: pending, approved, rejected, used, expired",
+      }),
     notes: Joi.string().trim().allow(null, ""),
   }),
-}
+};
 
 // Adjust customer points schema
 export const adjustCustomerPointsSchema = {
@@ -239,4 +247,4 @@ export const adjustCustomerPointsSchema = {
       "any.required": "Reason is required",
     }),
   }),
-}
+};

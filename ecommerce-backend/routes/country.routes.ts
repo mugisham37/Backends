@@ -1,10 +1,10 @@
-import { Router } from "express"
-import * as countryController from "../controllers/country.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
-import { validateRequest } from "../middleware/validation.middleware"
-import * as countryValidation from "../validations/country.validation"
+import { Router } from "express";
+import * as countryController from "../controllers/country.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validateRequest } from "../middleware/validation.middleware";
+import * as countryValidation from "../validations/country.validation";
 
-const router = Router()
+const router = Router();
 
 /**
  * @swagger
@@ -68,7 +68,7 @@ const router = Router()
  *                                 name:
  *                                   type: string
  */
-router.get("/", countryController.getAllCountries)
+router.get("/", countryController.getAllCountries);
 
 /**
  * @swagger
@@ -135,7 +135,7 @@ router.get("/", countryController.getAllCountries)
  *                               name:
  *                                 type: string
  */
-router.get("/:code", countryController.getCountryByCode)
+router.get("/:code", countryController.getCountryByCode);
 
 /**
  * @swagger
@@ -234,8 +234,8 @@ router.post(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(countryValidation.createCountrySchema),
-  countryController.createCountry,
-)
+  countryController.createCountry
+);
 
 /**
  * @swagger
@@ -336,8 +336,8 @@ router.put(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(countryValidation.updateCountrySchema),
-  countryController.updateCountry,
-)
+  countryController.updateCountry
+);
 
 /**
  * @swagger
@@ -397,7 +397,12 @@ router.put(
  *                               name:
  *                                 type: string
  */
-router.delete("/:code", authenticate, authorize(["admin", "superadmin"]), countryController.deleteCountry)
+router.delete(
+  "/:code",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  countryController.deleteCountry
+);
 
 /**
  * @swagger
@@ -440,6 +445,6 @@ router.delete("/:code", authenticate, authorize(["admin", "superadmin"]), countr
  *                           name:
  *                             type: string
  */
-router.get("/:code/states", countryController.getStatesByCountry)
+router.get("/:code/states", countryController.getStatesByCountry);
 
-export default router
+export default router;

@@ -1,5 +1,5 @@
-import Joi from "joi"
-import mongoose from "mongoose"
+import Joi from "joi";
+import mongoose from "mongoose";
 
 export const createTaxRateSchema = Joi.object({
   name: Joi.string().required().min(2).max(100).trim(),
@@ -13,12 +13,12 @@ export const createTaxRateSchema = Joi.object({
   productCategories: Joi.array().items(
     Joi.string().custom((value, helpers) => {
       if (!mongoose.Types.ObjectId.isValid(value)) {
-        return helpers.error("any.invalid")
+        return helpers.error("any.invalid");
       }
-      return value
-    }, "MongoDB ObjectId validation"),
+      return value;
+    }, "MongoDB ObjectId validation")
   ),
-})
+});
 
 export const updateTaxRateSchema = Joi.object({
   name: Joi.string().min(2).max(100).trim(),
@@ -32,9 +32,9 @@ export const updateTaxRateSchema = Joi.object({
   productCategories: Joi.array().items(
     Joi.string().custom((value, helpers) => {
       if (!mongoose.Types.ObjectId.isValid(value)) {
-        return helpers.error("any.invalid")
+        return helpers.error("any.invalid");
       }
-      return value
-    }, "MongoDB ObjectId validation"),
+      return value;
+    }, "MongoDB ObjectId validation")
   ),
-})
+});

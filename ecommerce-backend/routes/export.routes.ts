@@ -1,8 +1,8 @@
-import { Router } from "express"
-import * as exportController from "../controllers/export.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
+import { Router } from "express";
+import * as exportController from "../controllers/export.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
 
-const router = Router()
+const router = Router();
 
 /**
  * @swagger
@@ -65,7 +65,12 @@ const router = Router()
  *               type: string
  *               format: binary
  */
-router.get("/orders", authenticate, authorize(["admin", "superadmin"]), exportController.exportOrdersController)
+router.get(
+  "/orders",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  exportController.exportOrdersController
+);
 
 /**
  * @swagger
@@ -137,7 +142,12 @@ router.get("/orders", authenticate, authorize(["admin", "superadmin"]), exportCo
  *               type: string
  *               format: binary
  */
-router.get("/products", authenticate, authorize(["admin", "superadmin"]), exportController.exportProductsController)
+router.get(
+  "/products",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  exportController.exportProductsController
+);
 
 /**
  * @swagger
@@ -198,7 +208,12 @@ router.get("/products", authenticate, authorize(["admin", "superadmin"]), export
  *               type: string
  *               format: binary
  */
-router.get("/customers", authenticate, authorize(["admin", "superadmin"]), exportController.exportCustomersController)
+router.get(
+  "/customers",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  exportController.exportCustomersController
+);
 
 /**
  * @swagger
@@ -256,7 +271,12 @@ router.get("/customers", authenticate, authorize(["admin", "superadmin"]), expor
  *               type: string
  *               format: binary
  */
-router.get("/sales", authenticate, authorize(["admin", "superadmin"]), exportController.exportSalesController)
+router.get(
+  "/sales",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  exportController.exportSalesController
+);
 
 /**
  * @swagger
@@ -323,6 +343,11 @@ router.get("/sales", authenticate, authorize(["admin", "superadmin"]), exportCon
  *               type: string
  *               format: binary
  */
-router.get("/inventory", authenticate, authorize(["admin", "superadmin"]), exportController.exportInventoryController)
+router.get(
+  "/inventory",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  exportController.exportInventoryController
+);
 
-export default router
+export default router;

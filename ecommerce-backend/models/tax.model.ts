@@ -1,17 +1,17 @@
-import mongoose, { type Document, Schema } from "mongoose"
+import mongoose, { type Document, Schema } from "mongoose";
 
 export interface ITaxRate extends Document {
-  name: string
-  rate: number // Percentage (e.g., 7.5 for 7.5%)
-  country: string
-  state?: string
-  postalCode?: string
-  isDefault: boolean
-  isActive: boolean
-  priority: number // Higher priority rates override lower ones when multiple rates apply
-  productCategories?: mongoose.Types.ObjectId[] // Apply to specific product categories only
-  createdAt: Date
-  updatedAt: Date
+  name: string;
+  rate: number; // Percentage (e.g., 7.5 for 7.5%)
+  country: string;
+  state?: string;
+  postalCode?: string;
+  isDefault: boolean;
+  isActive: boolean;
+  priority: number; // Higher priority rates override lower ones when multiple rates apply
+  productCategories?: mongoose.Types.ObjectId[]; // Apply to specific product categories only
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const taxRateSchema = new Schema<ITaxRate>(
@@ -61,21 +61,24 @@ const taxRateSchema = new Schema<ITaxRate>(
   },
   {
     timestamps: true,
-  },
-)
+  }
+);
 
 // Ensure only one default tax rate
 taxRateSchema.pre("save", async function (next) {
   if (this.isDefault) {
     // If this tax rate is being set as default, unset any existing default
-    await this.constructor.updateMany({ _id: { $ne: this._id }, isDefault: true }, { isDefault: false })
+    await this.constructor.updateMany(
+      { _id: { $ne: this._id }, isDefault: true },
+      { isDefault: false }
+    );
   }
-  next()
-})
+  next();
+});
 
 // Create index for efficient tax lookup
-taxRateSchema.index({ country: 1, state: 1, postalCode: 1, priority: -1 })
+taxRateSchema.index({ country: 1, state: 1, postalCode: 1, priority: -1 });
 
-const TaxRate = mongoose.model<ITaxRate>("TaxRate", taxRateSchema)
+const TaxRate = mongoose.model<ITaxRate>("TaxRate", taxRateSchema);
 
-export default TaxRate
+export default TaxRate;

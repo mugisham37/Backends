@@ -1,5 +1,5 @@
-import swaggerJsdoc from "swagger-jsdoc"
-import { version } from "../../package.json"
+import swaggerJsdoc from "swagger-jsdoc";
+import { version } from "../../package.json";
 
 // Swagger definition
 const swaggerDefinition = {
@@ -722,16 +722,16 @@ const swaggerDefinition = {
       description: "Recommendation endpoints",
     },
   ],
-}
+};
 
 // Options for the swagger docs
 const options = {
   swaggerDefinition,
   // Path to the API docs
   apis: ["./src/routes/*.ts", "./src/controllers/*.ts", "./src/models/*.ts"],
-}
+};
 
 // Initialize swagger-jsdoc
-const swaggerSpec = swaggerJsdoc(options)
+const swaggerSpec = swaggerJsdoc(options);
 
-export default swaggerSpec
+export default swaggerSpec;

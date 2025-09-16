@@ -1,11 +1,11 @@
-import mongoose from "mongoose"
-import Vendor from "../models/vendor.model"
-import Product from "../models/product.model"
-import Order from "../models/order.model"
-import Payout from "../models/payout.model"
-import { createRequestLogger } from "../config/logger"
-import { getCache, setCache } from "../config/redis"
-import { ApiError } from "../utils/api-error"
+import mongoose from "mongoose";
+import Vendor from "../models/vendor.model";
+import Product from "../models/product.model";
+import Order from "../models/order.model";
+import Payout from "../models/payout.model";
+import { createRequestLogger } from "../config/logger";
+import { getCache, setCache } from "../config/redis";
+import { ApiError } from "../utils/api-error";
 
 // Cache TTL in seconds
 const CACHE_TTL = {
@@ -13,7 +13,7 @@ const CACHE_TTL = {
   SALES_ANALYTICS: 3600, // 1 hour
   PRODUCT_ANALYTICS: 3600, // 1 hour
   ORDER_ANALYTICS: 3600, // 1 hour
-}
+};
 
 /**
  * Get vendor dashboard summary
@@ -25,68 +25,68 @@ const CACHE_TTL = {
 export const getVendorDashboardSummary = async (
   vendorId: string,
   period: "day" | "week" | "month" | "year" | "all" = "month",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting dashboard summary for vendor ID: ${vendorId} with period: ${period}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting dashboard summary for vendor ID: ${vendorId} with period: ${period}`);
 
   // Validate vendor ID
   if (!mongoose.Types.ObjectId.isValid(vendorId)) {
-    throw new ApiError("Invalid vendor ID", 400)
+    throw new ApiError("Invalid vendor ID", 400);
   }
 
   // Try to get from cache
-  const cacheKey = `vendor_dashboard:${vendorId}:${period}`
-  const cachedData = await getCache<any>(cacheKey)
+  const cacheKey = `vendor_dashboard:${vendorId}:${period}`;
+  const cachedData = await getCache<any>(cacheKey);
 
   if (cachedData) {
-    logger.info(`Retrieved vendor dashboard summary from cache`)
-    return cachedData
+    logger.info(`Retrieved vendor dashboard summary from cache`);
+    return cachedData;
   }
 
   try {
     // Check if vendor exists
-    const vendor = await Vendor.findById(vendorId)
+    const vendor = await Vendor.findById(vendorId);
 
     if (!vendor) {
-      throw new ApiError("Vendor not found", 404)
+      throw new ApiError("Vendor not found", 404);
     }
 
     // Calculate date range based on period
-    const now = new Date()
-    let startDate = new Date(0) // Unix epoch
+    const now = new Date();
+    let startDate = new Date(0); // Unix epoch
 
     if (period === "day") {
-      startDate = new Date(now)
-      startDate.setHours(0, 0, 0, 0)
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
     } else if (period === "week") {
-      startDate = new Date(now)
-      startDate.setDate(now.getDate() - 7)
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
     } else if (period === "month") {
-      startDate = new Date(now)
-      startDate.setMonth(now.getMonth() - 1)
+      startDate = new Date(now);
+      startDate.setMonth(now.getMonth() - 1);
     } else if (period === "year") {
-      startDate = new Date(now)
-      startDate.setFullYear(now.getFullYear() - 1)
+      startDate = new Date(now);
+      startDate.setFullYear(now.getFullYear() - 1);
     }
 
     // Get sales summary
-    const salesSummary = await getVendorSalesSummary(vendorId, startDate, now, requestId)
+    const salesSummary = await getVendorSalesSummary(vendorId, startDate, now, requestId);
 
     // Get product summary
-    const productSummary = await getVendorProductSummary(vendorId, requestId)
+    const productSummary = await getVendorProductSummary(vendorId, requestId);
 
     // Get order summary
-    const orderSummary = await getVendorOrderSummary(vendorId, startDate, now, requestId)
+    const orderSummary = await getVendorOrderSummary(vendorId, startDate, now, requestId);
 
     // Get payout summary
-    const payoutSummary = await getVendorPayoutSummary(vendorId, startDate, now, requestId)
+    const payoutSummary = await getVendorPayoutSummary(vendorId, startDate, now, requestId);
 
     // Get recent orders
-    const recentOrders = await getVendorRecentOrders(vendorId, 5, requestId)
+    const recentOrders = await getVendorRecentOrders(vendorId, 5, requestId);
 
     // Get top products
-    const topProducts = await getVendorTopProducts(vendorId, startDate, now, 5, requestId)
+    const topProducts = await getVendorTopProducts(vendorId, startDate, now, 5, requestId);
 
     // Get sales trend
     const salesTrend = await getVendorSalesTrend(
@@ -94,8 +94,8 @@ export const getVendorDashboardSummary = async (
       startDate,
       now,
       period === "day" ? "hourly" : "daily",
-      requestId,
-    )
+      requestId
+    );
 
     // Compile dashboard summary
     const dashboardSummary = {
@@ -111,17 +111,17 @@ export const getVendorDashboardSummary = async (
         startDate,
         endDate: now,
       },
-    }
+    };
 
     // Cache the results
-    await setCache(cacheKey, dashboardSummary, CACHE_TTL.DASHBOARD_SUMMARY)
+    await setCache(cacheKey, dashboardSummary, CACHE_TTL.DASHBOARD_SUMMARY);
 
-    return dashboardSummary
+    return dashboardSummary;
   } catch (error: any) {
-    logger.error(`Error getting vendor dashboard summary: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor dashboard summary: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Get vendor sales summary
@@ -135,10 +135,10 @@ async function getVendorSalesSummary(
   vendorId: string,
   startDate: Date,
   endDate: Date,
-  requestId?: string,
+  requestId?: string
 ): Promise<any> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting sales summary for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting sales summary for vendor ID: ${vendorId}`);
 
   try {
     // Get orders for this vendor
@@ -171,11 +171,13 @@ async function getVendorSalesSummary(
           orderCount: { $size: "$orders" },
         },
       },
-    ])
+    ]);
 
     // Get previous period sales for comparison
-    const previousStartDate = new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime()))
-    const previousEndDate = new Date(startDate)
+    const previousStartDate = new Date(
+      startDate.getTime() - (endDate.getTime() - startDate.getTime())
+    );
+    const previousEndDate = new Date(startDate);
 
     const previousSalesData = await Order.aggregate([
       {
@@ -206,31 +208,34 @@ async function getVendorSalesSummary(
           orderCount: { $size: "$orders" },
         },
       },
-    ])
+    ]);
 
     // Calculate growth percentages
-    const currentPeriod = salesData.length > 0 ? salesData[0] : { totalSales: 0, totalItems: 0, orderCount: 0 }
+    const currentPeriod =
+      salesData.length > 0 ? salesData[0] : { totalSales: 0, totalItems: 0, orderCount: 0 };
     const previousPeriod =
-      previousSalesData.length > 0 ? previousSalesData[0] : { totalSales: 0, totalItems: 0, orderCount: 0 }
+      previousSalesData.length > 0
+        ? previousSalesData[0]
+        : { totalSales: 0, totalItems: 0, orderCount: 0 };
 
     const calculateGrowth = (current: number, previous: number): number => {
-      if (previous === 0) return current > 0 ? 100 : 0
-      return Number.parseFloat((((current - previous) / previous) * 100).toFixed(2))
-    }
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Number.parseFloat((((current - previous) / previous) * 100).toFixed(2));
+    };
 
     const growth = {
       salesGrowth: calculateGrowth(currentPeriod.totalSales, previousPeriod.totalSales),
       itemsGrowth: calculateGrowth(currentPeriod.totalItems, previousPeriod.totalItems),
       orderCountGrowth: calculateGrowth(currentPeriod.orderCount, previousPeriod.orderCount),
-    }
+    };
 
     // Get vendor commission rate
-    const vendor = await Vendor.findById(vendorId).select("commissionRate").lean()
-    const commissionRate = vendor?.commissionRate || 0
+    const vendor = await Vendor.findById(vendorId).select("commissionRate").lean();
+    const commissionRate = vendor?.commissionRate || 0;
 
     // Calculate commission and net sales
-    const commission = (currentPeriod.totalSales * commissionRate) / 100
-    const netSales = currentPeriod.totalSales - commission
+    const commission = (currentPeriod.totalSales * commissionRate) / 100;
+    const netSales = currentPeriod.totalSales - commission;
 
     return {
       ...currentPeriod,
@@ -241,10 +246,10 @@ async function getVendorSalesSummary(
       commission: Number.parseFloat(commission.toFixed(2)),
       netSales: Number.parseFloat(netSales.toFixed(2)),
       growth,
-    }
+    };
   } catch (error: any) {
-    logger.error(`Error getting vendor sales summary: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor sales summary: ${error.message}`);
+    throw error;
   }
 }
 
@@ -255,16 +260,22 @@ async function getVendorSalesSummary(
  * @returns Vendor product summary
  */
 async function getVendorProductSummary(vendorId: string, requestId?: string): Promise<any> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting product summary for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting product summary for vendor ID: ${vendorId}`);
 
   try {
     // Get product counts
-    const totalProducts = await Product.countDocuments({ vendor: vendorId })
-    const activeProducts = await Product.countDocuments({ vendor: vendorId, active: true })
-    const inactiveProducts = await Product.countDocuments({ vendor: vendorId, active: false })
-    const lowStockProducts = await Product.countDocuments({ vendor: vendorId, quantity: { $gt: 0, $lte: 5 } })
-    const outOfStockProducts = await Product.countDocuments({ vendor: vendorId, quantity: { $lte: 0 } })
+    const totalProducts = await Product.countDocuments({ vendor: vendorId });
+    const activeProducts = await Product.countDocuments({ vendor: vendorId, active: true });
+    const inactiveProducts = await Product.countDocuments({ vendor: vendorId, active: false });
+    const lowStockProducts = await Product.countDocuments({
+      vendor: vendorId,
+      quantity: { $gt: 0, $lte: 5 },
+    });
+    const outOfStockProducts = await Product.countDocuments({
+      vendor: vendorId,
+      quantity: { $lte: 0 },
+    });
 
     // Get inventory value
     const inventoryValue = await Product.aggregate([
@@ -283,7 +294,7 @@ async function getVendorProductSummary(vendorId: string, requestId?: string): Pr
           items: 1,
         },
       },
-    ])
+    ]);
 
     return {
       totalProducts,
@@ -293,10 +304,10 @@ async function getVendorProductSummary(vendorId: string, requestId?: string): Pr
       outOfStockProducts,
       inventoryValue: inventoryValue.length > 0 ? inventoryValue[0].value : 0,
       totalItems: inventoryValue.length > 0 ? inventoryValue[0].items : 0,
-    }
+    };
   } catch (error: any) {
-    logger.error(`Error getting vendor product summary: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor product summary: ${error.message}`);
+    throw error;
   }
 }
 
@@ -312,17 +323,17 @@ async function getVendorOrderSummary(
   vendorId: string,
   startDate: Date,
   endDate: Date,
-  requestId?: string,
+  requestId?: string
 ): Promise<any> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting order summary for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting order summary for vendor ID: ${vendorId}`);
 
   try {
     // Get orders containing vendor's products
     const orders = await Order.find({
       createdAt: { $gte: startDate, $lte: endDate },
       "orderItems.vendor": vendorId,
-    }).lean()
+    }).lean();
 
     // Count orders by status
     const statusCounts: Record<string, number> = {
@@ -331,28 +342,30 @@ async function getVendorOrderSummary(
       shipped: 0,
       delivered: 0,
       cancelled: 0,
-    }
+    };
 
     // Process orders
     orders.forEach((order) => {
       // Only count if the order has at least one item from this vendor
-      const hasVendorItems = order.orderItems.some((item) => item.vendor && item.vendor.toString() === vendorId)
+      const hasVendorItems = order.orderItems.some(
+        (item) => item.vendor && item.vendor.toString() === vendorId
+      );
 
       if (hasVendorItems && statusCounts.hasOwnProperty(order.status)) {
-        statusCounts[order.status]++
+        statusCounts[order.status]++;
       }
-    })
+    });
 
     // Calculate total orders
-    const totalOrders = Object.values(statusCounts).reduce((sum, count) => sum + count, 0)
+    const totalOrders = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
 
     return {
       totalOrders,
       statusCounts,
-    }
+    };
   } catch (error: any) {
-    logger.error(`Error getting vendor order summary: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor order summary: ${error.message}`);
+    throw error;
   }
 }
 
@@ -368,31 +381,31 @@ async function getVendorPayoutSummary(
   vendorId: string,
   startDate: Date,
   endDate: Date,
-  requestId?: string,
+  requestId?: string
 ): Promise<any> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting payout summary for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting payout summary for vendor ID: ${vendorId}`);
 
   try {
     // Get payouts for this vendor
     const payouts = await Payout.find({
       vendor: vendorId,
       createdAt: { $gte: startDate, $lte: endDate },
-    }).lean()
+    }).lean();
 
     // Calculate payout totals
-    let totalPayouts = 0
-    let pendingPayouts = 0
-    let completedPayouts = 0
+    let totalPayouts = 0;
+    let pendingPayouts = 0;
+    let completedPayouts = 0;
 
     payouts.forEach((payout) => {
       if (payout.status === "completed") {
-        completedPayouts += payout.netAmount
+        completedPayouts += payout.netAmount;
       } else if (payout.status === "pending" || payout.status === "processing") {
-        pendingPayouts += payout.netAmount
+        pendingPayouts += payout.netAmount;
       }
-      totalPayouts += payout.netAmount
-    })
+      totalPayouts += payout.netAmount;
+    });
 
     // Get sales data for the period
     const salesData = await Order.aggregate([
@@ -421,16 +434,16 @@ async function getVendorPayoutSummary(
           totalSales: { $round: ["$totalSales", 2] },
         },
       },
-    ])
+    ]);
 
     // Get vendor commission rate
-    const vendor = await Vendor.findById(vendorId).select("commissionRate").lean()
-    const commissionRate = vendor?.commissionRate || 0
+    const vendor = await Vendor.findById(vendorId).select("commissionRate").lean();
+    const commissionRate = vendor?.commissionRate || 0;
 
     // Calculate total sales and available balance
-    const totalSales = salesData.length > 0 ? salesData[0].totalSales : 0
-    const commission = (totalSales * commissionRate) / 100
-    const availableBalance = totalSales - commission - totalPayouts
+    const totalSales = salesData.length > 0 ? salesData[0].totalSales : 0;
+    const commission = (totalSales * commissionRate) / 100;
+    const availableBalance = totalSales - commission - totalPayouts;
 
     return {
       totalPayouts: Number.parseFloat(totalPayouts.toFixed(2)),
@@ -440,10 +453,10 @@ async function getVendorPayoutSummary(
       commission: Number.parseFloat(commission.toFixed(2)),
       availableBalance: Number.parseFloat(availableBalance.toFixed(2)),
       payoutCount: payouts.length,
-    }
+    };
   } catch (error: any) {
-    logger.error(`Error getting vendor payout summary: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor payout summary: ${error.message}`);
+    throw error;
   }
 }
 
@@ -454,9 +467,13 @@ async function getVendorPayoutSummary(
  * @param requestId Request ID for logging
  * @returns Vendor recent orders
  */
-async function getVendorRecentOrders(vendorId: string, limit: number, requestId?: string): Promise<any[]> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting recent orders for vendor ID: ${vendorId}`)
+async function getVendorRecentOrders(
+  vendorId: string,
+  limit: number,
+  requestId?: string
+): Promise<any[]> {
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting recent orders for vendor ID: ${vendorId}`);
 
   try {
     // Get orders containing vendor's products
@@ -466,20 +483,24 @@ async function getVendorRecentOrders(vendorId: string, limit: number, requestId?
       .sort("-createdAt")
       .limit(limit * 2) // Get more than needed to filter
       .populate("user", "firstName lastName email")
-      .lean()
+      .lean();
 
     // Filter orders to only include those with items from this vendor
     const filteredOrders = orders
-      .filter((order) => order.orderItems.some((item) => item.vendor && item.vendor.toString() === vendorId))
-      .slice(0, limit)
+      .filter((order) =>
+        order.orderItems.some((item) => item.vendor && item.vendor.toString() === vendorId)
+      )
+      .slice(0, limit);
 
     // Format orders
     return filteredOrders.map((order) => {
       // Filter order items to only include those from this vendor
-      const vendorItems = order.orderItems.filter((item) => item.vendor && item.vendor.toString() === vendorId)
+      const vendorItems = order.orderItems.filter(
+        (item) => item.vendor && item.vendor.toString() === vendorId
+      );
 
       // Calculate vendor total
-      const vendorTotal = vendorItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const vendorTotal = vendorItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
       return {
         _id: order._id,
@@ -499,11 +520,11 @@ async function getVendorRecentOrders(vendorId: string, limit: number, requestId?
         itemCount: vendorItems.length,
         createdAt: order.createdAt,
         isPaid: order.isPaid,
-      }
-    })
+      };
+    });
   } catch (error: any) {
-    logger.error(`Error getting vendor recent orders: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor recent orders: ${error.message}`);
+    throw error;
   }
 }
 
@@ -521,10 +542,10 @@ async function getVendorTopProducts(
   startDate: Date,
   endDate: Date,
   limit: number,
-  requestId?: string,
+  requestId?: string
 ): Promise<any[]> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting top products for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting top products for vendor ID: ${vendorId}`);
 
   try {
     // Get top selling products
@@ -577,12 +598,12 @@ async function getVendorTopProducts(
           orderCount: 1,
         },
       },
-    ])
+    ]);
 
-    return topProducts
+    return topProducts;
   } catch (error: any) {
-    logger.error(`Error getting vendor top products: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor top products: ${error.message}`);
+    throw error;
   }
 }
 
@@ -600,31 +621,31 @@ async function getVendorSalesTrend(
   startDate: Date,
   endDate: Date,
   interval: "hourly" | "daily" | "weekly" | "monthly" = "daily",
-  requestId?: string,
+  requestId?: string
 ): Promise<any[]> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting sales trend for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting sales trend for vendor ID: ${vendorId}`);
 
   try {
     // Define group by date format based on interval
-    let dateFormat
-    let dateStringFormat
+    let dateFormat;
+    let dateStringFormat;
 
     if (interval === "hourly") {
-      dateFormat = { year: "$year", month: "$month", day: "$day", hour: "$hour" }
-      dateStringFormat = "%Y-%m-%d %H:00"
+      dateFormat = { year: "$year", month: "$month", day: "$day", hour: "$hour" };
+      dateStringFormat = "%Y-%m-%d %H:00";
     } else if (interval === "daily") {
-      dateFormat = { year: "$year", month: "$month", day: "$day" }
-      dateStringFormat = "%Y-%m-%d"
+      dateFormat = { year: "$year", month: "$month", day: "$day" };
+      dateStringFormat = "%Y-%m-%d";
     } else if (interval === "weekly") {
-      dateFormat = { year: "$year", week: "$week" }
-      dateStringFormat = "%Y-W%V"
+      dateFormat = { year: "$year", week: "$week" };
+      dateStringFormat = "%Y-W%V";
     } else if (interval === "monthly") {
-      dateFormat = { year: "$year", month: "$month" }
-      dateStringFormat = "%Y-%m"
+      dateFormat = { year: "$year", month: "$month" };
+      dateStringFormat = "%Y-%m";
     } else {
-      dateFormat = { year: "$year", month: "$month", day: "$day" } // Default to daily
-      dateStringFormat = "%Y-%m-%d"
+      dateFormat = { year: "$year", month: "$month", day: "$day" }; // Default to daily
+      dateStringFormat = "%Y-%m-%d";
     }
 
     // Get sales trend data
@@ -681,12 +702,12 @@ async function getVendorSalesTrend(
           orderCount: 1,
         },
       },
-    ])
+    ]);
 
-    return salesTrend
+    return salesTrend;
   } catch (error: any) {
-    logger.error(`Error getting vendor sales trend: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor sales trend: ${error.message}`);
+    throw error;
   }
 }
 
@@ -700,68 +721,77 @@ async function getVendorSalesTrend(
 export const getVendorSalesAnalytics = async (
   vendorId: string,
   options: {
-    startDate?: Date
-    endDate?: Date
-    interval?: "hourly" | "daily" | "weekly" | "monthly"
-    compareWithPrevious?: boolean
-    groupBy?: "product" | "category" | "customer"
+    startDate?: Date;
+    endDate?: Date;
+    interval?: "hourly" | "daily" | "weekly" | "monthly";
+    compareWithPrevious?: boolean;
+    groupBy?: "product" | "category" | "customer";
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting sales analytics for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting sales analytics for vendor ID: ${vendorId}`);
 
   // Validate vendor ID
   if (!mongoose.Types.ObjectId.isValid(vendorId)) {
-    throw new ApiError("Invalid vendor ID", 400)
+    throw new ApiError("Invalid vendor ID", 400);
   }
 
   // Set default options
-  const endDate = options.endDate || new Date()
-  const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
-  const interval = options.interval || "daily"
-  const compareWithPrevious = options.compareWithPrevious !== undefined ? options.compareWithPrevious : true
-  const groupBy = options.groupBy || "product"
+  const endDate = options.endDate || new Date();
+  const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+  const interval = options.interval || "daily";
+  const compareWithPrevious =
+    options.compareWithPrevious !== undefined ? options.compareWithPrevious : true;
+  const groupBy = options.groupBy || "product";
 
   // Try to get from cache
-  const cacheKey = `vendor_sales_analytics:${vendorId}:${startDate.toISOString()}:${endDate.toISOString()}:${interval}:${compareWithPrevious}:${groupBy}`
-  const cachedData = await getCache<any>(cacheKey)
+  const cacheKey = `vendor_sales_analytics:${vendorId}:${startDate.toISOString()}:${endDate.toISOString()}:${interval}:${compareWithPrevious}:${groupBy}`;
+  const cachedData = await getCache<any>(cacheKey);
 
   if (cachedData) {
-    logger.info(`Retrieved vendor sales analytics from cache`)
-    return cachedData
+    logger.info(`Retrieved vendor sales analytics from cache`);
+    return cachedData;
   }
 
   try {
     // Check if vendor exists
-    const vendor = await Vendor.findById(vendorId)
+    const vendor = await Vendor.findById(vendorId);
 
     if (!vendor) {
-      throw new ApiError("Vendor not found", 404)
+      throw new ApiError("Vendor not found", 404);
     }
 
     // Get sales summary
-    const salesSummary = await getVendorSalesSummary(vendorId, startDate, endDate, requestId)
+    const salesSummary = await getVendorSalesSummary(vendorId, startDate, endDate, requestId);
 
     // Get sales trend
-    const salesTrend = await getVendorSalesTrend(vendorId, startDate, endDate, interval, requestId)
+    const salesTrend = await getVendorSalesTrend(vendorId, startDate, endDate, interval, requestId);
 
     // Get previous period sales trend if needed
-    let previousSalesTrend = null
+    let previousSalesTrend = null;
     if (compareWithPrevious) {
-      const previousStartDate = new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime()))
-      const previousEndDate = new Date(startDate)
-      previousSalesTrend = await getVendorSalesTrend(vendorId, previousStartDate, previousEndDate, interval, requestId)
+      const previousStartDate = new Date(
+        startDate.getTime() - (endDate.getTime() - startDate.getTime())
+      );
+      const previousEndDate = new Date(startDate);
+      previousSalesTrend = await getVendorSalesTrend(
+        vendorId,
+        previousStartDate,
+        previousEndDate,
+        interval,
+        requestId
+      );
     }
 
     // Get grouped sales data
-    let groupedSales = []
+    let groupedSales = [];
     if (groupBy === "product") {
-      groupedSales = await getVendorSalesByProduct(vendorId, startDate, endDate, requestId)
+      groupedSales = await getVendorSalesByProduct(vendorId, startDate, endDate, requestId);
     } else if (groupBy === "category") {
-      groupedSales = await getVendorSalesByCategory(vendorId, startDate, endDate, requestId)
+      groupedSales = await getVendorSalesByCategory(vendorId, startDate, endDate, requestId);
     } else if (groupBy === "customer") {
-      groupedSales = await getVendorSalesByCustomer(vendorId, startDate, endDate, requestId)
+      groupedSales = await getVendorSalesByCustomer(vendorId, startDate, endDate, requestId);
     }
 
     // Compile sales analytics
@@ -780,17 +810,17 @@ export const getVendorSalesAnalytics = async (
         endDate,
         interval,
       },
-    }
+    };
 
     // Cache the results
-    await setCache(cacheKey, salesAnalytics, CACHE_TTL.SALES_ANALYTICS)
+    await setCache(cacheKey, salesAnalytics, CACHE_TTL.SALES_ANALYTICS);
 
-    return salesAnalytics
+    return salesAnalytics;
   } catch (error: any) {
-    logger.error(`Error getting vendor sales analytics: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor sales analytics: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Get vendor sales by product
@@ -804,10 +834,10 @@ async function getVendorSalesByProduct(
   vendorId: string,
   startDate: Date,
   endDate: Date,
-  requestId?: string,
+  requestId?: string
 ): Promise<any[]> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting sales by product for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting sales by product for vendor ID: ${vendorId}`);
 
   try {
     // Get sales by product
@@ -859,19 +889,20 @@ async function getVendorSalesByProduct(
           orderCount: 1,
         },
       },
-    ])
+    ]);
 
     // Calculate total sales for percentage
-    const totalSales = salesByProduct.reduce((sum, product) => sum + product.sales, 0)
+    const totalSales = salesByProduct.reduce((sum, product) => sum + product.sales, 0);
 
     // Add percentage to each product
     return salesByProduct.map((product) => ({
       ...product,
-      percentage: totalSales > 0 ? Number.parseFloat(((product.sales / totalSales) * 100).toFixed(2)) : 0,
-    }))
+      percentage:
+        totalSales > 0 ? Number.parseFloat(((product.sales / totalSales) * 100).toFixed(2)) : 0,
+    }));
   } catch (error: any) {
-    logger.error(`Error getting vendor sales by product: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor sales by product: ${error.message}`);
+    throw error;
   }
 }
 
@@ -887,10 +918,10 @@ async function getVendorSalesByCategory(
   vendorId: string,
   startDate: Date,
   endDate: Date,
-  requestId?: string,
+  requestId?: string
 ): Promise<any[]> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting sales by category for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting sales by category for vendor ID: ${vendorId}`);
 
   try {
     // Get sales by category
@@ -948,19 +979,20 @@ async function getVendorSalesByCategory(
           orderCount: 1,
         },
       },
-    ])
+    ]);
 
     // Calculate total sales for percentage
-    const totalSales = salesByCategory.reduce((sum, category) => sum + category.sales, 0)
+    const totalSales = salesByCategory.reduce((sum, category) => sum + category.sales, 0);
 
     // Add percentage to each category
     return salesByCategory.map((category) => ({
       ...category,
-      percentage: totalSales > 0 ? Number.parseFloat(((category.sales / totalSales) * 100).toFixed(2)) : 0,
-    }))
+      percentage:
+        totalSales > 0 ? Number.parseFloat(((category.sales / totalSales) * 100).toFixed(2)) : 0,
+    }));
   } catch (error: any) {
-    logger.error(`Error getting vendor sales by category: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor sales by category: ${error.message}`);
+    throw error;
   }
 }
 
@@ -976,10 +1008,10 @@ async function getVendorSalesByCustomer(
   vendorId: string,
   startDate: Date,
   endDate: Date,
-  requestId?: string,
+  requestId?: string
 ): Promise<any[]> {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting sales by customer for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting sales by customer for vendor ID: ${vendorId}`);
 
   try {
     // Get sales by customer
@@ -1031,19 +1063,20 @@ async function getVendorSalesByCustomer(
           orderCount: 1,
         },
       },
-    ])
+    ]);
 
     // Calculate total sales for percentage
-    const totalSales = salesByCustomer.reduce((sum, customer) => sum + customer.sales, 0)
+    const totalSales = salesByCustomer.reduce((sum, customer) => sum + customer.sales, 0);
 
     // Add percentage to each customer
     return salesByCustomer.map((customer) => ({
       ...customer,
-      percentage: totalSales > 0 ? Number.parseFloat(((customer.sales / totalSales) * 100).toFixed(2)) : 0,
-    }))
+      percentage:
+        totalSales > 0 ? Number.parseFloat(((customer.sales / totalSales) * 100).toFixed(2)) : 0,
+    }));
   } catch (error: any) {
-    logger.error(`Error getting vendor sales by customer: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor sales by customer: ${error.message}`);
+    throw error;
   }
 }
 
@@ -1057,51 +1090,57 @@ async function getVendorSalesByCustomer(
 export const getVendorProductAnalytics = async (
   vendorId: string,
   options: {
-    startDate?: Date
-    endDate?: Date
-    categoryId?: string
-    limit?: number
+    startDate?: Date;
+    endDate?: Date;
+    categoryId?: string;
+    limit?: number;
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting product analytics for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting product analytics for vendor ID: ${vendorId}`);
 
   // Validate vendor ID
   if (!mongoose.Types.ObjectId.isValid(vendorId)) {
-    throw new ApiError("Invalid vendor ID", 400)
+    throw new ApiError("Invalid vendor ID", 400);
   }
 
   // Set default options
-  const endDate = options.endDate || new Date()
-  const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
-  const limit = options.limit || 10
+  const endDate = options.endDate || new Date();
+  const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+  const limit = options.limit || 10;
 
   // Build filter
-  const filter: Record<string, any> = { vendor: vendorId }
+  const filter: Record<string, any> = { vendor: vendorId };
   if (options.categoryId) {
-    filter.category = options.categoryId
+    filter.category = options.categoryId;
   }
 
   // Try to get from cache
-  const cacheKey = `vendor_product_analytics:${vendorId}:${startDate.toISOString()}:${endDate.toISOString()}:${options.categoryId || "all"}:${limit}`
-  const cachedData = await getCache<any>(cacheKey)
+  const cacheKey = `vendor_product_analytics:${vendorId}:${startDate.toISOString()}:${endDate.toISOString()}:${options.categoryId || "all"}:${limit}`;
+  const cachedData = await getCache<any>(cacheKey);
 
   if (cachedData) {
-    logger.info(`Retrieved vendor product analytics from cache`)
-    return cachedData
+    logger.info(`Retrieved vendor product analytics from cache`);
+    return cachedData;
   }
 
   try {
     // Check if vendor exists
-    const vendor = await Vendor.findById(vendorId)
+    const vendor = await Vendor.findById(vendorId);
 
     if (!vendor) {
-      throw new ApiError("Vendor not found", 404)
+      throw new ApiError("Vendor not found", 404);
     }
 
     // Get top selling products
-    const topSellingProducts = await getVendorTopProducts(vendorId, startDate, endDate, limit, requestId)
+    const topSellingProducts = await getVendorTopProducts(
+      vendorId,
+      startDate,
+      endDate,
+      limit,
+      requestId
+    );
 
     // Get low stock products
     const lowStockProducts = await Product.find({
@@ -1111,7 +1150,7 @@ export const getVendorProductAnalytics = async (
       .sort("quantity")
       .limit(limit)
       .populate("category", "name")
-      .lean()
+      .lean();
 
     // Get out of stock products
     const outOfStockProducts = await Product.find({
@@ -1121,7 +1160,7 @@ export const getVendorProductAnalytics = async (
       .sort("updatedAt")
       .limit(limit)
       .populate("category", "name")
-      .lean()
+      .lean();
 
     // Get inventory by category
     const inventoryByCategory = await Product.aggregate([
@@ -1153,19 +1192,20 @@ export const getVendorProductAnalytics = async (
           products: 1,
         },
       },
-    ])
+    ]);
 
     // Calculate total value for percentage
-    const totalValue = inventoryByCategory.reduce((sum, category) => sum + category.value, 0)
+    const totalValue = inventoryByCategory.reduce((sum, category) => sum + category.value, 0);
 
     // Add percentage to each category
     const inventoryByCategoryWithPercentage = inventoryByCategory.map((category) => ({
       ...category,
-      percentage: totalValue > 0 ? Number.parseFloat(((category.value / totalValue) * 100).toFixed(2)) : 0,
-    }))
+      percentage:
+        totalValue > 0 ? Number.parseFloat(((category.value / totalValue) * 100).toFixed(2)) : 0,
+    }));
 
     // Get product summary
-    const productSummary = await getVendorProductSummary(vendorId, requestId)
+    const productSummary = await getVendorProductSummary(vendorId, requestId);
 
     // Compile product analytics
     const productAnalytics = {
@@ -1196,17 +1236,17 @@ export const getVendorProductAnalytics = async (
         startDate,
         endDate,
       },
-    }
+    };
 
     // Cache the results
-    await setCache(cacheKey, productAnalytics, CACHE_TTL.PRODUCT_ANALYTICS)
+    await setCache(cacheKey, productAnalytics, CACHE_TTL.PRODUCT_ANALYTICS);
 
-    return productAnalytics
+    return productAnalytics;
   } catch (error: any) {
-    logger.error(`Error getting vendor product analytics: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor product analytics: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Get vendor order analytics
@@ -1218,53 +1258,53 @@ export const getVendorProductAnalytics = async (
 export const getVendorOrderAnalytics = async (
   vendorId: string,
   options: {
-    startDate?: Date
-    endDate?: Date
-    status?: string
+    startDate?: Date;
+    endDate?: Date;
+    status?: string;
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting order analytics for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting order analytics for vendor ID: ${vendorId}`);
 
   // Validate vendor ID
   if (!mongoose.Types.ObjectId.isValid(vendorId)) {
-    throw new ApiError("Invalid vendor ID", 400)
+    throw new ApiError("Invalid vendor ID", 400);
   }
 
   // Set default options
-  const endDate = options.endDate || new Date()
-  const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+  const endDate = options.endDate || new Date();
+  const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
 
   // Build filter
   const filter: Record<string, any> = {
     createdAt: { $gte: startDate, $lte: endDate },
     "orderItems.vendor": vendorId,
-  }
+  };
 
   if (options.status) {
-    filter.status = options.status
+    filter.status = options.status;
   }
 
   // Try to get from cache
-  const cacheKey = `vendor_order_analytics:${vendorId}:${startDate.toISOString()}:${endDate.toISOString()}:${options.status || "all"}`
-  const cachedData = await getCache<any>(cacheKey)
+  const cacheKey = `vendor_order_analytics:${vendorId}:${startDate.toISOString()}:${endDate.toISOString()}:${options.status || "all"}`;
+  const cachedData = await getCache<any>(cacheKey);
 
   if (cachedData) {
-    logger.info(`Retrieved vendor order analytics from cache`)
-    return cachedData
+    logger.info(`Retrieved vendor order analytics from cache`);
+    return cachedData;
   }
 
   try {
     // Check if vendor exists
-    const vendor = await Vendor.findById(vendorId)
+    const vendor = await Vendor.findById(vendorId);
 
     if (!vendor) {
-      throw new ApiError("Vendor not found", 404)
+      throw new ApiError("Vendor not found", 404);
     }
 
     // Get order summary
-    const orderSummary = await getVendorOrderSummary(vendorId, startDate, endDate, requestId)
+    const orderSummary = await getVendorOrderSummary(vendorId, startDate, endDate, requestId);
 
     // Get order trend
     const orderTrend = await Order.aggregate([
@@ -1311,7 +1351,7 @@ export const getVendorOrderAnalytics = async (
           items: 1,
         },
       },
-    ])
+    ]);
 
     // Get orders by status
     const ordersByStatus = await Order.aggregate([
@@ -1344,10 +1384,10 @@ export const getVendorOrderAnalytics = async (
         },
       },
       { $sort: { sales: -1 } },
-    ])
+    ]);
 
     // Get recent orders
-    const recentOrders = await getVendorRecentOrders(vendorId, 10, requestId)
+    const recentOrders = await getVendorRecentOrders(vendorId, 10, requestId);
 
     // Compile order analytics
     const orderAnalytics = {
@@ -1359,17 +1399,17 @@ export const getVendorOrderAnalytics = async (
         startDate,
         endDate,
       },
-    }
+    };
 
     // Cache the results
-    await setCache(cacheKey, orderAnalytics, CACHE_TTL.ORDER_ANALYTICS)
+    await setCache(cacheKey, orderAnalytics, CACHE_TTL.ORDER_ANALYTICS);
 
-    return orderAnalytics
+    return orderAnalytics;
   } catch (error: any) {
-    logger.error(`Error getting vendor order analytics: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor order analytics: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Get vendor payout analytics
@@ -1381,33 +1421,33 @@ export const getVendorOrderAnalytics = async (
 export const getVendorPayoutAnalytics = async (
   vendorId: string,
   options: {
-    startDate?: Date
-    endDate?: Date
+    startDate?: Date;
+    endDate?: Date;
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Getting payout analytics for vendor ID: ${vendorId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Getting payout analytics for vendor ID: ${vendorId}`);
 
   // Validate vendor ID
   if (!mongoose.Types.ObjectId.isValid(vendorId)) {
-    throw new ApiError("Invalid vendor ID", 400)
+    throw new ApiError("Invalid vendor ID", 400);
   }
 
   // Set default options
-  const endDate = options.endDate || new Date()
-  const startDate = options.startDate || new Date(endDate.getTime() - 365 * 24 * 60 * 60 * 1000) // 1 year ago
+  const endDate = options.endDate || new Date();
+  const startDate = options.startDate || new Date(endDate.getTime() - 365 * 24 * 60 * 60 * 1000); // 1 year ago
 
   try {
     // Check if vendor exists
-    const vendor = await Vendor.findById(vendorId)
+    const vendor = await Vendor.findById(vendorId);
 
     if (!vendor) {
-      throw new ApiError("Vendor not found", 404)
+      throw new ApiError("Vendor not found", 404);
     }
 
     // Get payout summary
-    const payoutSummary = await getVendorPayoutSummary(vendorId, startDate, endDate, requestId)
+    const payoutSummary = await getVendorPayoutSummary(vendorId, startDate, endDate, requestId);
 
     // Get payout history
     const payoutHistory = await Payout.find({
@@ -1415,7 +1455,7 @@ export const getVendorPayoutAnalytics = async (
       createdAt: { $gte: startDate, $lte: endDate },
     })
       .sort("-createdAt")
-      .lean()
+      .lean();
 
     // Get payout trend
     const payoutTrend = await Payout.aggregate([
@@ -1455,7 +1495,7 @@ export const getVendorPayoutAnalytics = async (
           count: 1,
         },
       },
-    ])
+    ]);
 
     // Compile payout analytics
     const payoutAnalytics = {
@@ -1466,11 +1506,11 @@ export const getVendorPayoutAnalytics = async (
         startDate,
         endDate,
       },
-    }
+    };
 
-    return payoutAnalytics
+    return payoutAnalytics;
   } catch (error: any) {
-    logger.error(`Error getting vendor payout analytics: ${error.message}`)
-    throw error
+    logger.error(`Error getting vendor payout analytics: ${error.message}`);
+    throw error;
   }
-}
+};

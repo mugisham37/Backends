@@ -1,7 +1,7 @@
-import type { Request, Response } from "express"
-import asyncHandler from "express-async-handler"
-import { createRequestLogger } from "../utils/requestLogger"
-import { loyaltyService } from "../services/loyalty.service"
+import type { Request, Response } from "express";
+import asyncHandler from "express-async-handler";
+import { createRequestLogger } from "../utils/requestLogger";
+import { loyaltyService } from "../services/loyalty.service";
 
 // Add this function to the existing webhook controller
 
@@ -11,19 +11,19 @@ import { loyaltyService } from "../services/loyalty.service"
  * @access Public
  */
 export const handleLoyaltyWebhook = asyncHandler(async (req: Request, res: Response) => {
-  const requestLogger = createRequestLogger(req.id)
-  const signature = req.headers["x-loyalty-signature"] as string
+  const requestLogger = createRequestLogger(req.id);
+  const signature = req.headers["x-loyalty-signature"] as string;
 
   // Verify signature (implement your own verification logic)
   if (!signature) {
-    requestLogger.warn("Missing loyalty webhook signature")
-    return res.status(400).json({ status: "error", message: "Missing signature" })
+    requestLogger.warn("Missing loyalty webhook signature");
+    return res.status(400).json({ status: "error", message: "Missing signature" });
   }
 
   // Process webhook event
-  const event = req.body
+  const event = req.body;
 
-  requestLogger.info(`Received loyalty webhook event: ${event.type}`)
+  requestLogger.info(`Received loyalty webhook event: ${event.type}`);
 
   try {
     switch (event.type) {
@@ -35,29 +35,29 @@ export const handleLoyaltyWebhook = asyncHandler(async (req: Request, res: Respo
           event.data.description || "Points awarded via webhook",
           event.data.referenceId,
           event.data.type || "other",
-          req.id,
-        )
-        break
+          req.id
+        );
+        break;
 
       case "points.redeemed":
         // Handle points redeemed event
         if (event.data.rewardId) {
-          await loyaltyService.redeemReward(event.data.userId, event.data.rewardId, req.id)
+          await loyaltyService.redeemReward(event.data.userId, event.data.rewardId, req.id);
         }
-        break
+        break;
 
       case "tier.upgraded":
         // Handle tier upgraded event
         // This is handled automatically by the addLoyaltyPoints function
-        break
+        break;
 
       default:
-        requestLogger.warn(`Unknown loyalty webhook event type: ${event.type}`)
+        requestLogger.warn(`Unknown loyalty webhook event type: ${event.type}`);
     }
 
-    res.status(200).json({ status: "success", message: "Webhook processed successfully" })
+    res.status(200).json({ status: "success", message: "Webhook processed successfully" });
   } catch (error) {
-    requestLogger.error(`Error processing loyalty webhook: ${error.message}`)
-    res.status(500).json({ status: "error", message: "Error processing webhook" })
+    requestLogger.error(`Error processing loyalty webhook: ${error.message}`);
+    res.status(500).json({ status: "error", message: "Error processing webhook" });
   }
-})
+});

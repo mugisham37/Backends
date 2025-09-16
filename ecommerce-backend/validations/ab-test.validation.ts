@@ -1,4 +1,4 @@
-import Joi from "joi"
+import Joi from "joi";
 
 export const abTestValidation = {
   createTest: Joi.object({
@@ -13,7 +13,7 @@ export const abTestValidation = {
           description: Joi.string().trim().min(3).max(500),
           trafficAllocation: Joi.number().required().min(1).max(100),
           content: Joi.object().required(),
-        }),
+        })
       )
       .min(2)
       .required(),
@@ -29,14 +29,16 @@ export const abTestValidation = {
       .items(
         Joi.object({
           name: Joi.string().required().trim().min(3).max(100),
-          type: Joi.string().required().valid("pageview", "click", "conversion", "revenue", "engagement", "custom"),
+          type: Joi.string()
+            .required()
+            .valid("pageview", "click", "conversion", "revenue", "engagement", "custom"),
           targetValue: Joi.number().min(0),
           targetSelector: Joi.string().when("type", {
             is: "click",
             then: Joi.string().required(),
             otherwise: Joi.string().allow(""),
           }),
-        }),
+        })
       )
       .min(1)
       .required(),
@@ -53,7 +55,7 @@ export const abTestValidation = {
         description: Joi.string().trim().min(3).max(500),
         trafficAllocation: Joi.number().min(1).max(100),
         content: Joi.object(),
-      }),
+      })
     ),
     startDate: Joi.date().iso(),
     endDate: Joi.date().iso().greater(Joi.ref("startDate")),
@@ -66,14 +68,21 @@ export const abTestValidation = {
     goals: Joi.array().items(
       Joi.object({
         name: Joi.string().trim().min(3).max(100),
-        type: Joi.string().valid("pageview", "click", "conversion", "revenue", "engagement", "custom"),
+        type: Joi.string().valid(
+          "pageview",
+          "click",
+          "conversion",
+          "revenue",
+          "engagement",
+          "custom"
+        ),
         targetValue: Joi.number().min(0),
         targetSelector: Joi.string().when("type", {
           is: "click",
           then: Joi.string().required(),
           otherwise: Joi.string().allow(""),
         }),
-      }),
+      })
     ),
   }),
 
@@ -85,4 +94,4 @@ export const abTestValidation = {
     value: Joi.number().min(0),
     metadata: Joi.object(),
   }),
-}
+};

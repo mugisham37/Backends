@@ -1,10 +1,10 @@
-import { Router } from "express"
-import * as currencyController from "../controllers/currency.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
-import { validateRequest } from "../middleware/validation.middleware"
-import * as currencyValidation from "../validations/currency.validation"
+import { Router } from "express";
+import * as currencyController from "../controllers/currency.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validateRequest } from "../middleware/validation.middleware";
+import * as currencyValidation from "../validations/currency.validation";
 
-const router = Router()
+const router = Router();
 
 /**
  * @swagger
@@ -52,7 +52,7 @@ const router = Router()
  *                           decimalPlaces:
  *                             type: integer
  */
-router.get("/", currencyController.getAllCurrencies)
+router.get("/", currencyController.getAllCurrencies);
 
 /**
  * @swagger
@@ -96,7 +96,7 @@ router.get("/", currencyController.getAllCurrencies)
  *                         decimalPlaces:
  *                           type: integer
  */
-router.get("/base", currencyController.getBaseCurrency)
+router.get("/base", currencyController.getBaseCurrency);
 
 /**
  * @swagger
@@ -147,7 +147,7 @@ router.get("/base", currencyController.getBaseCurrency)
  *                         decimalPlaces:
  *                           type: integer
  */
-router.get("/:code", currencyController.getCurrencyByCode)
+router.get("/:code", currencyController.getCurrencyByCode);
 
 /**
  * @swagger
@@ -231,8 +231,8 @@ router.post(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(currencyValidation.createCurrencySchema),
-  currencyController.createCurrency,
-)
+  currencyController.createCurrency
+);
 
 /**
  * @swagger
@@ -315,8 +315,8 @@ router.put(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(currencyValidation.updateCurrencySchema),
-  currencyController.updateCurrency,
-)
+  currencyController.updateCurrency
+);
 
 /**
  * @swagger
@@ -369,7 +369,12 @@ router.put(
  *                         decimalPlaces:
  *                           type: integer
  */
-router.delete("/:code", authenticate, authorize(["admin", "superadmin"]), currencyController.deleteCurrency)
+router.delete(
+  "/:code",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  currencyController.deleteCurrency
+);
 
 /**
  * @swagger
@@ -422,7 +427,12 @@ router.delete("/:code", authenticate, authorize(["admin", "superadmin"]), curren
  *                         decimalPlaces:
  *                           type: integer
  */
-router.post("/:code/set-base", authenticate, authorize(["admin", "superadmin"]), currencyController.setBaseCurrency)
+router.post(
+  "/:code/set-base",
+  authenticate,
+  authorize(["admin", "superadmin"]),
+  currencyController.setBaseCurrency
+);
 
 /**
  * @swagger
@@ -489,8 +499,8 @@ router.post(
   authenticate,
   authorize(["admin", "superadmin"]),
   validateRequest(currencyValidation.updateRatesSchema),
-  currencyController.updateExchangeRates,
-)
+  currencyController.updateExchangeRates
+);
 
 /**
  * @swagger
@@ -542,7 +552,7 @@ router.post(
  *                     convertedAmount:
  *                       type: number
  */
-router.get("/convert", currencyController.convertCurrency)
+router.get("/convert", currencyController.convertCurrency);
 
 /**
  * @swagger
@@ -586,6 +596,6 @@ router.get("/convert", currencyController.convertCurrency)
  *                     formattedAmount:
  *                       type: string
  */
-router.get("/format", currencyController.formatCurrency)
+router.get("/format", currencyController.formatCurrency);
 
-export default router
+export default router;

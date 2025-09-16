@@ -1,7 +1,7 @@
-import { LoyaltyProgram, LoyaltyHistory, Redemption } from "../models/loyalty.model"
-import { createRequestLogger } from "../config/logger"
-import { ApiError } from "../utils/api-error"
-import * as exportService from "./export.service"
+import { LoyaltyProgram, LoyaltyHistory, Redemption } from "../models/loyalty.model";
+import { createRequestLogger } from "../config/logger";
+import { ApiError } from "../utils/api-error";
+import * as exportService from "./export.service";
 
 /**
  * Generate loyalty program report
@@ -11,40 +11,52 @@ import * as exportService from "./export.service"
  */
 export const generateLoyaltyReport = async (
   options: {
-    format: "csv" | "excel" | "pdf" | "json"
-    type: "points" | "redemptions" | "tiers" | "referrals"
-    startDate?: Date
-    endDate?: Date
-    filter?: Record<string, any>
+    format: "csv" | "excel" | "pdf" | "json";
+    type: "points" | "redemptions" | "tiers" | "referrals";
+    startDate?: Date;
+    endDate?: Date;
+    filter?: Record<string, any>;
   },
-  requestId?: string,
+  requestId?: string
 ): Promise<string> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Generating loyalty report of type: ${options.type} in format: ${options.format}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Generating loyalty report of type: ${options.type} in format: ${options.format}`);
 
   try {
     // Set default dates if not provided
-    const endDate = options.endDate || new Date()
-    const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+    const endDate = options.endDate || new Date();
+    const startDate = options.startDate || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
 
     // Generate report based on type
     switch (options.type) {
       case "points":
-        return generatePointsReport(options.format, startDate, endDate, options.filter, requestId)
+        return generatePointsReport(options.format, startDate, endDate, options.filter, requestId);
       case "redemptions":
-        return generateRedemptionsReport(options.format, startDate, endDate, options.filter, requestId)
+        return generateRedemptionsReport(
+          options.format,
+          startDate,
+          endDate,
+          options.filter,
+          requestId
+        );
       case "tiers":
-        return generateTiersReport(options.format, options.filter, requestId)
+        return generateTiersReport(options.format, options.filter, requestId);
       case "referrals":
-        return generateReferralsReport(options.format, startDate, endDate, options.filter, requestId)
+        return generateReferralsReport(
+          options.format,
+          startDate,
+          endDate,
+          options.filter,
+          requestId
+        );
       default:
-        throw new ApiError(`Invalid report type: ${options.type}`, 400)
+        throw new ApiError(`Invalid report type: ${options.type}`, 400);
     }
   } catch (error) {
-    logger.error(`Error generating loyalty report: ${error.message}`)
-    throw error
+    logger.error(`Error generating loyalty report: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Generate points report
@@ -60,23 +72,23 @@ async function generatePointsReport(
   startDate: Date,
   endDate: Date,
   filter?: Record<string, any>,
-  requestId?: string,
+  requestId?: string
 ): Promise<string> {
-  const logger = createRequestLogger(requestId)
-  logger.info("Generating points report")
+  const logger = createRequestLogger(requestId);
+  logger.info("Generating points report");
 
   try {
     // Build query
     const query: Record<string, any> = {
       createdAt: { $gte: startDate, $lte: endDate },
       ...filter,
-    }
+    };
 
     // Get points history
     const pointsHistory = await LoyaltyHistory.find(query)
       .populate("user", "firstName lastName email")
       .sort("-createdAt")
-      .lean()
+      .lean();
 
     // Format data for export
     const formattedData = pointsHistory.map((entry) => ({
@@ -90,7 +102,7 @@ async function generatePointsReport(
       orderId: entry.order ? entry.order.toString() : "",
       redemptionId: entry.redemption ? entry.redemption.toString() : "",
       referredUserId: entry.referredUser ? entry.referredUser.toString() : "",
-    }))
+    }));
 
     // Define fields to export
     const fields = [
@@ -104,35 +116,44 @@ async function generatePointsReport(
       "orderId",
       "redemptionId",
       "referredUserId",
-    ]
+    ];
 
     // Export data
     switch (format) {
       case "csv":
-        return exportService.exportToCsv(formattedData, fields, exportService.ExportDataType.LOYALTY_POINTS, requestId)
+        return exportService.exportToCsv(
+          formattedData,
+          fields,
+          exportService.ExportDataType.LOYALTY_POINTS,
+          requestId
+        );
       case "excel":
         return exportService.exportToExcel(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_POINTS,
-          requestId,
-        )
+          requestId
+        );
       case "pdf":
         return exportService.exportToPdf(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_POINTS,
           "Loyalty Points Report",
-          requestId,
-        )
+          requestId
+        );
       case "json":
-        return exportService.exportToJson(formattedData, exportService.ExportDataType.LOYALTY_POINTS, requestId)
+        return exportService.exportToJson(
+          formattedData,
+          exportService.ExportDataType.LOYALTY_POINTS,
+          requestId
+        );
       default:
-        throw new ApiError(`Unsupported export format: ${format}`, 400)
+        throw new ApiError(`Unsupported export format: ${format}`, 400);
     }
   } catch (error) {
-    logger.error(`Error generating points report: ${error.message}`)
-    throw error
+    logger.error(`Error generating points report: ${error.message}`);
+    throw error;
   }
 }
 
@@ -150,29 +171,31 @@ async function generateRedemptionsReport(
   startDate: Date,
   endDate: Date,
   filter?: Record<string, any>,
-  requestId?: string,
+  requestId?: string
 ): Promise<string> {
-  const logger = createRequestLogger(requestId)
-  logger.info("Generating redemptions report")
+  const logger = createRequestLogger(requestId);
+  logger.info("Generating redemptions report");
 
   try {
     // Build query
     const query: Record<string, any> = {
       createdAt: { $gte: startDate, $lte: endDate },
       ...filter,
-    }
+    };
 
     // Get redemptions
     const redemptions = await Redemption.find(query)
       .populate("user", "firstName lastName email")
       .populate("reward", "name pointsCost type")
       .sort("-createdAt")
-      .lean()
+      .lean();
 
     // Format data for export
     const formattedData = redemptions.map((redemption) => ({
       userId: redemption.user._id.toString(),
-      userName: redemption.user ? `${redemption.user.firstName} ${redemption.user.lastName}` : "N/A",
+      userName: redemption.user
+        ? `${redemption.user.firstName} ${redemption.user.lastName}`
+        : "N/A",
       userEmail: redemption.user ? redemption.user.email : "N/A",
       rewardId: redemption.reward._id.toString(),
       rewardName: redemption.reward ? redemption.reward.name : "N/A",
@@ -183,7 +206,7 @@ async function generateRedemptionsReport(
       createdAt: new Date(redemption.createdAt).toLocaleString(),
       expiresAt: redemption.expiresAt ? new Date(redemption.expiresAt).toLocaleString() : "N/A",
       usedAt: redemption.usedAt ? new Date(redemption.usedAt).toLocaleString() : "N/A",
-    }))
+    }));
 
     // Define fields to export
     const fields = [
@@ -199,7 +222,7 @@ async function generateRedemptionsReport(
       "createdAt",
       "expiresAt",
       "usedAt",
-    ]
+    ];
 
     // Export data
     switch (format) {
@@ -208,31 +231,35 @@ async function generateRedemptionsReport(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_REDEMPTIONS,
-          requestId,
-        )
+          requestId
+        );
       case "excel":
         return exportService.exportToExcel(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_REDEMPTIONS,
-          requestId,
-        )
+          requestId
+        );
       case "pdf":
         return exportService.exportToPdf(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_REDEMPTIONS,
           "Loyalty Redemptions Report",
-          requestId,
-        )
+          requestId
+        );
       case "json":
-        return exportService.exportToJson(formattedData, exportService.ExportDataType.LOYALTY_REDEMPTIONS, requestId)
+        return exportService.exportToJson(
+          formattedData,
+          exportService.ExportDataType.LOYALTY_REDEMPTIONS,
+          requestId
+        );
       default:
-        throw new ApiError(`Unsupported export format: ${format}`, 400)
+        throw new ApiError(`Unsupported export format: ${format}`, 400);
     }
   } catch (error) {
-    logger.error(`Error generating redemptions report: ${error.message}`)
-    throw error
+    logger.error(`Error generating redemptions report: ${error.message}`);
+    throw error;
   }
 }
 
@@ -246,10 +273,10 @@ async function generateRedemptionsReport(
 async function generateTiersReport(
   format: "csv" | "excel" | "pdf" | "json",
   filter?: Record<string, any>,
-  requestId?: string,
+  requestId?: string
 ): Promise<string> {
-  const logger = createRequestLogger(requestId)
-  logger.info("Generating tiers report")
+  const logger = createRequestLogger(requestId);
+  logger.info("Generating tiers report");
 
   try {
     // Get users by tier
@@ -291,33 +318,55 @@ async function generateTiersReport(
       {
         $sort: { tierLevel: 1 },
       },
-    ])
+    ]);
 
     // Define fields to export
-    const fields = ["tierId", "tierName", "tierLevel", "pointsThreshold", "userCount", "totalPoints", "averagePoints"]
+    const fields = [
+      "tierId",
+      "tierName",
+      "tierLevel",
+      "pointsThreshold",
+      "userCount",
+      "totalPoints",
+      "averagePoints",
+    ];
 
     // Export data
     switch (format) {
       case "csv":
-        return exportService.exportToCsv(usersByTier, fields, exportService.ExportDataType.LOYALTY_TIERS, requestId)
+        return exportService.exportToCsv(
+          usersByTier,
+          fields,
+          exportService.ExportDataType.LOYALTY_TIERS,
+          requestId
+        );
       case "excel":
-        return exportService.exportToExcel(usersByTier, fields, exportService.ExportDataType.LOYALTY_TIERS, requestId)
+        return exportService.exportToExcel(
+          usersByTier,
+          fields,
+          exportService.ExportDataType.LOYALTY_TIERS,
+          requestId
+        );
       case "pdf":
         return exportService.exportToPdf(
           usersByTier,
           fields,
           exportService.ExportDataType.LOYALTY_TIERS,
           "Loyalty Tiers Report",
-          requestId,
-        )
+          requestId
+        );
       case "json":
-        return exportService.exportToJson(usersByTier, exportService.ExportDataType.LOYALTY_TIERS, requestId)
+        return exportService.exportToJson(
+          usersByTier,
+          exportService.ExportDataType.LOYALTY_TIERS,
+          requestId
+        );
       default:
-        throw new ApiError(`Unsupported export format: ${format}`, 400)
+        throw new ApiError(`Unsupported export format: ${format}`, 400);
     }
   } catch (error) {
-    logger.error(`Error generating tiers report: ${error.message}`)
-    throw error
+    logger.error(`Error generating tiers report: ${error.message}`);
+    throw error;
   }
 }
 
@@ -335,10 +384,10 @@ async function generateReferralsReport(
   startDate: Date,
   endDate: Date,
   filter?: Record<string, any>,
-  requestId?: string,
+  requestId?: string
 ): Promise<string> {
-  const logger = createRequestLogger(requestId)
-  logger.info("Generating referrals report")
+  const logger = createRequestLogger(requestId);
+  logger.info("Generating referrals report");
 
   try {
     // Get referrals
@@ -350,7 +399,7 @@ async function generateReferralsReport(
       .populate("user", "firstName lastName email createdAt")
       .populate("referredBy", "firstName lastName email")
       .sort("-createdAt")
-      .lean()
+      .lean();
 
     // Format data for export
     const formattedData = referrals.map((referral) => ({
@@ -362,7 +411,7 @@ async function generateReferralsReport(
       referrerName: `${referral.referredBy.firstName} ${referral.referredBy.lastName}`,
       referrerEmail: referral.referredBy.email,
       referralCode: referral.referralCode,
-    }))
+    }));
 
     // Define fields to export
     const fields = [
@@ -374,7 +423,7 @@ async function generateReferralsReport(
       "referrerName",
       "referrerEmail",
       "referralCode",
-    ]
+    ];
 
     // Export data
     switch (format) {
@@ -383,30 +432,34 @@ async function generateReferralsReport(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_REFERRALS,
-          requestId,
-        )
+          requestId
+        );
       case "excel":
         return exportService.exportToExcel(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_REFERRALS,
-          requestId,
-        )
+          requestId
+        );
       case "pdf":
         return exportService.exportToPdf(
           formattedData,
           fields,
           exportService.ExportDataType.LOYALTY_REFERRALS,
           "Loyalty Referrals Report",
-          requestId,
-        )
+          requestId
+        );
       case "json":
-        return exportService.exportToJson(formattedData, exportService.ExportDataType.LOYALTY_REFERRALS, requestId)
+        return exportService.exportToJson(
+          formattedData,
+          exportService.ExportDataType.LOYALTY_REFERRALS,
+          requestId
+        );
       default:
-        throw new ApiError(`Unsupported export format: ${format}`, 400)
+        throw new ApiError(`Unsupported export format: ${format}`, 400);
     }
   } catch (error) {
-    logger.error(`Error generating referrals report: ${error.message}`)
-    throw error
+    logger.error(`Error generating referrals report: ${error.message}`);
+    throw error;
   }
 }

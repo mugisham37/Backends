@@ -1,9 +1,9 @@
-import type { Request, Response } from "express"
-import asyncHandler from "express-async-handler"
-import * as batchService from "../services/batch.service"
-import * as settingsService from "../services/settings.service"
-import { createRequestLogger } from "../config/logger"
-import Joi from "joi"
+import type { Request, Response } from "express";
+import asyncHandler from "express-async-handler";
+import * as batchService from "../services/batch.service";
+import * as settingsService from "../services/settings.service";
+import { createRequestLogger } from "../config/logger";
+import Joi from "joi";
 
 // Validation schema for batch loyalty points
 const batchLoyaltyPointsSchema = {
@@ -28,7 +28,7 @@ const batchLoyaltyPointsSchema = {
           }),
           referenceId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/),
           type: Joi.string().valid("order", "referral", "manual", "other"),
-        }),
+        })
       )
       .min(1)
       .required()
@@ -37,7 +37,7 @@ const batchLoyaltyPointsSchema = {
         "any.required": "Operations are required",
       }),
   }),
-}
+};
 
 /**
  * Process batch loyalty points
@@ -45,18 +45,18 @@ const batchLoyaltyPointsSchema = {
  * @access Private (Admin)
  */
 export const processBatchLoyaltyPoints = asyncHandler(async (req: Request, res: Response) => {
-  const requestLogger = createRequestLogger(req.id)
-  requestLogger.info("Processing batch loyalty points")
+  const requestLogger = createRequestLogger(req.id);
+  requestLogger.info("Processing batch loyalty points");
 
-  const { operations } = req.body
-  const result = await batchService.processBatchLoyaltyPoints(operations, req.id)
+  const { operations } = req.body;
+  const result = await batchService.processBatchLoyaltyPoints(operations, req.id);
 
   res.status(200).json({
     status: "success",
     requestId: req.id,
     data: result,
-  })
-})
+  });
+});
 
 /**
  * Process batch expired points
@@ -64,18 +64,18 @@ export const processBatchLoyaltyPoints = asyncHandler(async (req: Request, res: 
  * @access Private (Admin)
  */
 export const processBatchExpiredPoints = asyncHandler(async (req: Request, res: Response) => {
-  const requestLogger = createRequestLogger(req.id)
-  requestLogger.info("Processing batch expired points")
+  const requestLogger = createRequestLogger(req.id);
+  requestLogger.info("Processing batch expired points");
 
   // Get expiry days from settings
-  const expiryDays = await settingsService.getSetting("loyalty.pointsExpiryDays", 365, req.id)
-  const batchSize = req.body.batchSize || 100
+  const expiryDays = await settingsService.getSetting("loyalty.pointsExpiryDays", 365, req.id);
+  const batchSize = req.body.batchSize || 100;
 
-  const result = await batchService.processBatchExpiredPoints(expiryDays, batchSize, req.id)
+  const result = await batchService.processBatchExpiredPoints(expiryDays, batchSize, req.id);
 
   res.status(200).json({
     status: "success",
     requestId: req.id,
     data: result,
-  })
-})
+  });
+});

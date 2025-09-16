@@ -1,17 +1,17 @@
-import nodemailer from "nodemailer"
-import fs from "fs"
-import path from "path"
-import Handlebars from "handlebars"
-import { createRequestLogger } from "../config/logger"
-import { translateEmail } from "../utils/translate"
-import { ApiError } from "../utils/api-error"
-import redisClient from "../config/redis"
+import nodemailer from "nodemailer";
+import fs from "fs";
+import path from "path";
+import Handlebars from "handlebars";
+import { createRequestLogger } from "../config/logger";
+import { translateEmail } from "../utils/translate";
+import { ApiError } from "../utils/api-error";
+import redisClient from "../config/redis";
 
 // Email templates directory
-const TEMPLATES_DIR = path.join(process.cwd(), "src/templates")
+const TEMPLATES_DIR = path.join(process.cwd(), "src/templates");
 
 // Email queue key in Redis
-const EMAIL_QUEUE_KEY = "email:queue"
+const EMAIL_QUEUE_KEY = "email:queue";
 
 // Email types
 export enum EmailType {
@@ -25,27 +25,27 @@ export enum EmailType {
 
 // Email template interface
 interface EmailTemplate {
-  subject: string
-  html: string
+  subject: string;
+  html: string;
 }
 
 // Email data interface
 interface EmailData {
-  to: string
-  subject: string
-  html: string
-  from?: string
-  cc?: string
-  bcc?: string
-  attachments?: any[]
+  to: string;
+  subject: string;
+  html: string;
+  from?: string;
+  cc?: string;
+  bcc?: string;
+  attachments?: any[];
 }
 
 // Email queue item interface
 interface EmailQueueItem {
-  id: string
-  data: EmailData
-  attempts: number
-  createdAt: string
+  id: string;
+  data: EmailData;
+  attempts: number;
+  createdAt: string;
 }
 
 /**
@@ -63,7 +63,7 @@ const createTransport = () => {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
-    })
+    });
   } else {
     // Default to SendGrid
     return nodemailer.createTransport({
@@ -72,9 +72,9 @@ const createTransport = () => {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
-    })
+    });
   }
-}
+};
 
 /**
  * Load email template
@@ -85,28 +85,28 @@ const createTransport = () => {
 const loadTemplate = async (templateName: string, language = "en"): Promise<EmailTemplate> => {
   try {
     // Check if template exists
-    const templatePath = path.join(TEMPLATES_DIR, `${templateName}.html`)
+    const templatePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
     if (!fs.existsSync(templatePath)) {
-      throw new ApiError(`Email template not found: ${templateName}`, 500)
+      throw new ApiError(`Email template not found: ${templateName}`, 500);
     }
 
     // Read template file
-    const templateContent = fs.readFileSync(templatePath, "utf-8")
+    const templateContent = fs.readFileSync(templatePath, "utf-8");
 
     // Compile template
-    const template = Handlebars.compile(templateContent)
+    const template = Handlebars.compile(templateContent);
 
     // Get subject from translations
-    const subject = translateEmail(`${templateName}.subject`, {}, language)
+    const subject = translateEmail(`${templateName}.subject`, {}, language);
 
     return {
       subject,
       html: template,
-    }
+    };
   } catch (error) {
-    throw new ApiError(`Failed to load email template: ${error.message}`, 500)
+    throw new ApiError(`Failed to load email template: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Send email
@@ -122,18 +122,18 @@ export const sendEmail = async (
   subject: string,
   html: string,
   options: {
-    from?: string
-    cc?: string
-    bcc?: string
-    attachments?: any[]
+    from?: string;
+    cc?: string;
+    bcc?: string;
+    attachments?: any[];
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending email to: ${to}, subject: ${subject}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending email to: ${to}, subject: ${subject}`);
 
   try {
-    const transport = createTransport()
+    const transport = createTransport();
 
     const mailOptions = {
       from: options.from || process.env.EMAIL_FROM || "noreply@example.com",
@@ -143,17 +143,17 @@ export const sendEmail = async (
       cc: options.cc,
       bcc: options.bcc,
       attachments: options.attachments,
-    }
+    };
 
-    const result = await transport.sendMail(mailOptions)
-    logger.info(`Email sent successfully to: ${to}, messageId: ${result.messageId}`)
+    const result = await transport.sendMail(mailOptions);
+    logger.info(`Email sent successfully to: ${to}, messageId: ${result.messageId}`);
 
-    return result
+    return result;
   } catch (error) {
-    logger.error(`Failed to send email: ${error.message}`)
-    throw new ApiError(`Failed to send email: ${error.message}`, 500)
+    logger.error(`Failed to send email: ${error.message}`);
+    throw new ApiError(`Failed to send email: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Queue email for sending
@@ -169,15 +169,15 @@ export const queueEmail = async (
   subject: string,
   html: string,
   options: {
-    from?: string
-    cc?: string
-    bcc?: string
-    attachments?: any[]
+    from?: string;
+    cc?: string;
+    bcc?: string;
+    attachments?: any[];
   } = {},
-  requestId?: string,
+  requestId?: string
 ): Promise<string> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Queueing email to: ${to}, subject: ${subject}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Queueing email to: ${to}, subject: ${subject}`);
 
   try {
     // Create email data
@@ -189,7 +189,7 @@ export const queueEmail = async (
       cc: options.cc,
       bcc: options.bcc,
       attachments: options.attachments,
-    }
+    };
 
     // Create queue item
     const queueItem: EmailQueueItem = {
@@ -197,18 +197,18 @@ export const queueEmail = async (
       data: emailData,
       attempts: 0,
       createdAt: new Date().toISOString(),
-    }
+    };
 
     // Add to queue
-    await redisClient.lPush(EMAIL_QUEUE_KEY, JSON.stringify(queueItem))
-    logger.info(`Email queued successfully, id: ${queueItem.id}`)
+    await redisClient.lPush(EMAIL_QUEUE_KEY, JSON.stringify(queueItem));
+    logger.info(`Email queued successfully, id: ${queueItem.id}`);
 
-    return queueItem.id
+    return queueItem.id;
   } catch (error) {
-    logger.error(`Failed to queue email: ${error.message}`)
-    throw new ApiError(`Failed to queue email: ${error.message}`, 500)
+    logger.error(`Failed to queue email: ${error.message}`);
+    throw new ApiError(`Failed to queue email: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Process email queue
@@ -217,26 +217,26 @@ export const queueEmail = async (
  * @returns Number of emails processed
  */
 export const processEmailQueue = async (limit = 10, requestId?: string): Promise<number> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Processing email queue, limit: ${limit}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Processing email queue, limit: ${limit}`);
 
-  let processed = 0
+  let processed = 0;
 
   try {
     // Process emails up to the limit
     for (let i = 0; i < limit; i++) {
       // Get next email from queue
-      const queueItemJson = await redisClient.rPop(EMAIL_QUEUE_KEY)
+      const queueItemJson = await redisClient.rPop(EMAIL_QUEUE_KEY);
 
       // If queue is empty, stop processing
       if (!queueItemJson) {
-        logger.info(`Email queue is empty, processed: ${processed}`)
-        break
+        logger.info(`Email queue is empty, processed: ${processed}`);
+        break;
       }
 
       // Parse queue item
-      const queueItem: EmailQueueItem = JSON.parse(queueItemJson)
-      logger.info(`Processing email from queue, id: ${queueItem.id}`)
+      const queueItem: EmailQueueItem = JSON.parse(queueItemJson);
+      logger.info(`Processing email from queue, id: ${queueItem.id}`);
 
       try {
         // Send email
@@ -250,35 +250,37 @@ export const processEmailQueue = async (limit = 10, requestId?: string): Promise
             bcc: queueItem.data.bcc,
             attachments: queueItem.data.attachments,
           },
-          requestId,
-        )
+          requestId
+        );
 
         // Increment processed count
-        processed++
+        processed++;
       } catch (error) {
-        logger.error(`Failed to process email from queue, id: ${queueItem.id}, error: ${error.message}`)
+        logger.error(
+          `Failed to process email from queue, id: ${queueItem.id}, error: ${error.message}`
+        );
 
         // Increment attempts
-        queueItem.attempts++
+        queueItem.attempts++;
 
         // If max attempts reached, log and continue
         if (queueItem.attempts >= 3) {
-          logger.error(`Max attempts reached for email, id: ${queueItem.id}, dropping from queue`)
+          logger.error(`Max attempts reached for email, id: ${queueItem.id}, dropping from queue`);
         } else {
           // Otherwise, add back to queue
-          logger.info(`Re-queueing email, id: ${queueItem.id}, attempts: ${queueItem.attempts}`)
-          await redisClient.lPush(EMAIL_QUEUE_KEY, JSON.stringify(queueItem))
+          logger.info(`Re-queueing email, id: ${queueItem.id}, attempts: ${queueItem.attempts}`);
+          await redisClient.lPush(EMAIL_QUEUE_KEY, JSON.stringify(queueItem));
         }
       }
     }
 
-    logger.info(`Email queue processing completed, processed: ${processed}`)
-    return processed
+    logger.info(`Email queue processing completed, processed: ${processed}`);
+    return processed;
   } catch (error) {
-    logger.error(`Error processing email queue: ${error.message}`)
-    throw new ApiError(`Error processing email queue: ${error.message}`, 500)
+    logger.error(`Error processing email queue: ${error.message}`);
+    throw new ApiError(`Error processing email queue: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Get email queue length
@@ -286,17 +288,17 @@ export const processEmailQueue = async (limit = 10, requestId?: string): Promise
  * @returns Queue length
  */
 export const getEmailQueueLength = async (requestId?: string): Promise<number> => {
-  const logger = createRequestLogger(requestId)
+  const logger = createRequestLogger(requestId);
 
   try {
-    const length = await redisClient.lLen(EMAIL_QUEUE_KEY)
-    logger.info(`Email queue length: ${length}`)
-    return length
+    const length = await redisClient.lLen(EMAIL_QUEUE_KEY);
+    logger.info(`Email queue length: ${length}`);
+    return length;
   } catch (error) {
-    logger.error(`Error getting email queue length: ${error.message}`)
-    throw new ApiError(`Error getting email queue length: ${error.message}`, 500)
+    logger.error(`Error getting email queue length: ${error.message}`);
+    throw new ApiError(`Error getting email queue length: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Clear email queue
@@ -304,19 +306,19 @@ export const getEmailQueueLength = async (requestId?: string): Promise<number> =
  * @returns Number of emails removed
  */
 export const clearEmailQueue = async (requestId?: string): Promise<number> => {
-  const logger = createRequestLogger(requestId)
-  logger.info("Clearing email queue")
+  const logger = createRequestLogger(requestId);
+  logger.info("Clearing email queue");
 
   try {
-    const length = await redisClient.lLen(EMAIL_QUEUE_KEY)
-    await redisClient.del(EMAIL_QUEUE_KEY)
-    logger.info(`Email queue cleared, removed: ${length}`)
-    return length
+    const length = await redisClient.lLen(EMAIL_QUEUE_KEY);
+    await redisClient.del(EMAIL_QUEUE_KEY);
+    logger.info(`Email queue cleared, removed: ${length}`);
+    return length;
   } catch (error) {
-    logger.error(`Error clearing email queue: ${error.message}`)
-    throw new ApiError(`Error clearing email queue: ${error.message}`, 500)
+    logger.error(`Error clearing email queue: ${error.message}`);
+    throw new ApiError(`Error clearing email queue: ${error.message}`, 500);
   }
-}
+};
 
 /**
  * Send welcome email
@@ -329,20 +331,20 @@ export const clearEmailQueue = async (requestId?: string): Promise<number> => {
 export const sendWelcomeEmail = async (
   to: string,
   data: {
-    firstName: string
-    storeName: string
-    year: number
-    storeUrl: string
+    firstName: string;
+    storeName: string;
+    year: number;
+    storeUrl: string;
   },
   language = "en",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending welcome email to: ${to}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending welcome email to: ${to}`);
 
   try {
     // Load template
-    const template = await loadTemplate(EmailType.WELCOME, language)
+    const template = await loadTemplate(EmailType.WELCOME, language);
 
     // Compile template with data
     const html = template.html({
@@ -355,18 +357,18 @@ export const sendWelcomeEmail = async (
       benefit4: translateEmail("welcome.benefit4", {}, language),
       support: translateEmail("welcome.support", {}, language),
       cta: translateEmail("welcome.cta", {}, language),
-    })
+    });
 
     // Get subject from translations
-    const subject = translateEmail("welcome.subject", { storeName: data.storeName }, language)
+    const subject = translateEmail("welcome.subject", { storeName: data.storeName }, language);
 
     // Queue email
-    return queueEmail(to, subject, html, {}, requestId)
+    return queueEmail(to, subject, html, {}, requestId);
   } catch (error) {
-    logger.error(`Failed to send welcome email: ${error.message}`)
-    throw error
+    logger.error(`Failed to send welcome email: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Send order confirmation email
@@ -379,33 +381,37 @@ export const sendWelcomeEmail = async (
 export const sendOrderConfirmationEmail = async (
   to: string,
   data: {
-    firstName: string
-    orderId: string
-    orderDate: string
-    orderItems: any[]
-    subtotal: number
-    tax: number
-    shipping: number
-    total: number
-    shippingAddress: any
-    orderUrl: string
-    storeName: string
-    year: number
+    firstName: string;
+    orderId: string;
+    orderDate: string;
+    orderItems: any[];
+    subtotal: number;
+    tax: number;
+    shipping: number;
+    total: number;
+    shippingAddress: any;
+    orderUrl: string;
+    storeName: string;
+    year: number;
   },
   language = "en",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending order confirmation email to: ${to}, order ID: ${data.orderId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending order confirmation email to: ${to}, order ID: ${data.orderId}`);
 
   try {
     // Load template
-    const template = await loadTemplate(EmailType.ORDER_CONFIRMATION, language)
+    const template = await loadTemplate(EmailType.ORDER_CONFIRMATION, language);
 
     // Compile template with data
     const html = template.html({
       ...data,
-      greeting: translateEmail("orderConfirmation.greeting", { firstName: data.firstName }, language),
+      greeting: translateEmail(
+        "orderConfirmation.greeting",
+        { firstName: data.firstName },
+        language
+      ),
       message: translateEmail("orderConfirmation.message", {}, language),
       orderDetails: translateEmail("orderConfirmation.orderDetails", {}, language),
       orderNumber: translateEmail("orderConfirmation.orderNumber", {}, language),
@@ -422,18 +428,22 @@ export const sendOrderConfirmationEmail = async (
       shippingAddress: translateEmail("orderConfirmation.shippingAddress", {}, language),
       trackingMessage: translateEmail("orderConfirmation.trackingMessage", {}, language),
       cta: translateEmail("orderConfirmation.cta", {}, language),
-    })
+    });
 
     // Get subject from translations
-    const subject = translateEmail("orderConfirmation.subject", { orderId: data.orderId }, language)
+    const subject = translateEmail(
+      "orderConfirmation.subject",
+      { orderId: data.orderId },
+      language
+    );
 
     // Queue email
-    return queueEmail(to, subject, html, {}, requestId)
+    return queueEmail(to, subject, html, {}, requestId);
   } catch (error) {
-    logger.error(`Failed to send order confirmation email: ${error.message}`)
-    throw error
+    logger.error(`Failed to send order confirmation email: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Send order shipped email
@@ -446,24 +456,24 @@ export const sendOrderConfirmationEmail = async (
 export const sendOrderShippedEmail = async (
   to: string,
   data: {
-    firstName: string
-    orderId: string
-    trackingNumber: string
-    estimatedDelivery: string
-    trackingUrl: string
-    orderUrl: string
-    storeName: string
-    year: number
+    firstName: string;
+    orderId: string;
+    trackingNumber: string;
+    estimatedDelivery: string;
+    trackingUrl: string;
+    orderUrl: string;
+    storeName: string;
+    year: number;
   },
   language = "en",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending order shipped email to: ${to}, order ID: ${data.orderId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending order shipped email to: ${to}, order ID: ${data.orderId}`);
 
   try {
     // Load template
-    const template = await loadTemplate(EmailType.ORDER_SHIPPED, language)
+    const template = await loadTemplate(EmailType.ORDER_SHIPPED, language);
 
     // Compile template with data
     const html = template.html({
@@ -477,18 +487,18 @@ export const sendOrderShippedEmail = async (
       trackCta: translateEmail("orderShipped.trackCta", {}, language),
       support: translateEmail("orderShipped.support", {}, language),
       cta: translateEmail("orderShipped.cta", {}, language),
-    })
+    });
 
     // Get subject from translations
-    const subject = translateEmail("orderShipped.subject", { orderId: data.orderId }, language)
+    const subject = translateEmail("orderShipped.subject", { orderId: data.orderId }, language);
 
     // Queue email
-    return queueEmail(to, subject, html, {}, requestId)
+    return queueEmail(to, subject, html, {}, requestId);
   } catch (error) {
-    logger.error(`Failed to send order shipped email: ${error.message}`)
-    throw error
+    logger.error(`Failed to send order shipped email: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Send order delivered email
@@ -501,22 +511,22 @@ export const sendOrderShippedEmail = async (
 export const sendOrderDeliveredEmail = async (
   to: string,
   data: {
-    firstName: string
-    orderId: string
-    reviewUrl: string
-    orderUrl: string
-    storeName: string
-    year: number
+    firstName: string;
+    orderId: string;
+    reviewUrl: string;
+    orderUrl: string;
+    storeName: string;
+    year: number;
   },
   language = "en",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending order delivered email to: ${to}, order ID: ${data.orderId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending order delivered email to: ${to}, order ID: ${data.orderId}`);
 
   try {
     // Load template
-    const template = await loadTemplate(EmailType.ORDER_DELIVERED, language)
+    const template = await loadTemplate(EmailType.ORDER_DELIVERED, language);
 
     // Compile template with data
     const html = template.html({
@@ -529,18 +539,18 @@ export const sendOrderDeliveredEmail = async (
       reviewCta: translateEmail("orderDelivered.reviewCta", {}, language),
       orderCta: translateEmail("orderDelivered.orderCta", {}, language),
       thanks: translateEmail("orderDelivered.thanks", {}, language),
-    })
+    });
 
     // Get subject from translations
-    const subject = translateEmail("orderDelivered.subject", { orderId: data.orderId }, language)
+    const subject = translateEmail("orderDelivered.subject", { orderId: data.orderId }, language);
 
     // Queue email
-    return queueEmail(to, subject, html, {}, requestId)
+    return queueEmail(to, subject, html, {}, requestId);
   } catch (error) {
-    logger.error(`Failed to send order delivered email: ${error.message}`)
-    throw error
+    logger.error(`Failed to send order delivered email: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Send password reset email
@@ -553,43 +563,47 @@ export const sendOrderDeliveredEmail = async (
 export const sendPasswordResetEmail = async (
   to: string,
   data: {
-    firstName: string
-    resetUrl: string
-    expiryTime: string
-    storeName: string
-    year: number
+    firstName: string;
+    resetUrl: string;
+    expiryTime: string;
+    storeName: string;
+    year: number;
   },
   language = "en",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending password reset email to: ${to}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending password reset email to: ${to}`);
 
   try {
     // Load template
-    const template = await loadTemplate(EmailType.PASSWORD_RESET, language)
+    const template = await loadTemplate(EmailType.PASSWORD_RESET, language);
 
     // Compile template with data
     const html = template.html({
       ...data,
       greeting: translateEmail("passwordReset.greeting", { firstName: data.firstName }, language),
       message: translateEmail("passwordReset.message", {}, language),
-      instruction: translateEmail("passwordReset.instruction", { expiryTime: data.expiryTime }, language),
+      instruction: translateEmail(
+        "passwordReset.instruction",
+        { expiryTime: data.expiryTime },
+        language
+      ),
       cta: translateEmail("passwordReset.cta", {}, language),
       warning: translateEmail("passwordReset.warning", {}, language),
       alternative: translateEmail("passwordReset.alternative", {}, language),
-    })
+    });
 
     // Get subject from translations
-    const subject = translateEmail("passwordReset.subject", {}, language)
+    const subject = translateEmail("passwordReset.subject", {}, language);
 
     // Send email immediately (don't queue password reset emails)
-    return sendEmail(to, subject, html, {}, requestId)
+    return sendEmail(to, subject, html, {}, requestId);
   } catch (error) {
-    logger.error(`Failed to send password reset email: ${error.message}`)
-    throw error
+    logger.error(`Failed to send password reset email: ${error.message}`);
+    throw error;
   }
-}
+};
 
 /**
  * Send review request email
@@ -602,26 +616,26 @@ export const sendPasswordResetEmail = async (
 export const sendReviewRequestEmail = async (
   to: string,
   data: {
-    firstName: string
-    orderId: string
+    firstName: string;
+    orderId: string;
     items: Array<{
-      name: string
-      image: string
-      reviewUrl: string
-    }>
-    orderUrl: string
-    storeName: string
-    year: number
+      name: string;
+      image: string;
+      reviewUrl: string;
+    }>;
+    orderUrl: string;
+    storeName: string;
+    year: number;
   },
   language = "en",
-  requestId?: string,
+  requestId?: string
 ): Promise<any> => {
-  const logger = createRequestLogger(requestId)
-  logger.info(`Sending review request email to: ${to}, order ID: ${data.orderId}`)
+  const logger = createRequestLogger(requestId);
+  logger.info(`Sending review request email to: ${to}, order ID: ${data.orderId}`);
 
   try {
     // Load template
-    const template = await loadTemplate(EmailType.REVIEW_REQUEST, language)
+    const template = await loadTemplate(EmailType.REVIEW_REQUEST, language);
 
     // Compile template with data
     const html = template.html({
@@ -629,19 +643,23 @@ export const sendReviewRequestEmail = async (
       greeting: translateEmail("reviewRequest.greeting", { firstName: data.firstName }, language),
       message: translateEmail("reviewRequest.message", {}, language),
       feedback: translateEmail("reviewRequest.feedback", {}, language),
-      recentPurchase: translateEmail("reviewRequest.recentPurchase", { orderId: data.orderId }, language),
+      recentPurchase: translateEmail(
+        "reviewRequest.recentPurchase",
+        { orderId: data.orderId },
+        language
+      ),
       reviewCta: translateEmail("reviewRequest.reviewCta", {}, language),
       orderCta: translateEmail("reviewRequest.orderCta", {}, language),
       thanks: translateEmail("reviewRequest.thanks", {}, language),
-    })
+    });
 
     // Get subject from translations
-    const subject = translateEmail("reviewRequest.subject", {}, language)
+    const subject = translateEmail("reviewRequest.subject", {}, language);
 
     // Queue email
-    return queueEmail(to, subject, html, {}, requestId)
+    return queueEmail(to, subject, html, {}, requestId);
   } catch (error) {
-    logger.error(`Failed to send review request email: ${error.message}`)
-    throw error
+    logger.error(`Failed to send review request email: ${error.message}`);
+    throw error;
   }
-}
+};

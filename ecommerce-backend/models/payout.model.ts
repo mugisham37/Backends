@@ -1,33 +1,33 @@
-import mongoose, { Schema, type Document } from "mongoose"
+import mongoose, { Schema, type Document } from "mongoose";
 
 export interface IPayout extends Document {
-  vendor: mongoose.Types.ObjectId
-  amount: number
-  fee: number
-  netAmount: number
-  currency: string
-  status: "pending" | "processing" | "completed" | "failed" | "cancelled"
-  paymentMethod: "bank_transfer" | "paypal" | "stripe" | "other"
+  vendor: mongoose.Types.ObjectId;
+  amount: number;
+  fee: number;
+  netAmount: number;
+  currency: string;
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+  paymentMethod: "bank_transfer" | "paypal" | "stripe" | "other";
   paymentDetails: {
-    accountName?: string
-    accountNumber?: string
-    bankName?: string
-    routingNumber?: string
-    swiftCode?: string
-    paypalEmail?: string
-    stripeAccountId?: string
-    other?: Record<string, any>
-  }
-  reference: string
-  description?: string
-  periodStart: Date
-  periodEnd: Date
-  orders: mongoose.Types.ObjectId[]
-  transactionId?: string
-  processedAt?: Date
-  notes?: string
-  createdAt: Date
-  updatedAt: Date
+    accountName?: string;
+    accountNumber?: string;
+    bankName?: string;
+    routingNumber?: string;
+    swiftCode?: string;
+    paypalEmail?: string;
+    stripeAccountId?: string;
+    other?: Record<string, any>;
+  };
+  reference: string;
+  description?: string;
+  periodStart: Date;
+  periodEnd: Date;
+  orders: mongoose.Types.ObjectId[];
+  transactionId?: string;
+  processedAt?: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const payoutSchema = new Schema<IPayout>(
@@ -119,16 +119,16 @@ const payoutSchema = new Schema<IPayout>(
   },
   {
     timestamps: true,
-  },
-)
+  }
+);
 
 // Indexes
-payoutSchema.index({ vendor: 1 })
-payoutSchema.index({ status: 1 })
-payoutSchema.index({ createdAt: -1 })
-payoutSchema.index({ reference: 1 }, { unique: true })
-payoutSchema.index({ periodStart: 1, periodEnd: 1 })
+payoutSchema.index({ vendor: 1 });
+payoutSchema.index({ status: 1 });
+payoutSchema.index({ createdAt: -1 });
+payoutSchema.index({ reference: 1 }, { unique: true });
+payoutSchema.index({ periodStart: 1, periodEnd: 1 });
 
-const Payout = mongoose.model<IPayout>("Payout", payoutSchema)
+const Payout = mongoose.model<IPayout>("Payout", payoutSchema);
 
-export default Payout
+export default Payout;

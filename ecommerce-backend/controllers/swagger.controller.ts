@@ -1,5 +1,5 @@
-import type { Request, Response } from "express"
-import swaggerSpec from "../config/swagger"
+import type { Request, Response } from "express";
+import swaggerSpec from "../config/swagger";
 
 /**
  * Serve Swagger specification
@@ -7,6 +7,6 @@ import swaggerSpec from "../config/swagger"
  * @access Public
  */
 export const getSwaggerSpec = (_req: Request, res: Response) => {
-  res.setHeader("Content-Type", "application/json")
-  res.send(swaggerSpec)
-}
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+};

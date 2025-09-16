@@ -1,4 +1,4 @@
-import Joi from "joi"
+import Joi from "joi";
 
 export const vendorValidation = {
   createVendor: Joi.object({
@@ -25,7 +25,7 @@ export const vendorValidation = {
         postalCode: Joi.string().required().trim(),
         country: Joi.string().required().trim(),
         isDefault: Joi.boolean().default(false),
-      }),
+      })
     ),
     bankAccounts: Joi.array().items(
       Joi.object({
@@ -35,11 +35,13 @@ export const vendorValidation = {
         routingNumber: Joi.string().required().trim(),
         swiftCode: Joi.string().trim(),
         isDefault: Joi.boolean().default(false),
-      }),
+      })
     ),
     taxInformation: Joi.object({
       taxId: Joi.string().required().trim(),
-      businessType: Joi.string().required().valid("sole_proprietorship", "partnership", "corporation", "llc", "other"),
+      businessType: Joi.string()
+        .required()
+        .valid("sole_proprietorship", "partnership", "corporation", "llc", "other"),
       taxDocuments: Joi.array().items(Joi.string().uri()),
       vatRegistered: Joi.boolean().default(false),
       vatNumber: Joi.string().trim(),
@@ -85,7 +87,7 @@ export const vendorValidation = {
         postalCode: Joi.string().required().trim(),
         country: Joi.string().required().trim(),
         isDefault: Joi.boolean().default(false),
-      }),
+      })
     ),
     bankAccounts: Joi.array().items(
       Joi.object({
@@ -95,11 +97,17 @@ export const vendorValidation = {
         routingNumber: Joi.string().required().trim(),
         swiftCode: Joi.string().trim(),
         isDefault: Joi.boolean().default(false),
-      }),
+      })
     ),
     taxInformation: Joi.object({
       taxId: Joi.string().trim(),
-      businessType: Joi.string().valid("sole_proprietorship", "partnership", "corporation", "llc", "other"),
+      businessType: Joi.string().valid(
+        "sole_proprietorship",
+        "partnership",
+        "corporation",
+        "llc",
+        "other"
+      ),
       taxDocuments: Joi.array().items(Joi.string().uri()),
       vatRegistered: Joi.boolean(),
       vatNumber: Joi.string().trim(),
@@ -136,7 +144,9 @@ export const vendorValidation = {
     fee: Joi.number().required().min(0),
     netAmount: Joi.number().required().min(0),
     currency: Joi.string().default("USD").uppercase().length(3),
-    status: Joi.string().valid("pending", "processing", "completed", "failed", "cancelled").default("pending"),
+    status: Joi.string()
+      .valid("pending", "processing", "completed", "failed", "cancelled")
+      .default("pending"),
     paymentMethod: Joi.string().required().valid("bank_transfer", "paypal", "stripe", "other"),
     paymentDetails: Joi.object({
       accountName: Joi.string(),
@@ -156,8 +166,10 @@ export const vendorValidation = {
   }),
 
   updatePayoutStatus: Joi.object({
-    status: Joi.string().required().valid("pending", "processing", "completed", "failed", "cancelled"),
+    status: Joi.string()
+      .required()
+      .valid("pending", "processing", "completed", "failed", "cancelled"),
     transactionId: Joi.string().trim(),
     notes: Joi.string().trim(),
   }),
-}
+};

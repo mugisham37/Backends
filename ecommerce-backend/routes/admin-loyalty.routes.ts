@@ -1,7 +1,7 @@
-import express from "express"
-import * as adminLoyaltyController from "../controllers/admin-loyalty.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
-import { validate } from "../middleware/validate.middleware"
+import express from "express";
+import * as adminLoyaltyController from "../controllers/admin-loyalty.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
+import { validate } from "../middleware/validate.middleware";
 import {
   createLoyaltyTierSchema,
   updateLoyaltyTierSchema,
@@ -9,12 +9,12 @@ import {
   updateRewardSchema,
   updateRedemptionStatusSchema,
   adjustCustomerPointsSchema,
-} from "../validations/loyalty.validation"
+} from "../validations/loyalty.validation";
 
-const router = express.Router()
+const router = express.Router();
 
 // All routes require admin authentication
-router.use(authenticate, authorize(["admin", "superadmin"]))
+router.use(authenticate, authorize(["admin", "superadmin"]));
 
 /**
  * @swagger
@@ -91,8 +91,8 @@ router.use(authenticate, authorize(["admin", "superadmin"]))
  *                 data:
  *                   type: object
  */
-router.get("/tiers", adminLoyaltyController.getAllLoyaltyTiers)
-router.post("/tiers", validate(createLoyaltyTierSchema), adminLoyaltyController.createLoyaltyTier)
+router.get("/tiers", adminLoyaltyController.getAllLoyaltyTiers);
+router.post("/tiers", validate(createLoyaltyTierSchema), adminLoyaltyController.createLoyaltyTier);
 
 /**
  * @swagger
@@ -204,9 +204,13 @@ router.post("/tiers", validate(createLoyaltyTierSchema), adminLoyaltyController.
  *                 data:
  *                   type: object
  */
-router.get("/tiers/:tierId", adminLoyaltyController.getLoyaltyTierById)
-router.put("/tiers/:tierId", validate(updateLoyaltyTierSchema), adminLoyaltyController.updateLoyaltyTier)
-router.delete("/tiers/:tierId", adminLoyaltyController.deleteLoyaltyTier)
+router.get("/tiers/:tierId", adminLoyaltyController.getLoyaltyTierById);
+router.put(
+  "/tiers/:tierId",
+  validate(updateLoyaltyTierSchema),
+  adminLoyaltyController.updateLoyaltyTier
+);
+router.delete("/tiers/:tierId", adminLoyaltyController.deleteLoyaltyTier);
 
 /**
  * @swagger
@@ -326,8 +330,8 @@ router.delete("/tiers/:tierId", adminLoyaltyController.deleteLoyaltyTier)
  *                 data:
  *                   type: object
  */
-router.get("/rewards", adminLoyaltyController.getAllRewards)
-router.post("/rewards", validate(createRewardSchema), adminLoyaltyController.createReward)
+router.get("/rewards", adminLoyaltyController.getAllRewards);
+router.post("/rewards", validate(createRewardSchema), adminLoyaltyController.createReward);
 
 /**
  * @swagger
@@ -452,9 +456,9 @@ router.post("/rewards", validate(createRewardSchema), adminLoyaltyController.cre
  *                 data:
  *                   type: object
  */
-router.get("/rewards/:rewardId", adminLoyaltyController.getRewardById)
-router.put("/rewards/:rewardId", validate(updateRewardSchema), adminLoyaltyController.updateReward)
-router.delete("/rewards/:rewardId", adminLoyaltyController.deleteReward)
+router.get("/rewards/:rewardId", adminLoyaltyController.getRewardById);
+router.put("/rewards/:rewardId", validate(updateRewardSchema), adminLoyaltyController.updateReward);
+router.delete("/rewards/:rewardId", adminLoyaltyController.deleteReward);
 
 /**
  * @swagger
@@ -523,7 +527,7 @@ router.delete("/rewards/:rewardId", adminLoyaltyController.deleteReward)
  *                     pagination:
  *                       type: object
  */
-router.get("/programs", adminLoyaltyController.getAllLoyaltyPrograms)
+router.get("/programs", adminLoyaltyController.getAllLoyaltyPrograms);
 
 /**
  * @swagger
@@ -556,7 +560,7 @@ router.get("/programs", adminLoyaltyController.getAllLoyaltyPrograms)
  *                 data:
  *                   type: object
  */
-router.get("/programs/:userId", adminLoyaltyController.getLoyaltyProgramByUserId)
+router.get("/programs/:userId", adminLoyaltyController.getLoyaltyProgramByUserId);
 
 /**
  * @swagger
@@ -626,7 +630,7 @@ router.get("/programs/:userId", adminLoyaltyController.getLoyaltyProgramByUserId
  *                     pagination:
  *                       type: object
  */
-router.get("/redemptions", adminLoyaltyController.getAllRedemptions)
+router.get("/redemptions", adminLoyaltyController.getAllRedemptions);
 
 /**
  * @swagger
@@ -700,12 +704,12 @@ router.get("/redemptions", adminLoyaltyController.getAllRedemptions)
  *                 data:
  *                   type: object
  */
-router.get("/redemptions/:redemptionId", adminLoyaltyController.getRedemptionById)
+router.get("/redemptions/:redemptionId", adminLoyaltyController.getRedemptionById);
 router.put(
   "/redemptions/:redemptionId",
   validate(updateRedemptionStatusSchema),
-  adminLoyaltyController.updateRedemptionStatus,
-)
+  adminLoyaltyController.updateRedemptionStatus
+);
 
 /**
  * @swagger
@@ -748,7 +752,11 @@ router.put(
  *                 data:
  *                   type: object
  */
-router.post("/points/adjust", validate(adjustCustomerPointsSchema), adminLoyaltyController.adjustCustomerPoints)
+router.post(
+  "/points/adjust",
+  validate(adjustCustomerPointsSchema),
+  adminLoyaltyController.adjustCustomerPoints
+);
 
 /**
  * @swagger
@@ -774,6 +782,6 @@ router.post("/points/adjust", validate(adjustCustomerPointsSchema), adminLoyalty
  *                 data:
  *                   type: object
  */
-router.get("/statistics", adminLoyaltyController.getLoyaltyStatistics)
+router.get("/statistics", adminLoyaltyController.getLoyaltyStatistics);
 
-export default router
+export default router;

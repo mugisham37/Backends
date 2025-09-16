@@ -1,14 +1,14 @@
-import express from "express"
-import * as loyaltyController from "../controllers/loyalty.controller"
-import { authenticate } from "../middleware/auth.middleware"
-import { validate } from "../middleware/validate.middleware"
-import { redeemRewardSchema, applyReferralCodeSchema } from "../validations/loyalty.validation"
-import * as loyaltyDashboardController from "../controllers/loyaltyDashboard.controller"
+import express from "express";
+import * as loyaltyController from "../controllers/loyalty.controller";
+import { authenticate } from "../middleware/auth.middleware";
+import { validate } from "../middleware/validate.middleware";
+import { redeemRewardSchema, applyReferralCodeSchema } from "../validations/loyalty.validation";
+import * as loyaltyDashboardController from "../controllers/loyaltyDashboard.controller";
 
-const router = express.Router()
+const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate)
+router.use(authenticate);
 
 /**
  * @swagger
@@ -61,7 +61,7 @@ router.use(authenticate)
  *                       items:
  *                         type: object
  */
-router.get("/program", loyaltyController.getCustomerLoyaltyProgram)
+router.get("/program", loyaltyController.getCustomerLoyaltyProgram);
 
 /**
  * @swagger
@@ -108,7 +108,7 @@ router.get("/program", loyaltyController.getCustomerLoyaltyProgram)
  *                       color:
  *                         type: string
  */
-router.get("/tiers", loyaltyController.getLoyaltyTiers)
+router.get("/tiers", loyaltyController.getLoyaltyTiers);
 
 /**
  * @swagger
@@ -151,7 +151,7 @@ router.get("/tiers", loyaltyController.getLoyaltyTiers)
  *                       pointsNeeded:
  *                         type: number
  */
-router.get("/rewards", loyaltyController.getAvailableRewards)
+router.get("/rewards", loyaltyController.getAvailableRewards);
 
 /**
  * @swagger
@@ -195,7 +195,7 @@ router.get("/rewards", loyaltyController.getAvailableRewards)
  *                     type:
  *                       type: string
  */
-router.get("/rewards/:rewardId", loyaltyController.getRewardById)
+router.get("/rewards/:rewardId", loyaltyController.getRewardById);
 
 /**
  * @swagger
@@ -244,7 +244,7 @@ router.get("/rewards/:rewardId", loyaltyController.getRewardById)
  *                     reward:
  *                       type: object
  */
-router.post("/rewards/redeem", validate(redeemRewardSchema), loyaltyController.redeemReward)
+router.post("/rewards/redeem", validate(redeemRewardSchema), loyaltyController.redeemReward);
 
 /**
  * @swagger
@@ -298,7 +298,7 @@ router.post("/rewards/redeem", validate(redeemRewardSchema), loyaltyController.r
  *                     pagination:
  *                       type: object
  */
-router.get("/history", loyaltyController.getLoyaltyHistory)
+router.get("/history", loyaltyController.getLoyaltyHistory);
 
 /**
  * @swagger
@@ -352,7 +352,7 @@ router.get("/history", loyaltyController.getLoyaltyHistory)
  *                     pagination:
  *                       type: object
  */
-router.get("/redemptions", loyaltyController.getCustomerRedemptions)
+router.get("/redemptions", loyaltyController.getCustomerRedemptions);
 
 /**
  * @swagger
@@ -396,7 +396,7 @@ router.get("/redemptions", loyaltyController.getCustomerRedemptions)
  *                     reward:
  *                       type: object
  */
-router.get("/redemptions/:redemptionId", loyaltyController.getRedemptionById)
+router.get("/redemptions/:redemptionId", loyaltyController.getRedemptionById);
 
 /**
  * @swagger
@@ -429,7 +429,7 @@ router.get("/redemptions/:redemptionId", loyaltyController.getRedemptionById)
  *                     referralUrl:
  *                       type: string
  */
-router.get("/referral", loyaltyController.getReferralCode)
+router.get("/referral", loyaltyController.getReferralCode);
 
 /**
  * @swagger
@@ -472,7 +472,11 @@ router.get("/referral", loyaltyController.getReferralCode)
  *                     message:
  *                       type: string
  */
-router.post("/referral/apply", validate(applyReferralCodeSchema), loyaltyController.applyReferralCode)
+router.post(
+  "/referral/apply",
+  validate(applyReferralCodeSchema),
+  loyaltyController.applyReferralCode
+);
 
 /**
  * @swagger
@@ -498,7 +502,7 @@ router.post("/referral/apply", validate(applyReferralCodeSchema), loyaltyControl
  *                 data:
  *                   type: object
  */
-router.get("/dashboard", loyaltyDashboardController.getCustomerLoyaltyDashboard)
+router.get("/dashboard", loyaltyDashboardController.getCustomerLoyaltyDashboard);
 
 /**
  * @swagger
@@ -532,6 +536,6 @@ router.get("/dashboard", loyaltyDashboardController.getCustomerLoyaltyDashboard)
  *                 data:
  *                   type: object
  */
-router.get("/statistics/:period", loyaltyDashboardController.getLoyaltyStatisticsByPeriod)
+router.get("/statistics/:period", loyaltyDashboardController.getLoyaltyStatisticsByPeriod);
 
-export default router
+export default router;

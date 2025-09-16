@@ -1,8 +1,8 @@
-import { Router } from "express"
-import * as recommendationController from "../controllers/recommendation.controller"
-import { authenticate } from "../middleware/auth.middleware"
+import { Router } from "express";
+import * as recommendationController from "../controllers/recommendation.controller";
+import { authenticate } from "../middleware/auth.middleware";
 
-const router = Router()
+const router = Router();
 
 /**
  * @swagger
@@ -40,7 +40,7 @@ const router = Router()
  *                       items:
  *                         $ref: '#/components/schemas/Product'
  */
-router.get("/popular", recommendationController.getPopularProducts)
+router.get("/popular", recommendationController.getPopularProducts);
 
 /**
  * @swagger
@@ -84,7 +84,7 @@ router.get("/popular", recommendationController.getPopularProducts)
  *                       items:
  *                         $ref: '#/components/schemas/Product'
  */
-router.get("/related/:productId", recommendationController.getRelatedProducts)
+router.get("/related/:productId", recommendationController.getRelatedProducts);
 
 /**
  * @swagger
@@ -124,7 +124,7 @@ router.get("/related/:productId", recommendationController.getRelatedProducts)
  *                       items:
  *                         $ref: '#/components/schemas/Product'
  */
-router.get("/personalized", authenticate, recommendationController.getPersonalizedRecommendations)
+router.get("/personalized", authenticate, recommendationController.getPersonalizedRecommendations);
 
 /**
  * @swagger
@@ -158,7 +158,11 @@ router.get("/personalized", authenticate, recommendationController.getPersonaliz
  *                   type: string
  *                   example: Product view tracked successfully
  */
-router.post("/track-view/:productId", authenticate, recommendationController.trackRecentlyViewedProduct)
+router.post(
+  "/track-view/:productId",
+  authenticate,
+  recommendationController.trackRecentlyViewedProduct
+);
 
 /**
  * @swagger
@@ -198,7 +202,7 @@ router.post("/track-view/:productId", authenticate, recommendationController.tra
  *                       items:
  *                         $ref: '#/components/schemas/Product'
  */
-router.get("/recently-viewed", authenticate, recommendationController.getRecentlyViewedProducts)
+router.get("/recently-viewed", authenticate, recommendationController.getRecentlyViewedProducts);
 
 /**
  * @swagger
@@ -242,6 +246,9 @@ router.get("/recently-viewed", authenticate, recommendationController.getRecentl
  *                       items:
  *                         $ref: '#/components/schemas/Product'
  */
-router.get("/frequently-bought-together/:productId", recommendationController.getFrequentlyBoughtTogether)
+router.get(
+  "/frequently-bought-together/:productId",
+  recommendationController.getFrequentlyBoughtTogether
+);
 
-export default router
+export default router;

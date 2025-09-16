@@ -1,66 +1,66 @@
-import mongoose, { Schema, type Document } from "mongoose"
-import slugify from "slugify"
+import mongoose, { Schema, type Document } from "mongoose";
+import slugify from "slugify";
 
 export interface IProductVariant {
-  sku: string
+  sku: string;
   attributes: Array<{
-    name: string
-    value: string
-  }>
-  price: number
-  compareAtPrice?: number
-  quantity: number
-  images?: string[]
+    name: string;
+    value: string;
+  }>;
+  price: number;
+  compareAtPrice?: number;
+  quantity: number;
+  images?: string[];
 }
 
 export interface IProductDocument extends Document {
-  name: string
-  slug: string
-  description: string
-  shortDescription?: string
-  price: number
-  compareAtPrice?: number
-  quantity: number
-  sku?: string
-  barcode?: string
-  images: string[]
-  category: mongoose.Types.ObjectId
-  subcategories?: mongoose.Types.ObjectId[]
-  tags?: string[]
+  name: string;
+  slug: string;
+  description: string;
+  shortDescription?: string;
+  price: number;
+  compareAtPrice?: number;
+  quantity: number;
+  sku?: string;
+  barcode?: string;
+  images: string[];
+  category: mongoose.Types.ObjectId;
+  subcategories?: mongoose.Types.ObjectId[];
+  tags?: string[];
   attributes?: Array<{
-    name: string
-    value: string
-  }>
-  variants: IProductVariant[]
-  featured: boolean
-  active: boolean
+    name: string;
+    value: string;
+  }>;
+  variants: IProductVariant[];
+  featured: boolean;
+  active: boolean;
   ratings: {
-    average: number
-    count: number
-  }
+    average: number;
+    count: number;
+  };
   seo: {
-    title?: string
-    description?: string
-    keywords?: string[]
-  }
+    title?: string;
+    description?: string;
+    keywords?: string[];
+  };
   dimensions?: {
-    length: number
-    width: number
-    height: number
-    unit: string
-  }
+    length: number;
+    width: number;
+    height: number;
+    unit: string;
+  };
   weight?: {
-    value: number
-    unit: string
-  }
-  shippingClass?: string
-  taxClass?: string
-  vendor: mongoose.Types.ObjectId
-  commission?: number
-  warrantyInformation?: string
-  returnPolicy?: string
-  createdAt: Date
-  updatedAt: Date
+    value: number;
+    unit: string;
+  };
+  shippingClass?: string;
+  taxClass?: string;
+  vendor: mongoose.Types.ObjectId;
+  commission?: number;
+  warrantyInformation?: string;
+  returnPolicy?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const productSchema = new Schema<IProductDocument>(
@@ -118,7 +118,7 @@ const productSchema = new Schema<IProductDocument>(
         validate: {
           validator: (v: string) => {
             // Simple URL validation
-            return /^(http|https):\/\/[^ "]+$/.test(v)
+            return /^(http|https):\/\/[^ "]+$/.test(v);
           },
           message: (props: any) => `${props.value} is not a valid URL!`,
         },
@@ -197,7 +197,7 @@ const productSchema = new Schema<IProductDocument>(
             validate: {
               validator: (v: string) => {
                 // Simple URL validation
-                return /^(http|https):\/\/[^ "]+$/.test(v)
+                return /^(http|https):\/\/[^ "]+$/.test(v);
               },
               message: (props: any) => `${props.value} is not a valid URL!`,
             },
@@ -305,34 +305,39 @@ const productSchema = new Schema<IProductDocument>(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  },
-)
+  }
+);
 
 // Virtual for reviews
 productSchema.virtual("reviews", {
   ref: "Review",
   localField: "_id",
   foreignField: "product",
-})
+});
 
 // Pre-save middleware to create slug
 productSchema.pre("save", function (next) {
   if (this.isModified("name")) {
-    this.slug = slugify(this.name, { lower: true })
+    this.slug = slugify(this.name, { lower: true });
   }
-  next()
-})
+  next();
+});
 
 // Indexes
-productSchema.index({ name: "text", description: "text", "attributes.value": "text", tags: "text" })
-productSchema.index({ price: 1 })
-productSchema.index({ category: 1 })
-productSchema.index({ vendor: 1 })
-productSchema.index({ "ratings.average": -1 })
-productSchema.index({ createdAt: -1 })
-productSchema.index({ featured: 1 })
-productSchema.index({ active: 1 })
+productSchema.index({
+  name: "text",
+  description: "text",
+  "attributes.value": "text",
+  tags: "text",
+});
+productSchema.index({ price: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ vendor: 1 });
+productSchema.index({ "ratings.average": -1 });
+productSchema.index({ createdAt: -1 });
+productSchema.index({ featured: 1 });
+productSchema.index({ active: 1 });
 
-const Product = mongoose.model<IProductDocument>("Product", productSchema)
+const Product = mongoose.model<IProductDocument>("Product", productSchema);
 
-export default Product
+export default Product;

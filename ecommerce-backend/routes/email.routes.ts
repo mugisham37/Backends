@@ -1,11 +1,11 @@
-import { Router } from "express"
-import * as emailController from "../controllers/email.controller"
-import { authenticate, authorize } from "../middleware/auth.middleware"
+import { Router } from "express";
+import * as emailController from "../controllers/email.controller";
+import { authenticate, authorize } from "../middleware/auth.middleware";
 
-const router = Router()
+const router = Router();
 
 // All routes require admin authentication
-router.use(authenticate, authorize(["admin", "superadmin"]))
+router.use(authenticate, authorize(["admin", "superadmin"]));
 
 /**
  * @swagger
@@ -42,7 +42,7 @@ router.use(authenticate, authorize(["admin", "superadmin"]))
  *                       type: integer
  *                       example: 5
  */
-router.post("/process-queue", emailController.processEmailQueue)
+router.post("/process-queue", emailController.processEmailQueue);
 
 /**
  * @swagger
@@ -72,7 +72,7 @@ router.post("/process-queue", emailController.processEmailQueue)
  *                       type: integer
  *                       example: 10
  */
-router.get("/queue-length", emailController.getEmailQueueLength)
+router.get("/queue-length", emailController.getEmailQueueLength);
 
 /**
  * @swagger
@@ -102,7 +102,7 @@ router.get("/queue-length", emailController.getEmailQueueLength)
  *                       type: integer
  *                       example: 10
  */
-router.delete("/clear-queue", emailController.clearEmailQueue)
+router.delete("/clear-queue", emailController.clearEmailQueue);
 
 /**
  * @swagger
@@ -152,7 +152,7 @@ router.delete("/clear-queue", emailController.clearEmailQueue)
  *                       type: string
  *                       example: <123456789@example.com>
  */
-router.post("/test", emailController.sendTestEmail)
+router.post("/test", emailController.sendTestEmail);
 
 /**
  * @swagger
@@ -213,7 +213,7 @@ router.post("/test", emailController.sendTestEmail)
  *                       type: string
  *                       example: email_1234567890_abc123
  */
-router.post("/welcome", emailController.sendWelcomeEmail)
+router.post("/welcome", emailController.sendWelcomeEmail);
 
 /**
  * @swagger
@@ -335,7 +335,7 @@ router.post("/welcome", emailController.sendWelcomeEmail)
  *                       type: string
  *                       example: email_1234567890_abc123
  */
-router.post("/order-confirmation", emailController.sendOrderConfirmationEmail)
+router.post("/order-confirmation", emailController.sendOrderConfirmationEmail);
 
 /**
  * @swagger
@@ -412,7 +412,7 @@ router.post("/order-confirmation", emailController.sendOrderConfirmationEmail)
  *                       type: string
  *                       example: email_1234567890_abc123
  */
-router.post("/order-shipped", emailController.sendOrderShippedEmail)
+router.post("/order-shipped", emailController.sendOrderShippedEmail);
 
 /**
  * @swagger
@@ -481,7 +481,7 @@ router.post("/order-shipped", emailController.sendOrderShippedEmail)
  *                       type: string
  *                       example: email_1234567890_abc123
  */
-router.post("/order-delivered", emailController.sendOrderDeliveredEmail)
+router.post("/order-delivered", emailController.sendOrderDeliveredEmail);
 
 /**
  * @swagger
@@ -546,7 +546,7 @@ router.post("/order-delivered", emailController.sendOrderDeliveredEmail)
  *                       type: string
  *                       example: <123456789@example.com>
  */
-router.post("/password-reset", emailController.sendPasswordResetEmail)
+router.post("/password-reset", emailController.sendPasswordResetEmail);
 
 /**
  * @swagger
@@ -626,6 +626,6 @@ router.post("/password-reset", emailController.sendPasswordResetEmail)
  *                       type: string
  *                       example: email_1234567890_abc123
  */
-router.post("/review-request", emailController.sendReviewRequestEmail)
+router.post("/review-request", emailController.sendReviewRequestEmail);
 
-export default router
+export default router;

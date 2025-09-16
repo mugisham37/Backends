@@ -1,16 +1,16 @@
-import mongoose, { type Document, Schema } from "mongoose"
-import { createRequestLogger } from "../config/logger"
+import mongoose, { type Document, Schema } from "mongoose";
+import { createRequestLogger } from "../config/logger";
 
 export interface ICurrency extends Document {
-  code: string
-  name: string
-  symbol: string
-  rate: number // Exchange rate relative to base currency
-  isBase: boolean
-  isActive: boolean
-  decimalPlaces: number
-  createdAt: Date
-  updatedAt: Date
+  code: string;
+  name: string;
+  symbol: string;
+  rate: number; // Exchange rate relative to base currency
+  isBase: boolean;
+  isActive: boolean;
+  decimalPlaces: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const currencySchema = new Schema<ICurrency>(
@@ -56,25 +56,28 @@ const currencySchema = new Schema<ICurrency>(
   },
   {
     timestamps: true,
-  },
-)
+  }
+);
 
 // Ensure only one base currency
 currencySchema.pre("save", async function (next) {
-  const logger = createRequestLogger()
+  const logger = createRequestLogger();
 
   try {
     if (this.isBase) {
       // If this currency is being set as base, unset any existing base currency
-      await this.constructor.updateMany({ _id: { $ne: this._id }, isBase: true }, { isBase: false })
-      logger.info(`Set ${this.code} as base currency and unset any previous base currencies`)
+      await this.constructor.updateMany(
+        { _id: { $ne: this._id }, isBase: true },
+        { isBase: false }
+      );
+      logger.info(`Set ${this.code} as base currency and unset any previous base currencies`);
     }
-    next()
+    next();
   } catch (error) {
-    logger.error(`Error in currency pre-save hook: ${error.message}`)
-    next(error)
+    logger.error(`Error in currency pre-save hook: ${error.message}`);
+    next(error);
   }
-})
+});
 
 // Format currency amount
 currencySchema.methods.format = function (amount: number): string {
@@ -83,19 +86,19 @@ currencySchema.methods.format = function (amount: number): string {
     currency: this.code,
     minimumFractionDigits: this.decimalPlaces,
     maximumFractionDigits: this.decimalPlaces,
-  }).format(amount)
-}
+  }).format(amount);
+};
 
 // Convert amount from base currency to this currency
 currencySchema.methods.fromBase = function (amount: number): number {
-  return amount * this.rate
-}
+  return amount * this.rate;
+};
 
 // Convert amount from this currency to base currency
 currencySchema.methods.toBase = function (amount: number): number {
-  return amount / this.rate
-}
+  return amount / this.rate;
+};
 
-const Currency = mongoose.model<ICurrency>("Currency", currencySchema)
+const Currency = mongoose.model<ICurrency>("Currency", currencySchema);
 
-export default Currency
+export default Currency;
