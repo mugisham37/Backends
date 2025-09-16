@@ -41,7 +41,22 @@
     "Millis",
     "tsvector",
     "plainto",
-    "tsquery"
+    "tsquery",
+    "flac",
+    "aac",
+    "ogg",
+    "wma",
+    "webm",
+    "mkv",
+    "docx",
+    "xlsx",
+    "pptx",
+    "rtf",
+    "tiff",
+    "cors",
+    "csrf",
+    "bcrypt",
+    "jwt"
   ],
   "ignorePaths": [
     "node_modules/**",

@@ -46,24 +46,24 @@ export const cacheLogger = createModuleLogger("cache");
 
 // Export logger for backward compatibility and development
 export const devLogger = {
-  info: (...args: unknown[]) => {
+  info: (message: string, ...args: any[]) => {
     if (config.isDevelopment) {
-      logger.info(...args);
+      logger.info(message, ...args);
     }
   },
-  error: (...args: unknown[]) => {
+  error: (message: string, ...args: any[]) => {
     if (config.isDevelopment) {
-      logger.error(...args);
+      logger.error(message, ...args);
     }
   },
-  warn: (...args: unknown[]) => {
+  warn: (message: string, ...args: any[]) => {
     if (config.isDevelopment) {
-      logger.warn(...args);
+      logger.warn(message, ...args);
     }
   },
-  debug: (...args: unknown[]) => {
+  debug: (message: string, ...args: any[]) => {
     if (config.isDevelopment) {
-      logger.debug(...args);
+      logger.debug(message, ...args);
     }
   },
 };
