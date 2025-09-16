@@ -52,7 +52,7 @@ export const config = {
   redis: {
     enabled: !!process.env["REDIS_URI"],
     uri: process.env["REDIS_URI"] || "redis://localhost:6379",
-    password: process.env["REDIS_PASSWORD"],
+    password: process.env["REDIS_PASSWORD"] || undefined,
     db: Number.parseInt(process.env["REDIS_DB"] || "0", 10),
     maxRetriesPerRequest: Number.parseInt(
       process.env["REDIS_MAX_RETRIES"] || "3",
@@ -64,9 +64,17 @@ export const config = {
   jwt: {
     secret:
       process.env["JWT_SECRET"] || "default-dev-secret-change-in-production",
+    refreshSecret:
+      process.env["JWT_REFRESH_SECRET"] ||
+      process.env["JWT_SECRET"] ||
+      "default-dev-secret-change-in-production",
     expiresIn: process.env["JWT_EXPIRES_IN"] || "1d",
     refreshExpiresIn: process.env["JWT_REFRESH_EXPIRES_IN"] || "7d",
+    accessTokenExpiry: process.env["JWT_EXPIRES_IN"] || "1d",
+    refreshTokenExpiry: process.env["JWT_REFRESH_EXPIRES_IN"] || "7d",
     algorithm: "HS256" as const,
+    issuer: process.env["JWT_ISSUER"] || "cms-api",
+    audience: process.env["JWT_AUDIENCE"] || "cms-users",
   },
 
   // Search configuration (for future Elasticsearch integration)

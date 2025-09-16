@@ -14,11 +14,10 @@ export interface CacheEntry<T = any> {
 }
 
 export interface CacheStats {
-  hits: number;
-  misses: number;
-  hitRate: number;
-  totalKeys: number;
-  memoryUsage: number;
+  connected: boolean;
+  keyCount: number;
+  memoryUsage: string;
+  hitRate?: number;
 }
 
 export interface CacheConfig {

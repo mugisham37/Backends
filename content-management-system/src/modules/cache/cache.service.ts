@@ -2,6 +2,7 @@ import Redis from "ioredis";
 import { injectable } from "tsyringe";
 import { config } from "../../shared/config/index";
 import type { Result } from "../../core/types/result.types";
+import type { CacheStats, SessionData } from "./cache.types";
 import { logger } from "../../shared/utils/logger";
 
 /**
@@ -15,24 +16,22 @@ export class CacheService {
   private isConnected = false;
 
   constructor() {
-    // Main Redis connection for caching
-    this.redis = new Redis(config.redis.uri, {
-      password: config.redis.password,
+    // Base Redis options
+    const baseOptions = {
       db: config.redis.db,
       maxRetriesPerRequest: config.redis.maxRetriesPerRequest,
-      retryDelayOnFailover: 100,
       enableReadyCheck: true,
       lazyConnect: true,
-    });
+      ...(config.redis.password && { password: config.redis.password }),
+    };
+
+    // Main Redis connection for caching
+    this.redis = new Redis(config.redis.uri, baseOptions);
 
     // Separate Redis connection for sessions (different DB)
     this.sessionRedis = new Redis(config.redis.uri, {
-      password: config.redis.password,
+      ...baseOptions,
       db: config.redis.db + 1, // Use different DB for sessions
-      maxRetriesPerRequest: config.redis.maxRetriesPerRequest,
-      retryDelayOnFailover: 100,
-      enableReadyCheck: true,
-      lazyConnect: true,
     });
 
     this.setupEventHandlers();
@@ -360,7 +359,7 @@ export class CacheService {
    */
   async createSession(
     sessionId: string,
-    data: any,
+    data: SessionData,
     ttlSeconds = 86400 // 24 hours
   ): Promise<Result<void, Error>> {
     try {
@@ -384,7 +383,7 @@ export class CacheService {
   /**
    * Get session data
    */
-  async getSession<T>(sessionId: string): Promise<T | null> {
+  async getSession<T = SessionData>(sessionId: string): Promise<T | null> {
     try {
       const data = await this.sessionRedis.get(`session:${sessionId}`);
       if (!data) return null;
@@ -401,7 +400,7 @@ export class CacheService {
    */
   async updateSession(
     sessionId: string,
-    data: any,
+    data: SessionData | Partial<SessionData>,
     ttlSeconds?: number
   ): Promise<Result<void, Error>> {
     try {
@@ -456,12 +455,7 @@ export class CacheService {
   /**
    * Get cache statistics
    */
-  async getStats(): Promise<{
-    connected: boolean;
-    keyCount: number;
-    memoryUsage: string;
-    hitRate?: number;
-  }> {
+  async getStats(): Promise<CacheStats> {
     try {
       if (!this.isConnected) {
         return {
@@ -476,7 +470,7 @@ export class CacheService {
 
       // Extract memory usage from info string
       const memoryMatch = info.match(/used_memory_human:([^\r\n]+)/);
-      const memoryUsage = memoryMatch ? memoryMatch[1] : "Unknown";
+      const memoryUsage = memoryMatch?.[1]?.trim() || "Unknown";
 
       return {
         connected: true,

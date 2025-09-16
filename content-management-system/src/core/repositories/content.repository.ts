@@ -1,6 +1,9 @@
 import { eq, and, or, ilike, sql, desc } from "drizzle-orm";
 import { injectable } from "tsyringe";
-import { contents } from "../database/schema/content.schema.js";
+import {
+  contents,
+  contentVersions,
+} from "../database/schema/content.schema.js";
 import { DatabaseError } from "../errors/database.error.js";
 import type {
   FilterOptions,
@@ -14,6 +17,8 @@ import { TenantBaseRepository } from "./tenant-base.repository.js";
  */
 export type Content = typeof contents.$inferSelect;
 export type NewContent = typeof contents.$inferInsert;
+export type ContentVersion = typeof contentVersions.$inferSelect;
+export type NewContentVersion = typeof contentVersions.$inferInsert;
 
 /**
  * Content-specific filter options
@@ -685,6 +690,112 @@ export class ContentRepository extends TenantBaseRepository<Content> {
           "Failed to update content metrics",
           "updateContentMetrics",
           this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Create a new content version
+   */
+  async createVersion(versionData: {
+    contentId: string;
+    version: number;
+    title: string;
+    body: string | null;
+    excerpt: string | null;
+    status: string;
+    authorId: string;
+    changeLog?: string;
+    customFields?: Record<string, unknown> | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<Result<ContentVersion, Error>> {
+    try {
+      const [version] = await this.db
+        .insert(contentVersions)
+        .values({
+          contentId: versionData.contentId,
+          version: versionData.version,
+          title: versionData.title,
+          body: versionData.body,
+          excerpt: versionData.excerpt,
+          status: versionData.status,
+          authorId: versionData.authorId,
+          changeLog: versionData.changeLog || null,
+          customFields: versionData.customFields || null,
+          metadata: versionData.metadata || null,
+        })
+        .returning();
+
+      return { success: true, data: version as ContentVersion };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to create content version",
+          "createVersion",
+          "content_versions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Get all versions of a content item
+   */
+  async getVersions(
+    contentId: string
+  ): Promise<Result<ContentVersion[], Error>> {
+    try {
+      const versions = await this.db
+        .select()
+        .from(contentVersions)
+        .where(eq(contentVersions.contentId, contentId))
+        .orderBy(desc(contentVersions.version));
+
+      return { success: true, data: versions as ContentVersion[] };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to get content versions",
+          "getVersions",
+          "content_versions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Get a specific version of content
+   */
+  async getVersion(
+    contentId: string,
+    versionNumber: number
+  ): Promise<Result<ContentVersion | null, Error>> {
+    try {
+      const [version] = await this.db
+        .select()
+        .from(contentVersions)
+        .where(
+          and(
+            eq(contentVersions.contentId, contentId),
+            eq(contentVersions.version, versionNumber)
+          )
+        )
+        .limit(1);
+
+      return { success: true, data: (version as ContentVersion) || null };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to get content version",
+          "getVersion",
+          "content_versions",
           error
         ),
       };

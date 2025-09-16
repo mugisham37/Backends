@@ -7,12 +7,11 @@ import type {
   NewContent,
 } from "../../core/database/schema/content.schema";
 import {
-  BusinessRuleError,
   ConflictError,
   NotFoundError,
   ValidationError,
 } from "../../core/errors";
-import { ContentRepository } from "./content.repository";
+import { ContentRepository } from "../../core/repositories/content.repository";
 import type { Result } from "../../core/types/result.types";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
@@ -135,17 +134,18 @@ export class ContentService {
       }
 
       // Build sort options
-      const sortOptions = [];
-      if (sort.field) {
+      const sortOptions: { field: keyof Content; direction: "asc" | "desc" }[] =
+        [];
+      if (sort.field && (sort.field as keyof Content)) {
         sortOptions.push({
-          field: sort.field,
+          field: sort.field as keyof Content,
           direction: sort.direction || "asc",
         });
       } else {
         sortOptions.push({ field: "updatedAt", direction: "desc" as const });
       }
 
-      const result = await this.contentRepository.findManyPaginated({
+      const result = await this._contentRepository.findManyPaginated({
         where: filterConditions,
         orderBy: sortOptions,
         pagination: { page, limit },
@@ -181,12 +181,12 @@ export class ContentService {
     try {
       // Check cache first
       const cacheKey = `content:${id}`;
-      const cachedContent = await this.cacheService.get(cacheKey);
+      const cachedContent = await this._cacheService.get(cacheKey);
       if (cachedContent) {
-        return { success: true, data: cachedContent };
+        return { success: true, data: cachedContent as Content };
       }
 
-      const result = await this.contentRepository.findByIdInTenant(
+      const result = await this._contentRepository.findByIdInTenant(
         id,
         tenantId
       );
@@ -198,7 +198,7 @@ export class ContentService {
       }
 
       // Cache content for 5 minutes
-      await this.cacheService.set(cacheKey, result.data, 5 * 60);
+      await this._cacheService.set(cacheKey, result.data, 5 * 60);
 
       return result as Result<Content, NotFoundError>;
     } catch (error) {
@@ -220,15 +220,12 @@ export class ContentService {
     try {
       // Check cache first
       const cacheKey = `content:slug:${tenantId}:${slug}`;
-      const cachedContent = await this.cacheService.get(cacheKey);
+      const cachedContent = await this._cacheService.get(cacheKey);
       if (cachedContent) {
-        return { success: true, data: cachedContent };
+        return { success: true, data: cachedContent as Content };
       }
 
-      const result = await this.contentRepository.findBySlugInTenant(
-        slug,
-        tenantId
-      );
+      const result = await this._contentRepository.findBySlug(tenantId, slug);
       if (!result.success || !result.data) {
         return {
           success: false,
@@ -237,7 +234,7 @@ export class ContentService {
       }
 
       // Cache content for 5 minutes
-      await this.cacheService.set(cacheKey, result.data, 5 * 60);
+      await this._cacheService.set(cacheKey, result.data, 5 * 60);
 
       return result as Result<Content, NotFoundError>;
     } catch (error) {
@@ -284,18 +281,16 @@ export class ContentService {
       if (!this.isValidSlug(slug)) {
         return {
           success: false,
-          error: new ValidationError("Invalid slug format", {
-            slug: [
-              "Slug must contain only lowercase letters, numbers, and hyphens",
-            ],
-          }),
+          error: new ValidationError(
+            "Slug must contain only lowercase letters, numbers, and hyphens"
+          ),
         };
       }
 
       // Check if slug is unique within tenant
-      const existingContent = await this.contentRepository.findBySlugInTenant(
-        slug,
-        tenantId
+      const existingContent = await this._contentRepository.findBySlug(
+        tenantId,
+        slug
       );
       if (existingContent.success && existingContent.data) {
         return {
@@ -312,52 +307,52 @@ export class ContentService {
       };
 
       // Create content
-      const contentData: NewContent = {
+      const contentData = {
         title: data.title,
         slug,
-        excerpt: data.excerpt,
-        body: data.body,
+        excerpt: data.excerpt || null,
+        body: data.body || null,
         contentType: data.contentType || "article",
         status: data.status || "draft",
         version: 1,
         isLatestVersion: true,
         authorId,
         tenantId,
-        seoTitle: data.seoTitle,
-        seoDescription: data.seoDescription,
-        seoKeywords: data.seoKeywords,
-        featuredImage: data.featuredImage,
-        tags: data.tags,
-        categories: data.categories,
-        customFields: data.customFields,
+        seoTitle: data.seoTitle || null,
+        seoDescription: data.seoDescription || null,
+        seoKeywords: data.seoKeywords || null,
+        featuredImage: data.featuredImage || null,
+        tags: data.tags || null,
+        categories: data.categories || null,
+        customFields: data.customFields || null,
         metadata,
-        scheduledAt: data.scheduledAt,
-      };
+        scheduledAt: data.scheduledAt || null,
+      } as NewContent;
 
-      const result = await this.contentRepository.create(contentData);
+      const result = await this._contentRepository.create(contentData as any);
       if (!result.success) {
         return result;
       }
 
       // Create initial version
-      await this.contentRepository.createVersion({
+      await this._contentRepository.createVersion({
         contentId: result.data.id,
         version: 1,
         title: data.title,
-        body: data.body,
-        excerpt: data.excerpt,
+        body: data.body || null,
+        excerpt: data.excerpt || null,
         status: data.status || "draft",
         authorId,
         changeLog: "Initial version",
-        customFields: data.customFields,
+        customFields: data.customFields || null,
         metadata,
       });
 
       // Index content for search
-      await this.searchService.indexContent(result.data);
+      await this._searchService.indexContent(result.data);
 
       // Log content creation
-      await this.auditService.logContentEvent({
+      await this._auditService.logContentEvent({
         contentId: result.data.id,
         tenantId,
         userId: authorId,
@@ -419,17 +414,15 @@ export class ContentService {
         if (!this.isValidSlug(data.slug)) {
           return {
             success: false,
-            error: new ValidationError("Invalid slug format", {
-              slug: [
-                "Slug must contain only lowercase letters, numbers, and hyphens",
-              ],
-            }),
+            error: new ValidationError(
+              "Slug must contain only lowercase letters, numbers, and hyphens"
+            ),
           };
         }
 
-        const existingSlug = await this.contentRepository.findBySlugInTenant(
-          data.slug,
-          tenantId
+        const existingSlug = await this._contentRepository.findBySlug(
+          tenantId,
+          data.slug
         );
         if (existingSlug.success && existingSlug.data) {
           return {
@@ -461,13 +454,13 @@ export class ContentService {
         metadata: updatedMetadata,
       };
 
-      const result = await this.contentRepository.update(id, updateData);
+      const result = await this._contentRepository.update(id, updateData);
       if (!result.success) {
         return result;
       }
 
       // Create new version
-      await this.contentRepository.createVersion({
+      await this._contentRepository.createVersion({
         contentId: id,
         version: newVersion,
         title: data.title || existingContent.data.title,
@@ -481,16 +474,16 @@ export class ContentService {
       });
 
       // Clear cache
-      await this.cacheService.delete(`content:${id}`);
-      await this.cacheService.delete(
+      await this._cacheService.delete(`content:${id}`);
+      await this._cacheService.delete(
         `content:slug:${tenantId}:${existingContent.data.slug}`
       );
 
       // Update search index
-      await this.searchService.updateContent(result.data);
+      await this._searchService.updateContent(result.data);
 
       // Log content update
-      await this.auditService.logContentEvent({
+      await this._auditService.logContentEvent({
         contentId: id,
         tenantId,
         userId: editorId,
@@ -533,22 +526,22 @@ export class ContentService {
       }
 
       // Delete content
-      const result = await this.contentRepository.delete(id);
+      const result = await this._contentRepository.delete(id);
       if (!result.success) {
         return result;
       }
 
       // Clear cache
-      await this.cacheService.delete(`content:${id}`);
-      await this.cacheService.delete(
+      await this._cacheService.delete(`content:${id}`);
+      await this._cacheService.delete(
         `content:slug:${tenantId}:${existingContent.data.slug}`
       );
 
       // Remove from search index
-      await this.searchService.removeContent(id);
+      await this._searchService.removeContent(id);
 
       // Log content deletion
-      await this.auditService.logContentEvent({
+      await this._auditService.logContentEvent({
         contentId: id,
         tenantId,
         userId,
@@ -600,25 +593,25 @@ export class ContentService {
       const updateData: Partial<Content> = {
         status: "published",
         publishedAt: scheduledAt || new Date(),
-        scheduledAt: scheduledAt,
+        scheduledAt: scheduledAt || null,
       };
 
-      const result = await this.contentRepository.update(id, updateData);
+      const result = await this._contentRepository.update(id, updateData);
       if (!result.success) {
         return result;
       }
 
       // Clear cache
-      await this.cacheService.delete(`content:${id}`);
-      await this.cacheService.delete(
+      await this._cacheService.delete(`content:${id}`);
+      await this._cacheService.delete(
         `content:slug:${tenantId}:${existingContent.data.slug}`
       );
 
       // Update search index
-      await this.searchService.updateContent(result.data);
+      await this._searchService.updateContent(result.data);
 
       // Log content publishing
-      await this.auditService.logContentEvent({
+      await this._auditService.logContentEvent({
         contentId: id,
         tenantId,
         userId,
@@ -664,22 +657,22 @@ export class ContentService {
         scheduledAt: null,
       };
 
-      const result = await this.contentRepository.update(id, updateData);
+      const result = await this._contentRepository.update(id, updateData);
       if (!result.success) {
         return result;
       }
 
       // Clear cache
-      await this.cacheService.delete(`content:${id}`);
-      await this.cacheService.delete(
+      await this._cacheService.delete(`content:${id}`);
+      await this._cacheService.delete(
         `content:slug:${tenantId}:${existingContent.data.slug}`
       );
 
       // Update search index
-      await this.searchService.updateContent(result.data);
+      await this._searchService.updateContent(result.data);
 
       // Log content unpublishing
-      await this.auditService.logContentEvent({
+      await this._auditService.logContentEvent({
         contentId: id,
         tenantId,
         userId,
@@ -719,7 +712,7 @@ export class ContentService {
         };
       }
 
-      const result = await this.contentRepository.getVersions(contentId);
+      const result = await this._contentRepository.getVersions(contentId);
       return result;
     } catch (error) {
       logger.error(`Error getting content versions for ${contentId}:`, error);
@@ -747,7 +740,7 @@ export class ContentService {
       }
 
       // Get the version to restore
-      const versionResult = await this.contentRepository.getVersion(
+      const versionResult = await this._contentRepository.getVersion(
         contentId,
         versionNumber
       );
@@ -773,13 +766,16 @@ export class ContentService {
         metadata: version.metadata,
       };
 
-      const result = await this.contentRepository.update(contentId, updateData);
+      const result = await this._contentRepository.update(
+        contentId,
+        updateData
+      );
       if (!result.success) {
         return result;
       }
 
       // Create version record
-      await this.contentRepository.createVersion({
+      await this._contentRepository.createVersion({
         contentId,
         version: newVersion,
         title: version.title,
@@ -793,16 +789,16 @@ export class ContentService {
       });
 
       // Clear cache
-      await this.cacheService.delete(`content:${contentId}`);
-      await this.cacheService.delete(
+      await this._cacheService.delete(`content:${contentId}`);
+      await this._cacheService.delete(
         `content:slug:${tenantId}:${existingContent.data.slug}`
       );
 
       // Update search index
-      await this.searchService.updateContent(result.data);
+      await this._searchService.updateContent(result.data);
 
       // Log version restoration
-      await this.auditService.logContentEvent({
+      await this._auditService.logContentEvent({
         contentId,
         tenantId,
         userId,

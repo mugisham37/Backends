@@ -28,6 +28,7 @@
     "bigint",
     "pgcore",
     "rgba",
+    "unpublishing",
     "webp",
     "cdn",
     "gcs",
@@ -56,7 +57,10 @@
     "cors",
     "csrf",
     "bcrypt",
-    "jwt"
+    "jwt",
+    "setex",
+    "incrby",
+    "dbsize"
   ],
   "ignorePaths": [
     "node_modules/**",

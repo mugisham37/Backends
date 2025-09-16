@@ -1,110 +1,175 @@
-import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import { config } from "../../shared/config";
-import { UserModel, UserRole } from "../db/models/user.model";
-import { ApiError } from "../utils/errors";
-import { logger } from "../utils/logger";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { inject, injectable } from "tsyringe";
+import { AuthService } from "./auth.service.js";
+import { logger } from "../../shared/utils/logger.js";
+import type { LoginCredentials } from "./auth.types.js";
+import type { CreateUserRequest } from "./user.schemas.js";
 
+/**
+ * Authentication controller for Fastify
+ * Handles user registration, login, and token management
+ */
+@injectable()
 export class AuthController {
+  constructor(@inject("AuthService") private authService: AuthService) {}
+
   /**
    * Register a new user
    */
-  public register = async (req: Request, res: Response, next: NextFunction) => {
+  public register = async (
+    request: FastifyRequest<{ Body: CreateUserRequest }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { email, password, firstName, lastName, role } = req.body;
+      const userData = request.body;
 
-      // Check if user already exists
-      const existingUser = await UserModel.findOne({ email });
-      if (existingUser) {
-        throw ApiError.conflict("User with this email already exists");
+      logger.info("User registration attempt", { email: userData.email });
+
+      const registrationData: {
+        email: string;
+        password: string;
+        firstName: string;
+        lastName: string;
+        role?: string;
+        preferences?: Record<string, unknown>;
+        metadata?: Record<string, unknown>;
+        tenantId?: string;
+      } = {
+        email: userData.email,
+        password: userData.password,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+      };
+
+      if (userData.preferences) {
+        registrationData.preferences = userData.preferences as Record<
+          string,
+          unknown
+        >;
       }
 
-      // Create new user
-      const user = new UserModel({
-        email,
-        password,
-        firstName,
-        lastName,
-        role: role || UserRole.VIEWER, // Default to VIEWER role
+      if (userData.metadata) {
+        registrationData.metadata = userData.metadata as Record<
+          string,
+          unknown
+        >;
+      }
+
+      const result = await this.authService.registerUser(registrationData);
+
+      if (!result.success) {
+        logger.warn("Registration failed", {
+          email: userData.email,
+          error: result.error?.message,
+        });
+
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Registration failed",
+          code: "REGISTRATION_FAILED",
+        });
+      }
+
+      logger.info("User registered successfully", {
+        email: userData.email,
+        userId: result.data?.user.id,
       });
 
-      await user.save();
-
-      // Generate tokens
-      const { accessToken, refreshToken } = this.generateTokens(user);
-
-      // Return user data and tokens
-      res.status(201).json({
+      return reply.status(201).send({
         status: "success",
         data: {
           user: {
-            id: user._id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role,
+            id: result.data?.user.id,
+            email: result.data?.user.email,
+            firstName: result.data?.user.firstName,
+            lastName: result.data?.user.lastName,
+            role: result.data?.user.role,
           },
-          tokens: {
-            accessToken,
-            refreshToken,
-          },
+          tokens: result.data?.tokens,
         },
       });
     } catch (error) {
-      next(error);
+      logger.error("Registration error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
     }
   };
 
   /**
-   * Login user
+   * Authenticate user login
    */
-  public login = async (req: Request, res: Response, next: NextFunction) => {
+  public login = async (
+    request: FastifyRequest<{ Body: LoginCredentials }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { email, password } = req.body;
+      const credentials = request.body;
+      const deviceInfo: {
+        userAgent?: string;
+        ip?: string;
+        platform?: string;
+        browser?: string;
+      } = {};
 
-      // Find user by email
-      const user = await UserModel.findOne({ email });
-      if (!user) {
-        throw ApiError.unauthorized("Invalid email or password");
+      if (request.headers["user-agent"]) {
+        deviceInfo.userAgent = request.headers["user-agent"];
+      }
+      if (request.ip) {
+        deviceInfo.ip = request.ip;
+      }
+      if (typeof request.headers["sec-ch-ua-platform"] === "string") {
+        deviceInfo.platform = request.headers["sec-ch-ua-platform"];
       }
 
-      // Check if user is active
-      if (!user.isActive) {
-        throw ApiError.unauthorized("Your account has been deactivated");
+      logger.info("Login attempt", { email: credentials.email });
+
+      const result = await this.authService.authenticate({
+        ...credentials,
+        deviceInfo,
+      });
+
+      if (!result.success) {
+        logger.warn("Login failed", {
+          email: credentials.email,
+          error: result.error?.message,
+        });
+
+        return reply.status(401).send({
+          status: "error",
+          message: result.error?.message || "Authentication failed",
+          code: "AUTHENTICATION_FAILED",
+        });
       }
 
-      // Verify password
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        throw ApiError.unauthorized("Invalid email or password");
-      }
+      logger.info("Login successful", {
+        email: credentials.email,
+        userId: result.data?.user.id,
+      });
 
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
-
-      // Generate tokens
-      const { accessToken, refreshToken } = this.generateTokens(user);
-
-      // Return user data and tokens
-      res.status(200).json({
+      return reply.status(200).send({
         status: "success",
         data: {
           user: {
-            id: user._id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role,
+            id: result.data?.user.id,
+            email: result.data?.user.email,
+            firstName: result.data?.user.firstName,
+            lastName: result.data?.user.lastName,
+            role: result.data?.user.role,
           },
-          tokens: {
-            accessToken,
-            refreshToken,
-          },
+          tokens: result.data?.tokens,
         },
       });
     } catch (error) {
-      next(error);
+      logger.error("Login error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
     }
   };
 
@@ -112,98 +177,141 @@ export class AuthController {
    * Refresh access token
    */
   public refreshToken = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{ Body: { refreshToken: string } }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { refreshToken } = req.body;
+      const { refreshToken } = request.body;
 
-      // Verify refresh token
-      let decoded;
-      try {
-        decoded = jwt.verify(refreshToken, config.jwt.secret) as {
-          id: string;
-          type: string;
-        };
-      } catch (_error) {
-        throw ApiError.unauthorized("Invalid refresh token");
+      if (!refreshToken) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Refresh token is required",
+          code: "MISSING_REFRESH_TOKEN",
+        });
       }
 
-      // Check if token is a refresh token
-      if (decoded.type !== "refresh") {
-        throw ApiError.unauthorized("Invalid token type");
+      const result = await this.authService.refreshToken(refreshToken);
+
+      if (!result.success) {
+        return reply.status(401).send({
+          status: "error",
+          message: result.error?.message || "Invalid refresh token",
+          code: "INVALID_REFRESH_TOKEN",
+        });
       }
 
-      // Find user
-      const user = await UserModel.findById(decoded.id);
+      return reply.status(200).send({
+        status: "success",
+        data: {
+          tokens: result.data,
+        },
+      });
+    } catch (error) {
+      logger.error("Token refresh error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
+    }
+  };
+
+  /**
+   * Logout user (invalidate tokens)
+   */
+  public logout = async (
+    request: FastifyRequest<{ Body: { refreshToken?: string } }>,
+    reply: FastifyReply
+  ): Promise<void> => {
+    try {
+      const { refreshToken } = request.body;
+      const authHeader = request.headers.authorization;
+      const accessToken = authHeader?.replace("Bearer ", "");
+
+      if (!accessToken && !refreshToken) {
+        return reply.status(400).send({
+          status: "error",
+          message: "Access token or refresh token required",
+          code: "MISSING_TOKEN",
+        });
+      }
+
+      const logoutData: { accessToken?: string; refreshToken?: string } = {};
+
+      if (accessToken) {
+        logoutData.accessToken = accessToken;
+      }
+      if (refreshToken) {
+        logoutData.refreshToken = refreshToken;
+      }
+
+      const result = await this.authService.logout(logoutData);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Logout failed",
+          code: "LOGOUT_FAILED",
+        });
+      }
+
+      return reply.status(200).send({
+        status: "success",
+        message: "Logged out successfully",
+      });
+    } catch (error) {
+      logger.error("Logout error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
+    }
+  };
+
+  /**
+   * Get current user profile
+   */
+  public getProfile = async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    try {
+      // User should be available from auth middleware
+      const user = (request as any).user;
+
       if (!user) {
-        throw ApiError.unauthorized("User not found");
+        return reply.status(401).send({
+          status: "error",
+          message: "User not authenticated",
+          code: "NOT_AUTHENTICATED",
+        });
       }
 
-      // Check if user is active
-      if (!user.isActive) {
-        throw ApiError.unauthorized("Your account has been deactivated");
+      const result = await this.authService.getUserProfile(user.id);
+
+      if (!result.success) {
+        return reply.status(404).send({
+          status: "error",
+          message: result.error?.message || "User not found",
+          code: "USER_NOT_FOUND",
+        });
       }
 
-      // Generate new tokens
-      const tokens = this.generateTokens(user);
-
-      // Return new tokens
-      res.status(200).json({
+      return reply.status(200).send({
         status: "success",
         data: {
-          tokens,
+          user: result.data,
         },
       });
     } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Get current user
-   */
-  public getCurrentUser = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const user = (req as any).user;
-
-      res.status(200).json({
-        status: "success",
-        data: {
-          user: {
-            id: user._id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role,
-            lastLogin: user.lastLogin,
-          },
-        },
+      logger.error("Get profile error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
       });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Logout user
-   */
-  public logout = async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      // In a stateless JWT system, we don't need to do anything server-side
-      // The client should discard the tokens
-
-      res.status(200).json({
-        status: "success",
-        message: "Successfully logged out",
-      });
-    } catch (error) {
-      next(error);
     }
   };
 
@@ -211,30 +319,48 @@ export class AuthController {
    * Change password
    */
   public changePassword = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{
+      Body: { currentPassword: string; newPassword: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { currentPassword, newPassword } = req.body;
-      const user = (req as any).user;
+      const { currentPassword, newPassword } = request.body;
+      const user = (request as any).user;
 
-      // Verify current password
-      const isPasswordValid = await user.comparePassword(currentPassword);
-      if (!isPasswordValid) {
-        throw ApiError.unauthorized("Current password is incorrect");
+      if (!user) {
+        return reply.status(401).send({
+          status: "error",
+          message: "User not authenticated",
+          code: "NOT_AUTHENTICATED",
+        });
       }
 
-      // Update password
-      user.password = newPassword;
-      await user.save();
+      const result = await this.authService.changePassword({
+        userId: user.id,
+        currentPassword,
+        newPassword,
+      });
 
-      res.status(200).json({
+      if (!result.success) {
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Password change failed",
+          code: "PASSWORD_CHANGE_FAILED",
+        });
+      }
+
+      return reply.status(200).send({
         status: "success",
         message: "Password changed successfully",
       });
     } catch (error) {
-      next(error);
+      logger.error("Change password error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
     }
   };
 
@@ -242,116 +368,61 @@ export class AuthController {
    * Request password reset
    */
   public forgotPassword = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{ Body: { email: string } }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { email } = req.body;
+      const { email } = request.body;
 
-      // Find user by email
-      const user = await UserModel.findOne({ email });
+      await this.authService.initiateForgotPassword(email);
 
-      // Don't reveal if user exists or not
-      if (!user) {
-        return res.status(200).json({
-          status: "success",
-          message:
-            "If your email is registered, you will receive a password reset link",
-        });
-      }
-
-      // Generate reset token
-      const resetToken = jwt.sign(
-        { id: user._id, type: "reset" },
-        config.jwt.secret,
-        { expiresIn: "1h" }
-      );
-
-      // In a real application, send an email with the reset link
-      // For this example, we'll just log it
-      logger.info(`Reset token for ${email}: ${resetToken}`);
-
-      res.status(200).json({
+      // Always return success to prevent email enumeration
+      return reply.status(200).send({
         status: "success",
         message:
           "If your email is registered, you will receive a password reset link",
-        // Include token in response for testing purposes
-        ...(config.isDevelopment && { resetToken }),
       });
     } catch (error) {
-      next(error);
+      logger.error("Forgot password error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
     }
   };
 
   /**
-   * Reset password
+   * Reset password with token
    */
   public resetPassword = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
+    request: FastifyRequest<{ Body: { token: string; newPassword: string } }>,
+    reply: FastifyReply
+  ): Promise<void> => {
     try {
-      const { token, newPassword } = req.body;
+      const { token, newPassword } = request.body;
 
-      // Verify token
-      let decoded;
-      try {
-        decoded = jwt.verify(token, config.jwt.secret) as {
-          id: string;
-          type: string;
-        };
-      } catch (_error) {
-        throw ApiError.unauthorized("Invalid or expired token");
+      const result = await this.authService.resetPassword(token, newPassword);
+
+      if (!result.success) {
+        return reply.status(400).send({
+          status: "error",
+          message: result.error?.message || "Password reset failed",
+          code: "PASSWORD_RESET_FAILED",
+        });
       }
 
-      // Check if token is a reset token
-      if (decoded.type !== "reset") {
-        throw ApiError.unauthorized("Invalid token type");
-      }
-
-      // Find user
-      const user = await UserModel.findById(decoded.id);
-      if (!user) {
-        throw ApiError.unauthorized("User not found");
-      }
-
-      // Update password
-      user.password = newPassword;
-      await user.save();
-
-      res.status(200).json({
+      return reply.status(200).send({
         status: "success",
         message: "Password reset successfully",
       });
     } catch (error) {
-      next(error);
+      logger.error("Reset password error:", error);
+      return reply.status(500).send({
+        status: "error",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+      });
     }
   };
-
-  /**
-   * Generate access and refresh tokens
-   */
-  private generateTokens(user: any) {
-    // Generate access token
-    const accessToken = jwt.sign(
-      { id: user._id, role: user.role, type: "access" },
-      config.jwt.secret,
-      {
-        expiresIn: config.jwt.expiresIn,
-      }
-    );
-
-    // Generate refresh token
-    const refreshToken = jwt.sign(
-      { id: user._id, type: "refresh" },
-      config.jwt.secret,
-      {
-        expiresIn: config.jwt.refreshExpiresIn,
-      }
-    );
-
-    return { accessToken, refreshToken };
-  }
 }

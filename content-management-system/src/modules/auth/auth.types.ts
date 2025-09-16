@@ -1,3 +1,5 @@
+import type { User } from "../../core/database/schema/auth.schema.js";
+
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -18,15 +20,6 @@ export interface UserPayload {
   email: string;
   role: string;
   tenantId?: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  role: string;
-  tenantId?: string;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface CreateUserData {

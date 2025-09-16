@@ -88,12 +88,37 @@ export function formatPaginatedResponse<T>(
 export function parseSortParams(query: Record<string, unknown>): {
   sortBy?: string | undefined;
   sortOrder: "asc" | "desc";
-} {
-  const sortBy = query["sortBy"] as string | undefined;
-  const sortOrder =
-    (query["sortOrder"] as string)?.toLowerCase() === "desc" ? "desc" : "asc";
+};
+export function parseSortParams(
+  query: Record<string, unknown>,
+  defaultField: string,
+  defaultDirection: "asc" | "desc"
+): {
+  field: string;
+  direction: "asc" | "desc";
+};
+export function parseSortParams(
+  query: Record<string, unknown>,
+  defaultField?: string,
+  defaultDirection?: "asc" | "desc"
+): any {
+  if (defaultField && defaultDirection) {
+    const field = (query["sortBy"] as string) || defaultField;
+    const direction =
+      (query["sortOrder"] as string)?.toLowerCase() === "desc"
+        ? "desc"
+        : (query["sortOrder"] as string)?.toLowerCase() === "asc"
+        ? "asc"
+        : defaultDirection;
 
-  return { sortBy, sortOrder };
+    return { field, direction };
+  } else {
+    const sortBy = query["sortBy"] as string | undefined;
+    const sortOrder =
+      (query["sortOrder"] as string)?.toLowerCase() === "desc" ? "desc" : "asc";
+
+    return { sortBy, sortOrder };
+  }
 }
 
 /**

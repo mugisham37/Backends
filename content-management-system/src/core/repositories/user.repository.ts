@@ -1,6 +1,11 @@
 import { eq, and, or, ilike, sql } from "drizzle-orm";
 import { injectable } from "tsyringe";
-import { users } from "../database/schema/auth.schema.js";
+import {
+  users,
+  userSessions,
+  type UserSession,
+  type NewUserSession,
+} from "../database/schema/auth.schema.js";
 import { DatabaseError } from "../errors/database.error.js";
 import type {
   FilterOptions,
@@ -427,6 +432,320 @@ export class UserRepository extends TenantBaseRepository<User> {
         error: new DatabaseError(
           "Failed to activate user",
           "activate",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Create a new user session
+   */
+  async createSession(
+    sessionData: Omit<NewUserSession, "id" | "createdAt" | "updatedAt">
+  ): Promise<Result<UserSession, Error>> {
+    try {
+      const [session] = await this.db
+        .insert(userSessions)
+        .values({
+          ...sessionData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      if (!session) {
+        return {
+          success: false,
+          error: new DatabaseError(
+            "Failed to create session",
+            "createSession",
+            "user_sessions"
+          ),
+        };
+      }
+
+      return { success: true, data: session as UserSession };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to create user session",
+          "createSession",
+          "user_sessions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Find session by refresh token hash
+   */
+  async findSessionByRefreshToken(
+    refreshTokenHash: string
+  ): Promise<Result<UserSession | null, Error>> {
+    try {
+      const [session] = await this.db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.refreshTokenHash, refreshTokenHash),
+            eq(userSessions.isActive, true)
+          )
+        )
+        .limit(1);
+
+      return { success: true, data: (session as UserSession) || null };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to find session by refresh token",
+          "findSessionByRefreshToken",
+          "user_sessions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Find session by token hash (access token)
+   */
+  async findSessionByToken(
+    tokenHash: string
+  ): Promise<Result<UserSession | null, Error>> {
+    try {
+      const [session] = await this.db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.tokenHash, tokenHash),
+            eq(userSessions.isActive, true)
+          )
+        )
+        .limit(1);
+
+      return { success: true, data: (session as UserSession) || null };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to find session by token",
+          "findSessionByToken",
+          "user_sessions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Invalidate a user session
+   */
+  async invalidateSession(sessionId: string): Promise<Result<boolean, Error>> {
+    try {
+      const [updatedSession] = await this.db
+        .update(userSessions)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSessions.id, sessionId))
+        .returning();
+
+      return { success: true, data: !!updatedSession };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to invalidate session",
+          "invalidateSession",
+          "user_sessions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Invalidate all user sessions
+   */
+  async invalidateUserSessions(userId: string): Promise<Result<number, Error>> {
+    try {
+      const result = await this.db
+        .update(userSessions)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(userSessions.userId, userId))
+        .returning();
+
+      return { success: true, data: result.length };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to invalidate user sessions",
+          "invalidateUserSessions",
+          "user_sessions",
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Set password reset token
+   */
+  async setPasswordResetToken(
+    userId: string,
+    token: string,
+    expiresAt: Date
+  ): Promise<Result<User, Error>> {
+    try {
+      const [updatedUser] = await this.db
+        .update(this.table)
+        .set({
+          passwordResetToken: token,
+          passwordResetExpiresAt: expiresAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      if (!updatedUser) {
+        return {
+          success: false,
+          error: new DatabaseError(
+            "User not found",
+            "setPasswordResetToken",
+            this.table._.name
+          ),
+        };
+      }
+
+      return { success: true, data: updatedUser as User };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to set password reset token",
+          "setPasswordResetToken",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Reset password using reset token
+   */
+  async resetPassword(
+    token: string,
+    newPasswordHash: string
+  ): Promise<Result<User, Error>> {
+    try {
+      const [updatedUser] = await this.db
+        .update(this.table)
+        .set({
+          passwordHash: newPasswordHash,
+          passwordResetToken: null,
+          passwordResetExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.passwordResetToken, token))
+        .returning();
+
+      if (!updatedUser) {
+        return {
+          success: false,
+          error: new DatabaseError(
+            "Invalid or expired reset token",
+            "resetPassword",
+            this.table._.name
+          ),
+        };
+      }
+
+      return { success: true, data: updatedUser as User };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to reset password",
+          "resetPassword",
+          this.table._.name,
+          error
+        ),
+      };
+    }
+  }
+
+  /**
+   * Check if user has permission
+   */
+  async hasPermission(
+    userId: string,
+    resource: string,
+    action: string
+  ): Promise<Result<boolean, Error>> {
+    try {
+      // For now, this is a simple implementation
+      // You can extend this to check user permissions table
+      const userResult = await this.findById(userId);
+      if (!userResult.success || !userResult.data) {
+        return { success: true, data: false };
+      }
+
+      const user = userResult.data;
+
+      // Super admin has all permissions
+      if (user.role === "super_admin") {
+        return { success: true, data: true };
+      }
+
+      // Admin has most permissions
+      if (user.role === "admin" && resource !== "system") {
+        return { success: true, data: true };
+      }
+
+      // Simple role-based permissions (extend as needed)
+      const rolePermissions = {
+        editor: [
+          "content:create",
+          "content:read",
+          "content:update",
+          "media:create",
+          "media:read",
+        ],
+        author: [
+          "content:create",
+          "content:read",
+          "content:update:own",
+          "media:create",
+          "media:read",
+        ],
+        viewer: ["content:read", "media:read"],
+      };
+
+      const permission = `${resource}:${action}`;
+      const userPermissions =
+        rolePermissions[user.role as keyof typeof rolePermissions] || [];
+
+      return { success: true, data: userPermissions.includes(permission) };
+    } catch (error) {
+      return {
+        success: false,
+        error: new DatabaseError(
+          "Failed to check user permission",
+          "hasPermission",
           this.table._.name,
           error
         ),
