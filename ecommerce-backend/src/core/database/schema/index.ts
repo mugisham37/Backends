@@ -8,6 +8,7 @@ export * from "./users";
 export * from "./vendors";
 export * from "./products";
 export * from "./orders";
+export * from "./notifications";
 
 // Export relations
 export * from "./relations";
