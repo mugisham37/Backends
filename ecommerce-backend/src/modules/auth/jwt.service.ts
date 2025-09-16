@@ -3,7 +3,8 @@
  * Handles JWT token generation, validation, and refresh token mechanism
  */
 
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
+
 import { AppError } from "../../core/errors/app-error.js";
 import type { User } from "../../core/database/schema/users.js";
 
@@ -58,24 +59,36 @@ export class JWTService {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, this.accessTokenSecret, {
-      expiresIn: this.accessTokenExpiry,
+    const accessTokenOptions: SignOptions = {
+      expiresIn: this.accessTokenExpiry as any,
       issuer: this.issuer,
       audience: this.audience,
       subject: user.id,
-    });
+    };
+
+    const accessToken = jwt.sign(
+      payload,
+      this.accessTokenSecret,
+      accessTokenOptions
+    );
 
     const refreshPayload: RefreshTokenPayload = {
       userId: user.id,
       tokenVersion: 1, // Can be incremented to invalidate all refresh tokens
     };
 
-    const refreshToken = jwt.sign(refreshPayload, this.refreshTokenSecret, {
-      expiresIn: this.refreshTokenExpiry,
+    const refreshTokenOptions: SignOptions = {
+      expiresIn: this.refreshTokenExpiry as any,
       issuer: this.issuer,
       audience: this.audience,
       subject: user.id,
-    });
+    };
+
+    const refreshToken = jwt.sign(
+      refreshPayload,
+      this.refreshTokenSecret,
+      refreshTokenOptions
+    );
 
     return { accessToken, refreshToken };
   }
@@ -158,12 +171,14 @@ export class JWTService {
       role: user.role,
     };
 
-    return jwt.sign(payload, this.accessTokenSecret, {
-      expiresIn: this.accessTokenExpiry,
+    const tokenOptions: SignOptions = {
+      expiresIn: this.accessTokenExpiry as any,
       issuer: this.issuer,
       audience: this.audience,
       subject: user.id,
-    });
+    };
+
+    return jwt.sign(payload, this.accessTokenSecret, tokenOptions);
   }
 
   /**

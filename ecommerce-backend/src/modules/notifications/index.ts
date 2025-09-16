@@ -3,11 +3,20 @@
  * Exports all notification-related services and components
  */
 
-export { WebSocketService, websocketService } from "./websocket.service.js";
-export { EmailService } from "./email.service.js";
-export { NotificationService } from "./notification.service.js";
-export { RealtimeNotificationService } from "./realtime-notification.service.js";
-export { NotificationController } from "./notification.controller.js";
+import { WebSocketService, websocketService } from "./websocket.service.js";
+import { EmailService } from "./email.service.js";
+import { NotificationService } from "./notification.service.js";
+import { RealtimeNotificationService } from "./realtime-notification.service.js";
+import { NotificationController } from "./notification.controller.js";
+
+export {
+  WebSocketService,
+  websocketService,
+  EmailService,
+  NotificationService,
+  RealtimeNotificationService,
+  NotificationController,
+};
 
 // Re-export types
 export type {
@@ -44,7 +53,7 @@ export function createNotificationServices(dependencies: {
   emailConfig: any;
   notificationConfig: any;
 }) {
-  const { db, redis, emailConfig, notificationConfig } = dependencies;
+  const { db, emailConfig, notificationConfig } = dependencies;
 
   // Create email service
   const emailService = new EmailService(emailConfig);
@@ -56,7 +65,7 @@ export function createNotificationServices(dependencies: {
   );
 
   // Create WebSocket service
-  const websocketService = new WebSocketService();
+  const websocketServiceInstance = new WebSocketService();
 
   // Create notification repository
   const NotificationRepository =
@@ -66,7 +75,7 @@ export function createNotificationServices(dependencies: {
   // Create real-time notification service
   const realtimeNotificationService = new RealtimeNotificationService(
     notificationRepo,
-    websocketService,
+    websocketServiceInstance,
     emailService,
     notificationService
   );
@@ -79,7 +88,7 @@ export function createNotificationServices(dependencies: {
   return {
     emailService,
     notificationService,
-    websocketService,
+    websocketService: websocketServiceInstance,
     realtimeNotificationService,
     notificationController,
     notificationRepo,

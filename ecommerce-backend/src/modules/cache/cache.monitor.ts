@@ -93,7 +93,6 @@ export class CacheMonitor {
   async collectMetrics(): Promise<CachePerformanceMetrics> {
     const redis = getRedisClient();
     const cacheMetrics = cacheService.getMetrics();
-    const multiLevelStats = multiLevelCache.getStats();
 
     // Measure operation latency
     const latency = await this.measureLatency();
@@ -193,7 +192,7 @@ export class CacheMonitor {
     }
 
     const issues: string[] = [];
-    let status: "healthy" | "warning" | "critical" = "healthy";
+    let status: "healthy" | "warning" | "critical" = "healthy" as const;
 
     // Check hit rate
     if (currentMetrics.hitRate < this.thresholds.lowHitRate) {
@@ -206,7 +205,9 @@ export class CacheMonitor {
       (currentMetrics.memoryUsage.used / currentMetrics.memoryUsage.peak) * 100;
     if (memoryUsagePercent > this.thresholds.highMemoryUsage) {
       issues.push(`High memory usage: ${memoryUsagePercent.toFixed(2)}%`);
-      status = status === "critical" ? "critical" : "warning";
+      if (status === "healthy") {
+        status = "warning";
+      }
     }
 
     // Check latency
@@ -227,7 +228,9 @@ export class CacheMonitor {
       issues.push(
         `High connection count: ${currentMetrics.connectionInfo.connectedClients}`
       );
-      status = status === "critical" ? "critical" : "warning";
+      if (status === "healthy") {
+        status = "warning";
+      }
     }
 
     // Check for recent errors
@@ -552,7 +555,7 @@ export class CacheMonitor {
   private generateRecommendations(
     summary: any,
     trends: any,
-    metrics: CachePerformanceMetrics[]
+    _metrics: CachePerformanceMetrics[]
   ): string[] {
     const recommendations: string[] = [];
 

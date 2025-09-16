@@ -1,22 +1,9 @@
 /**
  * Notification Repository
- * Handles database operations for notifications, preferences, and templates
+ * Handles database operations for notifications and preferences
  */
 
-import {
-  eq,
-  and,
-  desc,
-  asc,
-  count,
-  sql,
-  inArray,
-  isNull,
-  or,
-  gte,
-  lte,
-} from "drizzle-orm";
-import { BaseRepository } from "./base.repository.js";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 import type { Database } from "../database/connection.js";
 import {
   notifications,
@@ -27,42 +14,14 @@ import {
   type NotificationPreferences,
   type NewNotificationPreferences,
   type NotificationTemplate,
-  type NewNotificationTemplate,
-  type NotificationType,
-  type NotificationChannel,
 } from "../database/schema/notifications.js";
 
-export interface NotificationFilters {
-  userId?: string;
-  type?: NotificationType;
-  isRead?: boolean;
-  category?: string;
-  priority?: string;
-  tags?: string[];
-  dateFrom?: Date;
-  dateTo?: Date;
-}
+export class NotificationRepository {
+  constructor(private db: Database) {}
 
-export interface NotificationStats {
-  total: number;
-  unread: number;
-  byType: Record<string, number>;
-  byPriority: Record<string, number>;
-}
-
-export class NotificationRepository extends BaseRepository<
-  Notification,
-  NewNotification,
-  Partial<NewNotification>
-> {
-  protected table = notifications;
-  protected idColumn = notifications.id;
-  protected tableName = "notifications";
-
-  constructor(db: Database) {
-    super(db);
-  }
-  // Notification CRUD operations
+  /**
+   * Create a new notification
+   */
   async create(data: NewNotification): Promise<Notification> {
     const [notification] = await this.db
       .insert(notifications)
@@ -71,36 +30,30 @@ export class NotificationRepository extends BaseRepository<
     return notification;
   }
 
-  async findById(id: string): Promise<Notification | null> {
-    const [notification] = await this.db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.id, id))
-      .limit(1);
-    return notification || null;
-  }
-
+  /**
+   * Find notifications by user ID with filtering and pagination
+   */
   async findByUserId(
     userId: string,
-    filters: Partial<NotificationFilters> = {},
+    filters: {
+      isRead?: boolean;
+      type?: string;
+      category?: string;
+      priority?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    } = {},
     pagination: { limit?: number; offset?: number } = {}
   ): Promise<Notification[]> {
-    const { limit = 50, offset = 0 } = pagination;
-
-    let query = this.db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId));
-
-    // Apply filters
+    // Build conditions array
     const conditions = [eq(notifications.userId, userId)];
-
-    if (filters.type) {
-      conditions.push(eq(notifications.type, filters.type));
-    }
 
     if (filters.isRead !== undefined) {
       conditions.push(eq(notifications.isRead, filters.isRead));
+    }
+
+    if (filters.type) {
+      conditions.push(eq(notifications.type, filters.type as any));
     }
 
     if (filters.category) {
@@ -112,97 +65,99 @@ export class NotificationRepository extends BaseRepository<
     }
 
     if (filters.dateFrom) {
-      conditions.push(gte(notifications.createdAt, filters.dateFrom));
+      conditions.push(sql`${notifications.createdAt} >= ${filters.dateFrom}`);
     }
 
     if (filters.dateTo) {
-      conditions.push(lte(notifications.createdAt, filters.dateTo));
+      conditions.push(sql`${notifications.createdAt} <= ${filters.dateTo}`);
     }
 
-    // Execute query directly to avoid type issues
-    if (conditions.length > 1) {
-      return this.db
-        .select()
-        .from(notifications)
-        .where(and(...conditions))
-        .orderBy(desc(notifications.createdAt))
-        .limit(limit)
-        .offset(offset);
-    } else {
-      return this.db
-        .select()
-        .from(notifications)
-        .where(eq(notifications.userId, userId))
-        .orderBy(desc(notifications.createdAt))
-        .limit(limit)
-        .offset(offset);
+    // Build the query
+    let query = this.db
+      .select()
+      .from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt));
+
+    // Apply pagination
+    if (pagination.limit) {
+      query = query.limit(pagination.limit);
     }
+
+    if (pagination.offset) {
+      query = query.offset(pagination.offset);
+    }
+
+    return await query;
   }
 
-  async markAsRead(id: string, userId: string): Promise<boolean> {
+  /**
+   * Mark notification as read
+   */
+  async markAsRead(notificationId: string, userId: string): Promise<boolean> {
     const result = await this.db
       .update(notifications)
       .set({
         isRead: true,
         readAt: new Date(),
-        updatedAt: new Date(),
       })
-      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
-      .returning();
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.userId, userId)
+        )
+      )
+      .returning({ id: notifications.id });
 
     return result.length > 0;
   }
 
+  /**
+   * Mark all notifications as read for a user
+   */
   async markAllAsRead(userId: string): Promise<number> {
     const result = await this.db
       .update(notifications)
       .set({
         isRead: true,
         readAt: new Date(),
-        updatedAt: new Date(),
       })
       .where(
         and(eq(notifications.userId, userId), eq(notifications.isRead, false))
       )
-      .returning();
+      .returning({ id: notifications.id });
 
     return result.length;
   }
 
-  async deleteById(id: string, userId: string): Promise<boolean> {
+  /**
+   * Mark notification as delivered
+   */
+  async markAsDelivered(
+    notificationId: string,
+    channels: string[]
+  ): Promise<boolean> {
     const result = await this.db
-      .delete(notifications)
-      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
-      .returning();
+      .update(notifications)
+      .set({
+        deliveredAt: new Date(),
+        deliveredChannels: channels,
+      })
+      .where(eq(notifications.id, notificationId))
+      .returning({ id: notifications.id });
 
     return result.length > 0;
   }
 
-  async deleteOldNotifications(olderThanDays: number): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-
-    const result = await this.db
-      .delete(notifications)
-      .where(lte(notifications.createdAt, cutoffDate))
-      .returning();
-
-    return result.length;
-  }
-
-  async getUnreadCount(userId: string): Promise<number> {
-    const [result] = await this.db
-      .select({ count: count() })
-      .from(notifications)
-      .where(
-        and(eq(notifications.userId, userId), eq(notifications.isRead, false))
-      );
-
-    return result.count;
-  }
-
-  async getStats(userId: string): Promise<NotificationStats> {
-    // Get total and unread counts
+  /**
+   * Get notification statistics for a user
+   */
+  async getStats(userId: string): Promise<{
+    total: number;
+    unread: number;
+    byType: Record<string, number>;
+    byPriority: Record<string, number>;
+  }> {
     const [totalResult] = await this.db
       .select({ count: count() })
       .from(notifications)
@@ -216,7 +171,7 @@ export class NotificationRepository extends BaseRepository<
       );
 
     // Get counts by type
-    const typeResults = await this.db
+    const typeStats = await this.db
       .select({
         type: notifications.type,
         count: count(),
@@ -226,7 +181,7 @@ export class NotificationRepository extends BaseRepository<
       .groupBy(notifications.type);
 
     // Get counts by priority
-    const priorityResults = await this.db
+    const priorityStats = await this.db
       .select({
         priority: notifications.priority,
         count: count(),
@@ -236,13 +191,13 @@ export class NotificationRepository extends BaseRepository<
       .groupBy(notifications.priority);
 
     const byType: Record<string, number> = {};
-    typeResults.forEach((result: any) => {
-      byType[result.type] = result.count;
+    typeStats.forEach((stat) => {
+      byType[stat.type] = stat.count;
     });
 
     const byPriority: Record<string, number> = {};
-    priorityResults.forEach((result: any) => {
-      byPriority[result.priority] = result.count;
+    priorityStats.forEach((stat) => {
+      byPriority[stat.priority] = stat.count;
     });
 
     return {
@@ -253,34 +208,56 @@ export class NotificationRepository extends BaseRepository<
     };
   }
 
+  /**
+   * Get scheduled notifications that are ready to be sent
+   */
   async getScheduledNotifications(beforeDate: Date): Promise<Notification[]> {
-    return this.db
+    return await this.db
       .select()
       .from(notifications)
       .where(
         and(
-          lte(notifications.scheduledFor, beforeDate),
-          isNull(notifications.deliveredAt)
+          sql`${notifications.scheduledFor} <= ${beforeDate}`,
+          sql`${notifications.deliveredAt} IS NULL`
         )
       )
-      .orderBy(asc(notifications.scheduledFor));
+      .orderBy(notifications.scheduledFor);
   }
 
-  async markAsDelivered(id: string, channels: string[]): Promise<boolean> {
+  /**
+   * Delete old notifications
+   */
+  async deleteOldNotifications(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+
     const result = await this.db
-      .update(notifications)
-      .set({
-        deliveredChannels: channels,
-        deliveredAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(notifications.id, id))
-      .returning();
+      .delete(notifications)
+      .where(sql`${notifications.createdAt} < ${cutoffDate}`)
+      .returning({ id: notifications.id });
 
-    return result.length > 0;
+    return result.length;
   }
 
-  // Notification Preferences CRUD operations
+  // Notification Preferences Methods
+
+  /**
+   * Find preferences by user ID
+   */
+  async findPreferencesByUserId(
+    userId: string
+  ): Promise<NotificationPreferences | null> {
+    const [preferences] = await this.db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId));
+
+    return preferences || null;
+  }
+
+  /**
+   * Create notification preferences
+   */
   async createPreferences(
     data: NewNotificationPreferences
   ): Promise<NotificationPreferences> {
@@ -291,183 +268,90 @@ export class NotificationRepository extends BaseRepository<
     return preferences;
   }
 
-  async findPreferencesByUserId(
-    userId: string
-  ): Promise<NotificationPreferences | null> {
-    const [preferences] = await this.db
-      .select()
-      .from(notificationPreferences)
-      .where(eq(notificationPreferences.userId, userId))
-      .limit(1);
-    return preferences || null;
-  }
-
-  async updatePreferences(
-    userId: string,
-    data: Partial<NewNotificationPreferences>
-  ): Promise<NotificationPreferences | null> {
-    const [preferences] = await this.db
-      .update(notificationPreferences)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(notificationPreferences.userId, userId))
-      .returning();
-    return preferences || null;
-  }
-
+  /**
+   * Update or create notification preferences
+   */
   async upsertPreferences(
     userId: string,
-    data: Partial<NewNotificationPreferences>
+    data: Partial<NotificationPreferences>
   ): Promise<NotificationPreferences> {
     const existing = await this.findPreferencesByUserId(userId);
 
     if (existing) {
-      return (await this.updatePreferences(userId, data))!;
+      const [updated] = await this.db
+        .update(notificationPreferences)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(notificationPreferences.userId, userId))
+        .returning();
+      return updated;
     } else {
-      return this.createPreferences({ userId, ...data });
+      return await this.createPreferences({
+        userId,
+        emailEnabled: true,
+        smsEnabled: false,
+        pushEnabled: true,
+        inAppEnabled: true,
+        preferences: {},
+        ...data,
+      });
     }
   }
 
-  // Notification Templates CRUD operations
-  async createTemplate(
-    data: NewNotificationTemplate
-  ): Promise<NotificationTemplate> {
-    const [template] = await this.db
-      .insert(notificationTemplates)
-      .values(data)
-      .returning();
-    return template;
-  }
+  // Notification Templates Methods
 
+  /**
+   * Find template by type, channel, and language
+   */
   async findTemplate(
-    type: NotificationType,
-    channel: NotificationChannel,
-    language = "en"
+    type: string,
+    channel: string,
+    language: string = "en"
   ): Promise<NotificationTemplate | null> {
     const [template] = await this.db
       .select()
       .from(notificationTemplates)
       .where(
         and(
-          eq(notificationTemplates.type, type),
-          eq(notificationTemplates.channel, channel),
-          eq(notificationTemplates.language, language),
-          eq(notificationTemplates.isActive, true)
+          eq(notificationTemplates.type, type as any),
+          eq(notificationTemplates.channel, channel as any),
+          eq(notificationTemplates.language, language)
         )
-      )
-      .limit(1);
+      );
+
     return template || null;
   }
 
-  async findTemplatesByType(
-    type: NotificationType
-  ): Promise<NotificationTemplate[]> {
-    return this.db
-      .select()
-      .from(notificationTemplates)
-      .where(
-        and(
-          eq(notificationTemplates.type, type),
-          eq(notificationTemplates.isActive, true)
-        )
-      );
-  }
+  /**
+   * Create or update a template
+   */
+  async upsertTemplate(
+    data: Omit<NotificationTemplate, "id" | "createdAt" | "updatedAt">
+  ): Promise<NotificationTemplate> {
+    const existing = await this.findTemplate(
+      data.type,
+      data.channel,
+      data.language
+    );
 
-  async updateTemplate(
-    id: string,
-    data: Partial<NewNotificationTemplate>
-  ): Promise<NotificationTemplate | null> {
-    const [template] = await this.db
-      .update(notificationTemplates)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(notificationTemplates.id, id))
-      .returning();
-    return template || null;
-  }
-
-  async deleteTemplate(id: string): Promise<boolean> {
-    const result = await this.db
-      .delete(notificationTemplates)
-      .where(eq(notificationTemplates.id, id))
-      .returning();
-    return result.length > 0;
-  }
-
-  // Bulk operations
-  async createBulkNotifications(
-    notificationData: NewNotification[]
-  ): Promise<Notification[]> {
-    if (notificationData.length === 0) return [];
-
-    return this.db.insert(notifications).values(notificationData).returning();
-  }
-
-  async markMultipleAsRead(ids: string[], userId: string): Promise<number> {
-    const result = await this.db
-      .update(notifications)
-      .set({
-        isRead: true,
-        readAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(inArray(notifications.id, ids), eq(notifications.userId, userId))
-      )
-      .returning();
-
-    return result.length;
-  }
-
-  async deleteMultiple(ids: string[], userId: string): Promise<number> {
-    const result = await this.db
-      .delete(notifications)
-      .where(
-        and(inArray(notifications.id, ids), eq(notifications.userId, userId))
-      )
-      .returning();
-
-    return result.length;
-  }
-
-  // Search and filtering
-  async searchNotifications(
-    userId: string,
-    searchTerm: string,
-    filters: Partial<NotificationFilters> = {},
-    pagination: { limit?: number; offset?: number } = {}
-  ): Promise<Notification[]> {
-    const { limit = 50, offset = 0 } = pagination;
-
-    const conditions = [eq(notifications.userId, userId)];
-
-    // Add search condition
-    if (searchTerm) {
-      conditions.push(
-        or(
-          sql`${notifications.title} ILIKE ${`%${searchTerm}%`}`,
-          sql`${notifications.message} ILIKE ${`%${searchTerm}%`}`
-        )!
-      );
+    if (existing) {
+      const [updated] = await this.db
+        .update(notificationTemplates)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(notificationTemplates.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(notificationTemplates)
+        .values(data)
+        .returning();
+      return created;
     }
-
-    // Apply other filters
-    if (filters.type) {
-      conditions.push(eq(notifications.type, filters.type));
-    }
-
-    if (filters.isRead !== undefined) {
-      conditions.push(eq(notifications.isRead, filters.isRead));
-    }
-
-    if (filters.category) {
-      conditions.push(eq(notifications.category, filters.category));
-    }
-
-    return this.db
-      .select()
-      .from(notifications)
-      .where(and(...conditions))
-      .orderBy(desc(notifications.createdAt))
-      .limit(limit)
-      .offset(offset);
   }
 }

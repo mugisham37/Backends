@@ -10,7 +10,6 @@ import { EmailService } from "./email.service.js";
 import { NotificationService } from "./notification.service.js";
 import {
   type Notification,
-  type NewNotification,
   type NotificationPreferences,
   type NotificationType,
   type NotificationChannel,
@@ -30,7 +29,7 @@ export interface NotificationPayload {
     entityId?: string;
     actionUrl?: string;
     imageUrl?: string;
-    expiresAt?: Date;
+    expiresAt?: string;
     [key: string]: any;
   };
   category?: string;

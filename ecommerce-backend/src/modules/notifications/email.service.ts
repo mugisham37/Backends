@@ -31,6 +31,7 @@ export interface SendEmailOptions {
   cc?: string | string[];
   bcc?: string | string[];
   replyTo?: string;
+  subject?: string;
   attachments?: Array<{
     filename: string;
     content: Buffer | string;
@@ -198,7 +199,7 @@ export class EmailService {
         cc: options.cc,
         bcc: options.bcc,
         replyTo: options.replyTo,
-        subject: this.extractSubject(html, templateData),
+        subject: options.subject || this.extractSubject(html, templateData),
         html,
         text,
         attachments: options.attachments,

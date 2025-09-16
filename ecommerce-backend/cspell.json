@@ -46,7 +46,19 @@
     "experimentaldecorators",
     "emitdecorator",
     "metadata",
-    "baseurl"
+    "baseurl",
+    "keyspace",
+    "dbsize",
+    "setex",
+    "smembers",
+    "incrby",
+    "decrby",
+    "sadd",
+    "flushall",
+    "presigner",
+    "bullmq",
+    "unsubscription",
+    "prefs"
   ],
   "ignorePaths": ["node_modules/**", "dist/**", "coverage/**", "*.min.js", "package-lock.json"],
   "ignoreWords": ["MUGISHA"]

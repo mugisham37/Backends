@@ -1,7 +1,7 @@
-import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
-import { EmailService, EmailData, SendEmailOptions } from './email.service.js';
-import { AppError } from '../../core/errors/app-error.js';
+import { Queue, Worker, Job } from "bullmq";
+import { Redis } from "ioredis";
+import { EmailService, EmailData, SendEmailOptions } from "./email.service.js";
+import { AppError } from "../../core/errors/app-error.js";
 
 export interface NotificationConfig {
   redis: {
@@ -43,7 +43,7 @@ export interface BulkEmailJobData {
 }
 
 export interface NotificationJobData {
-  type: 'email' | 'sms' | 'push' | 'webhook';
+  type: "email" | "sms" | "push" | "webhook";
   payload: any;
   userId?: string;
   metadata?: Record<string, any>;
@@ -85,47 +85,56 @@ export class NotificationService {
       db: this.config.redis.db || 0,
     };
 
-    this.emailQueue = new Queue<EmailJobData>(`${this.config.queue.name}:email`, {
-      connection,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
+    this.emailQueue = new Queue<EmailJobData>(
+      `${this.config.queue.name}:email`,
+      {
+        connection,
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 50,
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000,
+          },
+          ...this.config.queue.defaultJobOptions,
         },
-        ...this.config.queue.defaultJobOptions,
-      },
-    });
+      }
+    );
 
-    this.bulkEmailQueue = new Queue<BulkEmailJobData>(`${this.config.queue.name}:bulk-email`, {
-      connection,
-      defaultJobOptions: {
-        removeOnComplete: 50,
-        removeOnFail: 25,
-        attempts: 2,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
+    this.bulkEmailQueue = new Queue<BulkEmailJobData>(
+      `${this.config.queue.name}:bulk-email`,
+      {
+        connection,
+        defaultJobOptions: {
+          removeOnComplete: 50,
+          removeOnFail: 25,
+          attempts: 2,
+          backoff: {
+            type: "exponential",
+            delay: 5000,
+          },
+          ...this.config.queue.defaultJobOptions,
         },
-        ...this.config.queue.defaultJobOptions,
-      },
-    });
+      }
+    );
 
-    this.notificationQueue = new Queue<NotificationJobData>(`${this.config.queue.name}:notification`, {
-      connection,
-      defaultJobOptions: {
-        removeOnComplete: 200,
-        removeOnFail: 100,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
+    this.notificationQueue = new Queue<NotificationJobData>(
+      `${this.config.queue.name}:notification`,
+      {
+        connection,
+        defaultJobOptions: {
+          removeOnComplete: 200,
+          removeOnFail: 100,
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 1000,
+          },
+          ...this.config.queue.defaultJobOptions,
         },
-        ...this.config.queue.defaultJobOptions,
-      },
-    });
+      }
+    );
   }
 
   private setupWorkers(): void {
@@ -154,30 +163,39 @@ export class NotificationService {
     this.bulkWorker = new Worker<BulkEmailJobData>(
       `${this.config.queue.name}:bulk-email`,
       async (job: Job<BulkEmailJobData>) => {
-        const { templateName, recipients, commonOptions, batchSize = 10 } = job.data;
-        
+        const {
+          templateName,
+          recipients,
+          commonOptions,
+          batchSize = 10,
+        } = job.data;
+
         // Process in batches to avoid overwhelming the email service
         const batches = this.chunkArray(recipients, batchSize);
         let processedCount = 0;
 
         for (const batch of batches) {
-          await this.emailService.sendBulkEmails(templateName, batch, commonOptions);
+          await this.emailService.sendBulkEmails(
+            templateName,
+            batch,
+            commonOptions
+          );
           processedCount += batch.length;
-          
+
           // Update job progress
           await job.updateProgress((processedCount / recipients.length) * 100);
-          
+
           // Small delay between batches
           if (batches.indexOf(batch) < batches.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
 
-        return { 
-          success: true, 
-          processedCount, 
+        return {
+          success: true,
+          processedCount,
           totalCount: recipients.length,
-          sentAt: new Date().toISOString() 
+          sentAt: new Date().toISOString(),
         };
       },
       {
@@ -193,32 +211,48 @@ export class NotificationService {
         const { type, payload, userId, metadata } = job.data;
 
         switch (type) {
-          case 'email':
+          case "email":
             await this.emailService.sendEmail(
               payload.templateName,
               payload.data,
               payload.options
             );
             break;
-          case 'sms':
+          case "sms":
             // Implement SMS sending logic
-            throw new AppError('SMS notifications not implemented', 501, 'NOT_IMPLEMENTED');
-          case 'push':
+            throw new AppError(
+              "SMS notifications not implemented",
+              501,
+              "NOT_IMPLEMENTED"
+            );
+          case "push":
             // Implement push notification logic
-            throw new AppError('Push notifications not implemented', 501, 'NOT_IMPLEMENTED');
-          case 'webhook':
+            throw new AppError(
+              "Push notifications not implemented",
+              501,
+              "NOT_IMPLEMENTED"
+            );
+          case "webhook":
             // Implement webhook logic
-            throw new AppError('Webhook notifications not implemented', 501, 'NOT_IMPLEMENTED');
+            throw new AppError(
+              "Webhook notifications not implemented",
+              501,
+              "NOT_IMPLEMENTED"
+            );
           default:
-            throw new AppError(`Unknown notification type: ${type}`, 400, 'INVALID_TYPE');
+            throw new AppError(
+              `Unknown notification type: ${type}`,
+              400,
+              "INVALID_TYPE"
+            );
         }
 
-        return { 
-          success: true, 
-          type, 
-          userId, 
+        return {
+          success: true,
+          type,
+          userId,
           metadata,
-          processedAt: new Date().toISOString() 
+          processedAt: new Date().toISOString(),
         };
       },
       {
@@ -228,15 +262,15 @@ export class NotificationService {
     );
 
     // Error handling
-    this.worker.on('failed', (job, err) => {
+    this.worker.on("failed", (job, err) => {
       console.error(`Email job ${job?.id} failed:`, err);
     });
 
-    this.bulkWorker.on('failed', (job, err) => {
+    this.bulkWorker.on("failed", (job, err) => {
       console.error(`Bulk email job ${job?.id} failed:`, err);
     });
 
-    this.notificationWorker.on('failed', (job, err) => {
+    this.notificationWorker.on("failed", (job, err) => {
       console.error(`Notification job ${job?.id} failed:`, err);
     });
   }
@@ -254,7 +288,7 @@ export class NotificationService {
   ): Promise<string> {
     try {
       const job = await this.emailQueue.add(
-        'send-email',
+        "send-email",
         { templateName, data, options },
         {
           priority: jobOptions?.priority || 0,
@@ -266,9 +300,11 @@ export class NotificationService {
       return job.id!;
     } catch (error) {
       throw new AppError(
-        `Failed to queue email: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to queue email: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         500,
-        'QUEUE_FAILED'
+        "QUEUE_FAILED"
       );
     }
   }
@@ -289,7 +325,7 @@ export class NotificationService {
   ): Promise<string> {
     try {
       const job = await this.bulkEmailQueue.add(
-        'send-bulk-emails',
+        "send-bulk-emails",
         {
           templateName,
           recipients,
@@ -305,16 +341,18 @@ export class NotificationService {
       return job.id!;
     } catch (error) {
       throw new AppError(
-        `Failed to queue bulk emails: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to queue bulk emails: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         500,
-        'QUEUE_FAILED'
+        "QUEUE_FAILED"
       );
     }
   }
 
   // Queue general notification
   async queueNotification(
-    type: NotificationJobData['type'],
+    type: NotificationJobData["type"],
     payload: any,
     userId?: string,
     metadata?: Record<string, any>,
@@ -325,7 +363,7 @@ export class NotificationService {
   ): Promise<string> {
     try {
       const job = await this.notificationQueue.add(
-        'send-notification',
+        "send-notification",
         { type, payload, userId, metadata },
         {
           priority: jobOptions?.priority || 0,
@@ -336,9 +374,11 @@ export class NotificationService {
       return job.id!;
     } catch (error) {
       throw new AppError(
-        `Failed to queue notification: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to queue notification: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         500,
-        'QUEUE_FAILED'
+        "QUEUE_FAILED"
       );
     }
   }
@@ -360,7 +400,7 @@ export class NotificationService {
       activationUrl?: string;
     }
   ): Promise<string> {
-    return this.queueEmail('welcome', userData, { to: userEmail });
+    return this.queueEmail("welcome", userData, { to: userEmail });
   }
 
   async queuePasswordResetEmail(
@@ -371,7 +411,7 @@ export class NotificationService {
       expiryTime: string;
     }
   ): Promise<string> {
-    return this.queueEmail('password-reset', resetData, { to: userEmail });
+    return this.queueEmail("password-reset", resetData, { to: userEmail });
   }
 
   async queueOrderConfirmationEmail(
@@ -389,7 +429,7 @@ export class NotificationService {
       orderUrl: string;
     }
   ): Promise<string> {
-    return this.queueEmail('order-confirmation', orderData, { to: userEmail });
+    return this.queueEmail("order-confirmation", orderData, { to: userEmail });
   }
 
   // Queue management methods
@@ -452,19 +492,19 @@ export class NotificationService {
   static createFromEnv(emailService: EmailService): NotificationService {
     const config: NotificationConfig = {
       redis: {
-        host: process.env.REDIS_HOST || 'localhost',
+        host: process.env.REDIS_HOST || "localhost",
         port: Number(process.env.REDIS_PORT) || 6379,
         password: process.env.REDIS_PASSWORD,
         db: Number(process.env.REDIS_DB) || 0,
       },
       queue: {
-        name: process.env.QUEUE_NAME || 'notifications',
+        name: process.env.QUEUE_NAME || "notifications",
         defaultJobOptions: {
           removeOnComplete: Number(process.env.QUEUE_REMOVE_ON_COMPLETE) || 100,
           removeOnFail: Number(process.env.QUEUE_REMOVE_ON_FAIL) || 50,
           attempts: Number(process.env.QUEUE_ATTEMPTS) || 3,
           backoff: {
-            type: 'exponential',
+            type: "exponential",
             delay: Number(process.env.QUEUE_BACKOFF_DELAY) || 2000,
           },
         },
@@ -472,4 +512,5 @@ export class NotificationService {
     };
 
     return new NotificationService(emailService, config);
-  } 
+  }
+}

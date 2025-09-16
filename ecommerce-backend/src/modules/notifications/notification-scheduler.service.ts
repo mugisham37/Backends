@@ -193,15 +193,15 @@ export class NotificationSchedulerService {
       isRunning: this.isRunning,
       jobs: {
         processScheduled: {
-          running: this.processScheduledJob?.running || false,
+          running: this.processScheduledJob !== null,
           nextRun: this.processScheduledJob?.nextDate()?.toJSDate(),
         },
         cleanup: {
-          running: this.cleanupJob?.running || false,
+          running: this.cleanupJob !== null,
           nextRun: this.cleanupJob?.nextDate()?.toJSDate(),
         },
         digest: {
-          running: this.digestJob?.running || false,
+          running: this.digestJob !== null,
           nextRun: this.digestJob?.nextDate()?.toJSDate(),
         },
       },

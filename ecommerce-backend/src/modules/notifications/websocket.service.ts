@@ -1,4 +1,4 @@
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer, WebSocket, RawData } from "ws";
 import { IncomingMessage } from "http";
 import { URL } from "url";
 import jwt from "jsonwebtoken";
@@ -161,11 +161,12 @@ export class WebSocketService extends EventEmitter {
    */
   private handleMessage(
     ws: AuthenticatedWebSocket,
-    data: Buffer,
+    data: RawData,
     connectionId: string
   ): void {
     try {
-      const message: WebSocketMessage = JSON.parse(data.toString());
+      const messageString = data.toString();
+      const message: WebSocketMessage = JSON.parse(messageString);
 
       console.log(`WebSocket message from ${ws.userId}: ${message.type}`);
 
@@ -534,14 +535,14 @@ export class WebSocketService extends EventEmitter {
    * Generate unique connection ID
    */
   private generateConnectionId(): string {
-    return `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `ws_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
    * Generate unique message ID
    */
   private generateMessageId(): string {
-    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 }
 

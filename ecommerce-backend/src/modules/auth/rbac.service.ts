@@ -7,7 +7,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { AppError } from "../../core/errors/app-error.js";
 import {
   roles,
-  permissions,
+  permissions as permissionsTable,
   rolePermissions,
   userRoles,
   type Role,
@@ -38,12 +38,15 @@ export class RBACService {
     const userRolesWithPermissions = await this.db
       .select({
         role: roles,
-        permission: permissions,
+        permission: permissionsTable,
       })
       .from(userRoles)
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .innerJoin(
+        permissionsTable,
+        eq(rolePermissions.permissionId, permissionsTable.id)
+      )
       .where(and(eq(userRoles.userId, userId), eq(roles.isActive, true)));
 
     // Organize data
@@ -79,25 +82,29 @@ export class RBACService {
     action: string
   ): Promise<boolean> {
     const result = await this.db
-      .select({ count: permissions.id })
+      .select({ count: permissionsTable.id })
       .from(userRoles)
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .innerJoin(
+        permissionsTable,
+        eq(rolePermissions.permissionId, permissionsTable.id)
+      )
       .where(
         and(
           eq(userRoles.userId, userId),
           eq(roles.isActive, true),
-          eq(permissions.resource, resource),
-          eq(permissions.action, action)
+          eq(permissionsTable.resource, resource),
+          eq(permissionsTable.action, action)
         )
       )
       .limit(1);
 
     return result.length > 0;
-  }  /**
-  
- * Check if user has any of the specified roles
+  }
+
+  /**
+   * Check if user has any of the specified roles
    */
   async hasRole(userId: string, roleNames: string[]): Promise<boolean> {
     const result = await this.db
@@ -173,20 +180,28 @@ export class RBACService {
       throw new AppError(`Role '${roleName}' not found`, 404, "ROLE_NOT_FOUND");
     }
 
-    // Remove role assignment
-    const result = await this.db
-      .delete(userRoles)
-      .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)));
+    // Check if user has this role before attempting to remove
+    const [existingUserRole] = await this.db
+      .select()
+      .from(userRoles)
+      .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)))
+      .limit(1);
 
-    if (result.rowCount === 0) {
+    if (!existingUserRole) {
       throw new AppError(
         `User does not have role '${roleName}'`,
         404,
         "ROLE_NOT_ASSIGNED"
       );
     }
-  } 
- /**
+
+    // Remove role assignment
+    await this.db
+      .delete(userRoles)
+      .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)));
+  }
+
+  /**
    * Create a new role
    */
   async createRole(roleData: NewRole): Promise<Role> {
@@ -216,8 +231,8 @@ export class RBACService {
     // Check if permission already exists
     const [existingPermission] = await this.db
       .select()
-      .from(permissions)
-      .where(eq(permissions.name, permissionData.name))
+      .from(permissionsTable)
+      .where(eq(permissionsTable.name, permissionData.name))
       .limit(1);
 
     if (existingPermission) {
@@ -229,7 +244,7 @@ export class RBACService {
     }
 
     const [newPermission] = await this.db
-      .insert(permissions)
+      .insert(permissionsTable)
       .values(permissionData)
       .returning();
     return newPermission;
@@ -251,8 +266,8 @@ export class RBACService {
 
     const [permission] = await this.db
       .select()
-      .from(permissions)
-      .where(eq(permissions.name, permissionName))
+      .from(permissionsTable)
+      .where(eq(permissionsTable.name, permissionName))
       .limit(1);
 
     if (!role) {
@@ -292,19 +307,23 @@ export class RBACService {
       roleId: role.id,
       permissionId: permission.id,
     });
-  }  /
-**
+  }
+
+  /**
    * Get all roles with their permissions
    */
   async getAllRolesWithPermissions(): Promise<RoleWithPermissions[]> {
     const rolesWithPermissions = await this.db
       .select({
         role: roles,
-        permission: permissions,
+        permission: permissionsTable,
       })
       .from(roles)
       .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
-      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .leftJoin(
+        permissionsTable,
+        eq(rolePermissions.permissionId, permissionsTable.id)
+      )
       .where(eq(roles.isActive, true));
 
     // Group permissions by role
@@ -312,7 +331,7 @@ export class RBACService {
 
     for (const row of rolesWithPermissions) {
       const roleId = row.role.id;
-      
+
       if (!roleMap.has(roleId)) {
         roleMap.set(roleId, {
           ...row.role,
@@ -331,15 +350,20 @@ export class RBACService {
   /**
    * Get role by name with permissions
    */
-  async getRoleWithPermissions(roleName: string): Promise<RoleWithPermissions | null> {
+  async getRoleWithPermissions(
+    roleName: string
+  ): Promise<RoleWithPermissions | null> {
     const roleWithPermissions = await this.db
       .select({
         role: roles,
-        permission: permissions,
+        permission: permissionsTable,
       })
       .from(roles)
       .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
-      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .leftJoin(
+        permissionsTable,
+        eq(rolePermissions.permissionId, permissionsTable.id)
+      )
       .where(and(eq(roles.name, roleName), eq(roles.isActive, true)));
 
     if (roleWithPermissions.length === 0) {
@@ -348,8 +372,8 @@ export class RBACService {
 
     const role = roleWithPermissions[0].role;
     const permissions = roleWithPermissions
-      .filter(row => row.permission !== null)
-      .map(row => row.permission!);
+      .filter((row: { role: any; permission: any }) => row.permission !== null)
+      .map((row: { role: any; permission: any }) => row.permission!);
 
     return {
       ...role,

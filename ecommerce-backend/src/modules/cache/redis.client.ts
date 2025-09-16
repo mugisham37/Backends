@@ -25,7 +25,6 @@ class RedisClient {
       return {
         ...this.parseRedisUrl(redisUrl),
         maxRetriesPerRequest: config.redis.maxRetries,
-        retryDelayOnFailover: 100,
         connectTimeout: 10000,
         commandTimeout: 5000,
         lazyConnect: true,
@@ -39,7 +38,6 @@ class RedisClient {
       password: config.redis.password,
       db: config.redis.db || 0,
       maxRetriesPerRequest: config.redis.maxRetries,
-      retryDelayOnFailover: 100,
       connectTimeout: 10000,
       commandTimeout: 5000,
       lazyConnect: true,
