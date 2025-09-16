@@ -133,4 +133,182 @@ vi.mock("../core/container/bootstrap", () => ({
 vi.mock("../core/database/connection", () => ({
   initializeDatabase: vi.fn().mockResolvedValue(undefined),
   isDatabaseConnected: vi.fn().mockReturnValue(true),
-  checkDatabaseHealth: vi.fn().mockResolvedV
+  checkDatabaseHealth: vi.fn().mockResolvedValue("healthy"),
+}));
+
+// Mock tsyringe container
+vi.mock("tsyringe", () => ({
+  container: {
+    resolve: vi.fn().mockImplementation((token: string) => {
+      // Return mock services based on token
+      const mockService = {
+        authenticate: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            user: {
+              id: "test-user-id",
+              email: "test@example.com",
+              role: "admin",
+            },
+            accessToken: "test-access-token",
+            refreshToken: "test-refresh-token",
+            expiresIn: 3600,
+          },
+        }),
+        validateToken: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-user-id",
+            email: "test@example.com",
+            role: "admin",
+            tenantId: "test-tenant-id",
+          },
+        }),
+        refreshToken: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            accessToken: "new-access-token",
+            refreshToken: "new-refresh-token",
+            expiresIn: 3600,
+          },
+        }),
+        getTenant: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-tenant-id",
+            name: "Test Tenant",
+            slug: "test-tenant",
+          },
+        }),
+        createTenant: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "new-tenant-id",
+            name: "New Test Tenant",
+            slug: "new-test-tenant",
+          },
+        }),
+        updateTenant: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-tenant-id",
+            name: "Updated Tenant",
+          },
+        }),
+        deleteTenant: vi.fn().mockResolvedValue({
+          success: true,
+        }),
+        getUserTenants: vi.fn().mockResolvedValue({
+          success: true,
+          data: [],
+        }),
+        createContent: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-content-id",
+            title: "Test Content",
+            slug: "test-content",
+            body: "Test content body",
+            status: "DRAFT",
+            version: 1,
+            authorId: "test-user-id",
+            tenantId: "test-tenant-id",
+          },
+        }),
+        getContent: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-content-id",
+            title: "Test Content",
+            slug: "test-content",
+            body: "Test content body",
+            status: "DRAFT",
+            version: 1,
+            authorId: "test-user-id",
+            tenantId: "test-tenant-id",
+          },
+        }),
+        updateContent: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-content-id",
+            title: "Updated Title",
+            body: "Updated content body",
+            version: 2,
+          },
+        }),
+        deleteContent: vi.fn().mockResolvedValue({
+          success: true,
+        }),
+        publishContent: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-content-id",
+            status: "PUBLISHED",
+            publishedAt: new Date().toISOString(),
+          },
+        }),
+        getContentsByTenant: vi.fn().mockResolvedValue({
+          success: true,
+          data: [],
+        }),
+        getContentVersions: vi.fn().mockResolvedValue({
+          success: true,
+          data: [],
+        }),
+        getFile: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-media-id",
+            filename: "test-file.jpg",
+            originalName: "test-file.jpg",
+            mimeType: "image/jpeg",
+            size: 1024,
+            url: "/uploads/test-file.jpg",
+          },
+        }),
+        uploadFile: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-media-id",
+            filename: "test-file.jpg",
+            originalName: "test-file.jpg",
+            mimeType: "image/jpeg",
+            size: 1024,
+            url: "/uploads/test-file.jpg",
+          },
+        }),
+        deleteFile: vi.fn().mockResolvedValue({
+          success: true,
+        }),
+        getMediaByTenant: vi.fn().mockResolvedValue({
+          success: true,
+          data: [],
+        }),
+        search: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            items: [],
+            total: 0,
+            hasMore: false,
+          },
+        }),
+        getUser: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: "test-user-id",
+            email: "test@example.com",
+            role: "admin",
+          },
+        }),
+        getUsersByTenant: vi.fn().mockResolvedValue({
+          success: true,
+          data: [],
+        }),
+      };
+
+      return mockService;
+    }),
+    register: vi.fn(),
+  },
+}));

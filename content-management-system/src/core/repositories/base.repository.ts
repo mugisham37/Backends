@@ -83,13 +83,14 @@ export abstract class BaseRepository<
   async findOne(filter: Partial<T>): Promise<Result<T | null, Error>> {
     try {
       const whereConditions = this.buildWhereConditions(filter);
-      let query = this.db.select().from(this.table);
 
-      if (whereConditions) {
-        query = query.where(whereConditions);
-      }
-
-      const result = await query.limit(1);
+      const result = whereConditions
+        ? await this.db
+            .select()
+            .from(this.table)
+            .where(whereConditions)
+            .limit(1)
+        : await this.db.select().from(this.table).limit(1);
 
       return {
         success: true,

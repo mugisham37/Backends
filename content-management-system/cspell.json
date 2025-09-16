@@ -36,7 +36,8 @@
     "s3",
     "tsyringe",
     "sendgrid",
-    "paramtypes"
+    "paramtypes",
+    "ilike"
   ],
   "ignorePaths": [
     "node_modules/**",

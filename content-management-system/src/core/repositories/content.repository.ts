@@ -181,7 +181,10 @@ export class ContentRepository extends TenantBaseRepository<Content> {
           searchConditions
         );
       } else if (tenantId) {
-        whereConditions = and(eq(contents.tenantId, tenantId), searchConditions);
+        whereConditions = and(
+          eq(contents.tenantId, tenantId),
+          searchConditions
+        );
       } else if (status) {
         whereConditions = and(eq(contents.status, status), searchConditions);
       }
@@ -230,16 +233,17 @@ export class ContentRepository extends TenantBaseRepository<Content> {
         whereConditions = eq(contents.status, status);
       }
 
-      let query = this.db
-        .select()
-        .from(contents)
-        .orderBy(desc(contents.updatedAt));
-
-      if (whereConditions) {
-        query = query.where(whereConditions);
-      }
-
-      const result = await query;
+      // Build the complete query with where condition
+      const result = whereConditions
+        ? await this.db
+            .select()
+            .from(contents)
+            .where(whereConditions)
+            .orderBy(desc(contents.updatedAt))
+        : await this.db
+            .select()
+            .from(contents)
+            .orderBy(desc(contents.updatedAt));
 
       // Filter by tags in application code (could be optimized with proper JSONB queries)
       const filteredResult = result.filter(
