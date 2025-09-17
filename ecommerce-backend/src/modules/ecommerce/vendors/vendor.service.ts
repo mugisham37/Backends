@@ -14,11 +14,19 @@ import {
   UpdateVendorInput,
   VendorOutput,
 } from "./vendor.types";
+import { NotificationService } from "../../notifications/notification.service";
+import { WebhookService } from "../../webhook/webhook.service";
+import { AnalyticsService } from "../../analytics/analytics.service";
+import { CacheService } from "../../cache/cache.service";
 
 export class VendorService {
   constructor(
     private vendorRepo: VendorRepository,
-    private userRepo: UserRepository
+    private userRepo: UserRepository,
+    private notificationService?: NotificationService,
+    private webhookService?: WebhookService,
+    private analyticsService?: AnalyticsService,
+    private cacheService?: CacheService
   ) {}
 
   async createVendor(
@@ -60,7 +68,69 @@ export class VendorService {
     };
 
     const vendor = await this.vendorRepo.create(vendorData);
-    return this.mapToOutput(vendor);
+    const finalVendor = this.mapToOutput(vendor);
+
+    // Trigger integrations after vendor creation
+    await this.handleVendorCreatedIntegrations(finalVendor, userId);
+
+    return finalVendor;
+  }
+
+  private async handleVendorCreatedIntegrations(
+    vendor: VendorOutput,
+    userId: string
+  ): Promise<void> {
+    try {
+      // Analytics tracking
+      if (this.analyticsService) {
+        await this.analyticsService.trackEvent({
+          eventType: "vendor",
+          eventName: "vendor_application_submitted",
+          userId: userId,
+          properties: {
+            vendorId: vendor.id,
+            businessName: vendor.businessName,
+            businessType: vendor.businessType,
+          },
+        });
+      }
+
+      // Send vendor application notification
+      if (this.notificationService) {
+        const user = await this.userRepo.findById(userId);
+        if (user) {
+          await this.notificationService.queueEmail(
+            "vendor-application",
+            {
+              businessName: vendor.businessName,
+              contactPerson: `${user.firstName} ${user.lastName}`,
+              applicationId: vendor.id,
+              dashboardUrl: `${process.env.FRONTEND_URL}/vendor/dashboard`,
+            },
+            { to: vendor.email }
+          );
+        }
+      }
+
+      // Dispatch webhook event
+      if (this.webhookService) {
+        await this.webhookService.dispatchEvent({
+          eventType: "vendor.created",
+          eventId: `vendor_${vendor.id}_created`,
+          payload: { vendor },
+          sourceId: vendor.id,
+          sourceType: "vendor",
+          userId: userId,
+        });
+      }
+
+      // Clear vendor statistics cache
+      if (this.cacheService) {
+        await this.cacheService.delete("vendor_statistics");
+      }
+    } catch (error) {
+      console.error("Vendor creation integration error:", error);
+    }
   }
 
   async updateVendor(
@@ -161,7 +231,72 @@ export class VendorService {
       throw new Error("Failed to approve vendor");
     }
 
-    return this.mapToOutput(updatedVendor);
+    const finalVendor = this.mapToOutput(updatedVendor);
+
+    // Trigger integrations after vendor approval
+    await this.handleVendorApprovedIntegrations(finalVendor);
+
+    return finalVendor;
+  }
+
+  private async handleVendorApprovedIntegrations(
+    vendor: VendorOutput
+  ): Promise<void> {
+    try {
+      // Analytics tracking
+      if (this.analyticsService) {
+        await this.analyticsService.trackEvent({
+          eventType: "vendor",
+          eventName: "vendor_approved",
+          userId: vendor.userId,
+          properties: {
+            vendorId: vendor.id,
+            businessName: vendor.businessName,
+            approvalDate: new Date().toISOString(),
+          },
+        });
+      }
+
+      // Send vendor approval notification
+      if (this.notificationService) {
+        const user = await this.userRepo.findById(vendor.userId);
+        if (user) {
+          await this.notificationService.queueEmail(
+            "vendor-approval",
+            {
+              businessName: vendor.businessName,
+              contactPerson: `${user.firstName} ${user.lastName}`,
+              dashboardUrl: `${process.env.FRONTEND_URL}/vendor/dashboard`,
+              onboardingUrl: `${process.env.FRONTEND_URL}/vendor/onboarding`,
+            },
+            { to: vendor.email }
+          );
+        }
+      }
+
+      // Dispatch webhook event
+      if (this.webhookService) {
+        await this.webhookService.dispatchEvent({
+          eventType: "vendor.approved",
+          eventId: `vendor_${vendor.id}_approved`,
+          payload: { vendor },
+          sourceId: vendor.id,
+          sourceType: "vendor",
+          userId: vendor.userId,
+        });
+      }
+
+      // Clear vendor caches
+      if (this.cacheService) {
+        await Promise.all([
+          this.cacheService.delete("vendor_statistics"),
+          this.cacheService.delete("approved_vendors"),
+          this.cacheService.delete(`vendor:${vendor.id}`),
+        ]);
+      }
+    } catch (error) {
+      console.error("Vendor approval integration error:", error);
+    }
   }
 
   async rejectVendor(id: string): Promise<VendorOutput> {

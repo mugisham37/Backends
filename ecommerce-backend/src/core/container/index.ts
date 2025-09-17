@@ -25,6 +25,12 @@ import { VendorService } from "../../modules/ecommerce/vendors/vendor.service";
 import { OrderService } from "../../modules/ecommerce/orders/order.service";
 import { AuthService } from "../../modules/auth/auth.service";
 import { JWTService } from "../../modules/auth/jwt.service";
+import { NotificationService } from "../../modules/notifications/notification.service";
+import { EmailService } from "../../modules/notifications/email.service";
+import { WebhookService } from "../../modules/webhook/webhook.service";
+import { AnalyticsService } from "../../modules/analytics/analytics.service";
+import { CacheService } from "../../modules/cache/cache.service";
+import { StorageService } from "../../modules/media/storage.service";
 
 // Use Cases
 import {
@@ -81,17 +87,65 @@ export function registerServices(): void {
     dependencies: ["database"],
   });
 
-  // Register services
+  // Register services with all their dependencies
   container.registerClass("productService", ProductService, {
-    dependencies: ["productRepository", "vendorRepository"],
+    dependencies: [
+      "productRepository",
+      "vendorRepository",
+      "notificationService",
+      "webhookService",
+      "analyticsService",
+      "cacheService",
+      "storageService",
+    ],
   });
 
   container.registerClass("vendorService", VendorService, {
-    dependencies: ["vendorRepository", "userRepository"],
+    dependencies: [
+      "vendorRepository",
+      "userRepository",
+      "notificationService",
+      "webhookService",
+      "analyticsService",
+      "cacheService",
+    ],
   });
 
   container.registerClass("orderService", OrderService, {
-    dependencies: ["orderRepository", "productRepository", "userRepository"],
+    dependencies: [
+      "orderRepository",
+      "productRepository",
+      "userRepository",
+      "notificationService",
+      "webhookService",
+      "analyticsService",
+      "cacheService",
+    ],
+  });
+
+  // Register additional services
+  container.registerClass("notificationService", NotificationService, {
+    dependencies: ["emailService"],
+  });
+
+  container.registerClass("webhookService", WebhookService, {
+    dependencies: ["webhookRepository"],
+  });
+
+  container.registerClass("analyticsService", AnalyticsService, {
+    dependencies: ["analyticsRepository"],
+  });
+
+  container.registerClass("cacheService", CacheService, {
+    dependencies: [],
+  });
+
+  container.registerClass("storageService", StorageService, {
+    dependencies: [],
+  });
+
+  container.registerClass("emailService", EmailService, {
+    dependencies: [],
   });
 
   // Register auth services

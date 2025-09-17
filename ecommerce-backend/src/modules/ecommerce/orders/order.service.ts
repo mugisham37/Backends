@@ -21,12 +21,20 @@ import {
   OrderOutput,
   OrderItemInput,
 } from "./order.types";
+import { NotificationService } from "../../notifications/notification.service";
+import { WebhookService } from "../../webhook/webhook.service";
+import { AnalyticsService } from "../../analytics/analytics.service";
+import { CacheService } from "../../cache/cache.service";
 
 export class OrderService {
   constructor(
     private orderRepo: OrderRepository,
     private productRepo: ProductRepository,
-    private userRepo: UserRepository
+    private userRepo: UserRepository,
+    private notificationService?: NotificationService,
+    private webhookService?: WebhookService,
+    private analyticsService?: AnalyticsService,
+    private cacheService?: CacheService
   ) {}
 
   async createOrder(input: CreateOrderInput): Promise<OrderOutput> {
@@ -89,7 +97,89 @@ export class OrderService {
 
     await this.orderRepo.createOrderItems(orderItemsData);
 
-    return this.getOrder(order.id);
+    const finalOrder = await this.getOrder(order.id);
+
+    // Trigger integrations after order creation
+    await this.handleOrderCreatedIntegrations(finalOrder, input);
+
+    return finalOrder;
+  }
+
+  private async handleOrderCreatedIntegrations(
+    order: OrderOutput,
+    input: CreateOrderInput
+  ): Promise<void> {
+    try {
+      // Analytics tracking
+      if (this.analyticsService) {
+        await this.analyticsService.trackEvent({
+          eventType: "ecommerce",
+          eventName: "order_created",
+          userId: order.userId || undefined,
+          properties: {
+            orderId: order.id,
+            orderTotal: order.total,
+            currency: order.currency,
+            itemCount: order.items.length,
+            customerType: order.userId ? "registered" : "guest",
+          },
+          value: Number(order.total),
+        });
+      }
+
+      // Send order confirmation notification
+      if (this.notificationService && order.customerEmail) {
+        const user = order.userId
+          ? await this.userRepo.findById(order.userId)
+          : null;
+        await this.notificationService.queueOrderConfirmationEmail(
+          order.customerEmail,
+          {
+            firstName: user?.firstName || "Customer",
+            orderId: order.orderNumber,
+            orderTotal: Number(order.total),
+            currency: order.currency,
+            items: order.items.map((item) => ({
+              name: item.productName,
+              quantity: item.quantity,
+              price: Number(item.price),
+            })),
+            orderUrl: `${process.env.FRONTEND_URL}/orders/${order.id}`,
+          }
+        );
+      }
+
+      // Dispatch webhook event
+      if (this.webhookService) {
+        await this.webhookService.dispatchEvent({
+          eventType: "order.created",
+          eventId: `order_${order.id}_created`,
+          payload: {
+            order: order,
+            items: order.items,
+          },
+          sourceId: order.id,
+          sourceType: "order",
+          userId: order.userId || undefined,
+          metadata: {
+            customerType: order.userId ? "registered" : "guest",
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+
+      // Clear cache for user orders and order statistics
+      if (this.cacheService) {
+        await Promise.all([
+          this.cacheService.delete(`user_orders:${order.userId}`),
+          this.cacheService.delete("order_statistics"),
+          this.cacheService.delete("recent_orders"),
+        ]);
+      }
+    } catch (error) {
+      // Log integration errors but don't fail order creation
+      console.error("Order integration error:", error);
+    }
   }
 
   async updateOrder(id: string, input: UpdateOrderInput): Promise<OrderOutput> {
@@ -181,12 +271,106 @@ export class OrderService {
       throw new Error("Order not found");
     }
 
+    const oldStatus = order.status;
     const updatedOrder = await this.orderRepo.updateStatus(id, status);
     if (!updatedOrder) {
       throw new Error("Failed to update order status");
     }
 
-    return this.getOrder(id);
+    const finalOrder = await this.getOrder(id);
+
+    // Trigger integrations after status update
+    await this.handleOrderStatusUpdateIntegrations(
+      finalOrder,
+      oldStatus,
+      status
+    );
+
+    return finalOrder;
+  }
+
+  private async handleOrderStatusUpdateIntegrations(
+    order: OrderOutput,
+    oldStatus: string,
+    newStatus: string
+  ): Promise<void> {
+    try {
+      // Analytics tracking
+      if (this.analyticsService) {
+        await this.analyticsService.trackEvent({
+          eventType: "ecommerce",
+          eventName: "order_status_updated",
+          userId: order.userId || undefined,
+          properties: {
+            orderId: order.id,
+            oldStatus,
+            newStatus,
+            orderTotal: order.total,
+            currency: order.currency,
+          },
+          value: Number(order.total),
+        });
+      }
+
+      // Send status update notifications
+      if (this.notificationService && order.customerEmail) {
+        const user = order.userId
+          ? await this.userRepo.findById(order.userId)
+          : null;
+
+        // Send different notifications based on status
+        if (newStatus === "shipped") {
+          await this.notificationService.queueEmail(
+            "order-shipped",
+            {
+              firstName: user?.firstName || "Customer",
+              orderId: order.orderNumber,
+              trackingUrl: `${process.env.FRONTEND_URL}/orders/${order.id}/tracking`,
+            },
+            { to: order.customerEmail }
+          );
+        } else if (newStatus === "delivered") {
+          await this.notificationService.queueEmail(
+            "order-delivered",
+            {
+              firstName: user?.firstName || "Customer",
+              orderId: order.orderNumber,
+              orderUrl: `${process.env.FRONTEND_URL}/orders/${order.id}`,
+            },
+            { to: order.customerEmail }
+          );
+        }
+      }
+
+      // Dispatch webhook event
+      if (this.webhookService) {
+        await this.webhookService.dispatchEvent({
+          eventType: "order.updated",
+          eventId: `order_${order.id}_status_${newStatus}`,
+          payload: {
+            order: order,
+            statusChange: {
+              from: oldStatus,
+              to: newStatus,
+            },
+          },
+          sourceId: order.id,
+          sourceType: "order",
+          userId: order.userId || undefined,
+        });
+      }
+
+      // Clear relevant caches
+      if (this.cacheService) {
+        await Promise.all([
+          this.cacheService.delete(`order:${order.id}`),
+          this.cacheService.delete(`user_orders:${order.userId}`),
+          this.cacheService.delete("order_statistics"),
+        ]);
+      }
+    } catch (error) {
+      console.error("Order status update integration error:", error);
+    }
   }
 
   async updatePaymentStatus(

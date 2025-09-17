@@ -14,11 +14,21 @@ import {
   UpdateProductInput,
   ProductOutput,
 } from "./product.types";
+import { NotificationService } from "../../notifications/notification.service";
+import { WebhookService } from "../../webhook/webhook.service";
+import { AnalyticsService } from "../../analytics/analytics.service";
+import { CacheService } from "../../cache/cache.service";
+import { StorageService } from "../../media/storage.service";
 
 export class ProductService {
   constructor(
     private productRepo: ProductRepository,
-    private vendorRepo: VendorRepository
+    private vendorRepo: VendorRepository,
+    private notificationService?: NotificationService,
+    private webhookService?: WebhookService,
+    private analyticsService?: AnalyticsService,
+    private cacheService?: CacheService,
+    private storageService?: StorageService
   ) {}
 
   async createProduct(
@@ -72,7 +82,60 @@ export class ProductService {
     };
 
     const product = await this.productRepo.create(productData);
-    return this.mapToOutput(product);
+    const finalProduct = this.mapToOutput(product);
+
+    // Trigger integrations after product creation
+    await this.handleProductCreatedIntegrations(finalProduct, vendor);
+
+    return finalProduct;
+  }
+
+  private async handleProductCreatedIntegrations(
+    product: ProductOutput,
+    vendor: any
+  ): Promise<void> {
+    try {
+      // Analytics tracking
+      if (this.analyticsService) {
+        await this.analyticsService.trackEvent({
+          eventType: "product",
+          eventName: "product_created",
+          userId: vendor.userId,
+          properties: {
+            productId: product.id,
+            vendorId: product.vendorId,
+            productName: product.name,
+            price: product.price,
+            category: product.categoryId,
+            status: product.status,
+          },
+          value: Number(product.price),
+        });
+      }
+
+      // Dispatch webhook event
+      if (this.webhookService) {
+        await this.webhookService.dispatchEvent({
+          eventType: "product.created",
+          eventId: `product_${product.id}_created`,
+          payload: { product },
+          sourceId: product.id,
+          sourceType: "product",
+          vendorId: product.vendorId,
+        });
+      }
+
+      // Clear product caches
+      if (this.cacheService) {
+        await Promise.all([
+          this.cacheService.delete("featured_products"),
+          this.cacheService.delete(`vendor_products:${product.vendorId}`),
+          this.cacheService.delete("product_statistics"),
+        ]);
+      }
+    } catch (error) {
+      console.error("Product creation integration error:", error);
+    }
   }
 
   async updateProduct(
