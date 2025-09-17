@@ -6,6 +6,7 @@
 import { FastifyPluginAsync } from "fastify";
 import fastifyApollo from "@as-integrations/fastify";
 import { createGraphQLServer } from "./index.js";
+import { createContext } from "./context.js";
 
 export const graphqlPlugin: FastifyPluginAsync = async (fastify) => {
   // Create Apollo Server
@@ -18,12 +19,12 @@ export const graphqlPlugin: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fastifyApollo(server), {
     context: async (request, reply) => {
       // Create GraphQL context from Fastify request
-      return {
+      return await createContext({
         req: {
           headers: request.headers,
           ip: request.ip,
         },
-      };
+      });
     },
   });
 

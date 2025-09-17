@@ -9,6 +9,7 @@ import { UserRepository } from "../../core/repositories/user.repository.js";
 import { VendorRepository } from "../../core/repositories/vendor.repository.js";
 import { ProductRepository } from "../../core/repositories/product.repository.js";
 import { OrderRepository } from "../../core/repositories/order.repository.js";
+import { PaymentRepository } from "../../core/repositories/payment.repository.js";
 import { User } from "../../core/database/schema/index.js";
 import { verifyJWT } from "../../shared/utils/jwt.utils.js";
 import { UserLoader } from "./dataloaders/user.loader.js";
@@ -25,6 +26,7 @@ export interface GraphQLContext extends BaseContext {
     vendor: VendorRepository;
     product: ProductRepository;
     order: OrderRepository;
+    payment: PaymentRepository;
   };
 
   // DataLoaders for efficient data fetching
@@ -35,7 +37,7 @@ export interface GraphQLContext extends BaseContext {
   };
 
   // Authentication
-  user?: User;
+  user?: User | null;
   isAuthenticated: boolean;
 
   // Request metadata
@@ -66,6 +68,7 @@ export const createContext = async ({
     vendor: new VendorRepository(db),
     product: new ProductRepository(db),
     order: new OrderRepository(db),
+    payment: new PaymentRepository(db),
   };
 
   // Initialize data loaders
@@ -99,7 +102,7 @@ export const createContext = async ({
       const payload = await verifyJWT(token);
 
       if (payload.userId) {
-        user = await repositories.user.findById(payload.userId);
+        user = (await repositories.user.findById(payload.userId)) || undefined;
         isAuthenticated = !!user;
       }
     } catch (error) {

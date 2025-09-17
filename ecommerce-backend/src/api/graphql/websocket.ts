@@ -4,11 +4,11 @@
  */
 
 import { WebSocketServer } from "ws";
-import { useServer } from "graphql-ws/lib/use/ws";
+import { useServer } from "graphql-ws/use/ws";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { typeDefs } from "./schema/index.js";
 import { resolvers } from "./resolvers/index.js";
-import { createContext } from "./context.js";
+import { createContext, GraphQLContext } from "./context.js";
 import { Server } from "http";
 
 // Create executable schema for subscriptions
@@ -38,7 +38,11 @@ export const createWebSocketServer = ({
       schema,
 
       // Context creation for subscriptions
-      context: async (ctx, msg, args) => {
+      context: async (
+        ctx: any,
+        msg: any,
+        args: any
+      ): Promise<GraphQLContext> => {
         // Extract authentication from connection params or headers
         const token =
           ctx.connectionParams?.authorization ||
@@ -57,28 +61,28 @@ export const createWebSocketServer = ({
       },
 
       // Connection initialization
-      onConnect: async (ctx) => {
+      onConnect: async (ctx: any): Promise<boolean> => {
         console.log("GraphQL WebSocket client connected");
         return true;
       },
 
       // Connection termination
-      onDisconnect: (ctx, code, reason) => {
+      onDisconnect: (ctx: any, code: any, reason: any): void => {
         console.log("GraphQL WebSocket client disconnected:", code, reason);
       },
 
       // Error handling
-      onError: (ctx, msg, errors) => {
+      onError: (ctx: any, msg: any, errors: any): void => {
         console.error("GraphQL WebSocket error:", errors);
       },
 
       // Subscription execution
-      onSubscribe: async (ctx, msg) => {
+      onSubscribe: async (ctx: any, msg: any): Promise<void> => {
         console.log("GraphQL subscription started:", msg.payload.operationName);
       },
 
       // Subscription completion
-      onComplete: (ctx, msg) => {
+      onComplete: (ctx: any, msg: any): void => {
         console.log("GraphQL subscription completed:", msg.id);
       },
     },

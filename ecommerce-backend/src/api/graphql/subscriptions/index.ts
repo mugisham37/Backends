@@ -8,7 +8,7 @@ import { GraphQLContext } from "../context.js";
 import { User } from "../../../core/database/schema/index.js";
 
 // Create PubSub instance for managing subscriptions
-export const pubsub = new PubSub();
+export const pubsub = new PubSub() as any; // Temporary fix for TypeScript issues
 
 // Subscription event names
 export const SUBSCRIPTION_EVENTS = {
@@ -66,7 +66,12 @@ export class SubscriptionManager {
       throw new Error("Authentication required for subscriptions");
     }
 
-    const iterator = this.pubsub.asyncIterator(event);
+    const asyncIterator = this.pubsub.asyncIterator([event]);
+
+    // Create an async iterable from the iterator
+    const iterator: AsyncIterable<any> = {
+      [Symbol.asyncIterator]: () => asyncIterator,
+    };
 
     // Apply filter if provided
     if (filter) {

@@ -4,18 +4,12 @@
  */
 
 import { GraphQLError } from "graphql";
-import { withFilter } from "graphql-subscriptions";
+import { withFilter, PubSub } from "graphql-subscriptions";
 import { RealtimeNotificationService } from "../../../modules/notifications/realtime-notification.service.js";
 import { AppError } from "../../../core/errors/app-error.js";
+import { GraphQLContext } from "../context.js";
 
-export interface NotificationContext {
-  user?: {
-    id: string;
-    role: string;
-    email: string;
-  };
-  pubsub: any; // PubSub instance for subscriptions
-}
+const pubsub = new PubSub() as any; // Temporary fix for TypeScript issues
 
 export function createNotificationResolvers(
   notificationService: RealtimeNotificationService
@@ -38,7 +32,7 @@ export function createNotificationResolvers(
             offset?: number;
           };
         },
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -91,7 +85,7 @@ export function createNotificationResolvers(
       notification: async (
         _: any,
         args: { id: string },
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -130,11 +124,7 @@ export function createNotificationResolvers(
         }
       },
 
-      notificationStats: async (
-        _: any,
-        __: any,
-        context: NotificationContext
-      ) => {
+      notificationStats: async (_: any, __: any, context: GraphQLContext) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
             extensions: { code: "UNAUTHENTICATED" },
@@ -160,7 +150,7 @@ export function createNotificationResolvers(
       notificationPreferences: async (
         _: any,
         __: any,
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -191,7 +181,7 @@ export function createNotificationResolvers(
       markNotificationsAsRead: async (
         _: any,
         args: { input: { notificationIds?: string[] } },
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -228,7 +218,7 @@ export function createNotificationResolvers(
       markAllNotificationsAsRead: async (
         _: any,
         __: any,
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -253,7 +243,7 @@ export function createNotificationResolvers(
       updateNotificationPreferences: async (
         _: any,
         args: { input: any },
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -281,7 +271,7 @@ export function createNotificationResolvers(
       sendNotification: async (
         _: any,
         args: { input: any },
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -318,7 +308,7 @@ export function createNotificationResolvers(
       sendBulkNotifications: async (
         _: any,
         args: { input: any },
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -349,7 +339,7 @@ export function createNotificationResolvers(
       sendTestNotification: async (
         _: any,
         __: any,
-        context: NotificationContext
+        context: GraphQLContext
       ) => {
         if (!context.user) {
           throw new GraphQLError("Authentication required", {
@@ -397,54 +387,57 @@ export function createNotificationResolvers(
     Subscription: {
       notificationReceived: {
         subscribe: withFilter(
-          (_, __, context: NotificationContext) => {
-            if (!context.user) {
+          (_, __, context: GraphQLContext | undefined) => {
+            if (!context || !context.user) {
               throw new GraphQLError("Authentication required", {
                 extensions: { code: "UNAUTHENTICATED" },
               });
             }
-            return context.pubsub.asyncIterator(
-              `NOTIFICATION_RECEIVED_${context.user.id}`
-            );
+            return pubsub.asyncIterator([
+              `NOTIFICATION_RECEIVED_${context.user.id}`,
+            ]);
           },
-          (payload, _, context: NotificationContext) => {
-            return payload.userId === context.user?.id;
+          (payload, _, context: GraphQLContext | undefined) => {
+            if (!context?.user) return false;
+            return payload.userId === context.user.id;
           }
         ),
       },
 
       notificationRead: {
         subscribe: withFilter(
-          (_, __, context: NotificationContext) => {
-            if (!context.user) {
+          (_, __, context: GraphQLContext | undefined) => {
+            if (!context || !context.user) {
               throw new GraphQLError("Authentication required", {
                 extensions: { code: "UNAUTHENTICATED" },
               });
             }
-            return context.pubsub.asyncIterator(
-              `NOTIFICATION_READ_${context.user.id}`
-            );
+            return pubsub.asyncIterator([
+              `NOTIFICATION_READ_${context.user.id}`,
+            ]);
           },
-          (payload, _, context: NotificationContext) => {
-            return payload.userId === context.user?.id;
+          (payload, _, context: GraphQLContext | undefined) => {
+            if (!context?.user) return false;
+            return payload.userId === context.user.id;
           }
         ),
       },
 
       notificationStatsUpdated: {
         subscribe: withFilter(
-          (_, __, context: NotificationContext) => {
-            if (!context.user) {
+          (_, __, context: GraphQLContext | undefined) => {
+            if (!context || !context.user) {
               throw new GraphQLError("Authentication required", {
                 extensions: { code: "UNAUTHENTICATED" },
               });
             }
-            return context.pubsub.asyncIterator(
-              `NOTIFICATION_STATS_${context.user.id}`
-            );
+            return pubsub.asyncIterator([
+              `NOTIFICATION_STATS_${context.user.id}`,
+            ]);
           },
-          (payload, _, context: NotificationContext) => {
-            return payload.userId === context.user?.id;
+          (payload, _, context: GraphQLContext | undefined) => {
+            if (!context?.user) return false;
+            return payload.userId === context.user.id;
           }
         ),
       },

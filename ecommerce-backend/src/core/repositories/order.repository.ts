@@ -119,6 +119,17 @@ export class OrderRepository extends BaseRepository<
       .orderBy(desc(orders.createdAt));
   }
 
+  // Find orders by vendor ID
+  async findByVendorId(
+    vendorId: string,
+    filters: OrderFilters = {}
+  ): Promise<Order[]> {
+    // This would need to join with order_items table to filter by vendor
+    // For now, return empty array as order_items table is not implemented
+    // TODO: Implement this method when order_items table is available
+    return [];
+  }
+
   // Find order with all items and relations
   async findWithItems(id: string): Promise<OrderWithItems | null> {
     // Get order

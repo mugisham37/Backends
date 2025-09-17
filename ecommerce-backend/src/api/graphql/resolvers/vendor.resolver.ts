@@ -8,7 +8,7 @@ import { GraphQLContext, requireAuth, requireRole } from "../context.js";
 import { VendorFilters } from "../../../core/repositories/vendor.repository.js";
 import { PubSub } from "graphql-subscriptions";
 
-const pubsub = new PubSub();
+const pubsub = new PubSub() as any; // Temporary fix for TypeScript issues
 
 // Helper function to generate slug from business name
 const generateSlug = (businessName: string): string => {
@@ -368,13 +368,13 @@ export const vendorResolvers = {
   Subscription: {
     vendorUpdated: {
       subscribe: (_: any, { vendorId }: any) =>
-        pubsub.asyncIterator(`VENDOR_UPDATED_${vendorId}`),
+        pubsub.asyncIterator([`VENDOR_UPDATED_${vendorId}`]),
     },
     vendorStatusChanged: {
-      subscribe: () => pubsub.asyncIterator("VENDOR_STATUS_CHANGED"),
+      subscribe: () => pubsub.asyncIterator(["VENDOR_STATUS_CHANGED"]),
     },
     vendorApplicationReceived: {
-      subscribe: () => pubsub.asyncIterator("VENDOR_APPLICATION_RECEIVED"),
+      subscribe: () => pubsub.asyncIterator(["VENDOR_APPLICATION_RECEIVED"]),
     },
   },
 

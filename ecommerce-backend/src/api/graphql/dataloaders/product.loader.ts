@@ -20,12 +20,16 @@ export class ProductLoader {
     // Loader for products by ID
     this.byIdLoader = new DataLoader<string, Product | null>(
       async (ids: readonly string[]) => {
-        const products = await this.productRepository.findByIds([...ids]);
-        const productMap = new Map(
-          products.map((product) => [product.id, product])
-        );
+        try {
+          const products = await this.productRepository.findByIds([...ids]);
+          const productMap = new Map(
+            products.map((product) => [product.id, product])
+          );
 
-        return ids.map((id) => productMap.get(id) || null);
+          return ids.map((id) => productMap.get(id) || null);
+        } catch (error) {
+          return ids.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -36,22 +40,26 @@ export class ProductLoader {
     // Loader for products by vendor ID
     this.byVendorIdLoader = new DataLoader<string, Product[]>(
       async (vendorIds: readonly string[]) => {
-        const products = await this.productRepository.findByVendorIds([
-          ...vendorIds,
-        ]);
-        const productsByVendor = new Map<string, Product[]>();
+        try {
+          const products = await this.productRepository.findByVendorIds([
+            ...vendorIds,
+          ]);
+          const productsByVendor = new Map<string, Product[]>();
 
-        // Group products by vendor ID
-        products.forEach((product) => {
-          if (!productsByVendor.has(product.vendorId)) {
-            productsByVendor.set(product.vendorId, []);
-          }
-          productsByVendor.get(product.vendorId)!.push(product);
-        });
+          // Group products by vendor ID
+          products.forEach((product) => {
+            if (!productsByVendor.has(product.vendorId)) {
+              productsByVendor.set(product.vendorId, []);
+            }
+            productsByVendor.get(product.vendorId)!.push(product);
+          });
 
-        return vendorIds.map(
-          (vendorId) => productsByVendor.get(vendorId) || []
-        );
+          return vendorIds.map(
+            (vendorId) => productsByVendor.get(vendorId) || []
+          );
+        } catch (error) {
+          return vendorIds.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -62,24 +70,28 @@ export class ProductLoader {
     // Loader for products by category ID
     this.byCategoryIdLoader = new DataLoader<string, Product[]>(
       async (categoryIds: readonly string[]) => {
-        const products = await this.productRepository.findByCategoryIds([
-          ...categoryIds,
-        ]);
-        const productsByCategory = new Map<string, Product[]>();
+        try {
+          const products = await this.productRepository.findByCategoryIds([
+            ...categoryIds,
+          ]);
+          const productsByCategory = new Map<string, Product[]>();
 
-        // Group products by category ID
-        products.forEach((product) => {
-          if (product.categoryId) {
-            if (!productsByCategory.has(product.categoryId)) {
-              productsByCategory.set(product.categoryId, []);
+          // Group products by category ID
+          products.forEach((product) => {
+            if (product.categoryId) {
+              if (!productsByCategory.has(product.categoryId)) {
+                productsByCategory.set(product.categoryId, []);
+              }
+              productsByCategory.get(product.categoryId)!.push(product);
             }
-            productsByCategory.get(product.categoryId)!.push(product);
-          }
-        });
+          });
 
-        return categoryIds.map(
-          (categoryId) => productsByCategory.get(categoryId) || []
-        );
+          return categoryIds.map(
+            (categoryId) => productsByCategory.get(categoryId) || []
+          );
+        } catch (error) {
+          return categoryIds.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -90,12 +102,16 @@ export class ProductLoader {
     // Loader for products by slug
     this.bySlugLoader = new DataLoader<string, Product | null>(
       async (slugs: readonly string[]) => {
-        const products = await this.productRepository.findBySlugs([...slugs]);
-        const productMap = new Map(
-          products.map((product) => [product.slug, product])
-        );
+        try {
+          const products = await this.productRepository.findBySlugs([...slugs]);
+          const productMap = new Map(
+            products.map((product) => [product.slug, product])
+          );
 
-        return slugs.map((slug) => productMap.get(slug) || null);
+          return slugs.map((slug) => productMap.get(slug) || null);
+        } catch (error) {
+          return slugs.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -110,7 +126,7 @@ export class ProductLoader {
   }
 
   // Load multiple products by IDs
-  async loadManyByIds(ids: string[]): Promise<(Product | null)[]> {
+  async loadManyByIds(ids: string[]): Promise<(Product | null | Error)[]> {
     return this.byIdLoader.loadMany(ids);
   }
 
@@ -120,7 +136,9 @@ export class ProductLoader {
   }
 
   // Load products by multiple vendor IDs
-  async loadManyByVendorIds(vendorIds: string[]): Promise<Product[][]> {
+  async loadManyByVendorIds(
+    vendorIds: string[]
+  ): Promise<(Product[] | Error)[]> {
     return this.byVendorIdLoader.loadMany(vendorIds);
   }
 
@@ -130,7 +148,9 @@ export class ProductLoader {
   }
 
   // Load products by multiple category IDs
-  async loadManyByCategoryIds(categoryIds: string[]): Promise<Product[][]> {
+  async loadManyByCategoryIds(
+    categoryIds: string[]
+  ): Promise<(Product[] | Error)[]> {
     return this.byCategoryIdLoader.loadMany(categoryIds);
   }
 
@@ -140,7 +160,7 @@ export class ProductLoader {
   }
 
   // Load multiple products by slugs
-  async loadManyBySlugs(slugs: string[]): Promise<(Product | null)[]> {
+  async loadManyBySlugs(slugs: string[]): Promise<(Product | null | Error)[]> {
     return this.bySlugLoader.loadMany(slugs);
   }
 

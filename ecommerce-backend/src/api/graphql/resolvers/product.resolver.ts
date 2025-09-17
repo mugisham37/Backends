@@ -8,7 +8,7 @@ import { GraphQLContext, requireAuth, requireRole } from "../context.js";
 import { ProductFilters } from "../../../core/repositories/product.repository.js";
 import { PubSub } from "graphql-subscriptions";
 
-const pubsub = new PubSub();
+const pubsub = new PubSub() as any; // Temporary fix for TypeScript issues
 
 // Helper function to generate slug from product name
 const generateSlug = (name: string): string => {
@@ -435,7 +435,8 @@ export const productResolvers = {
               vendorId: product.vendorId,
             });
           } else if (
-            updatedProduct.quantity <= updatedProduct.lowStockThreshold
+            (updatedProduct.quantity ?? 0) <=
+            (updatedProduct.lowStockThreshold ?? 0)
           ) {
             pubsub.publish("LOW_STOCK_ALERT", {
               lowStockAlert: updatedProduct,
@@ -454,21 +455,21 @@ export const productResolvers = {
   Subscription: {
     productUpdated: {
       subscribe: (_: any, { productId }: any) =>
-        pubsub.asyncIterator(`PRODUCT_UPDATED_${productId}`),
+        pubsub.asyncIterator([`PRODUCT_UPDATED_${productId}`]),
     },
     productStatusChanged: {
       subscribe: (_: any, { vendorId }: any) =>
         vendorId
-          ? pubsub.asyncIterator(`PRODUCT_STATUS_CHANGED_${vendorId}`)
-          : pubsub.asyncIterator("PRODUCT_STATUS_CHANGED"),
+          ? pubsub.asyncIterator([`PRODUCT_STATUS_CHANGED_${vendorId}`])
+          : pubsub.asyncIterator(["PRODUCT_STATUS_CHANGED"]),
     },
     lowStockAlert: {
       subscribe: (_: any, { vendorId }: any) =>
-        pubsub.asyncIterator(`LOW_STOCK_ALERT_${vendorId}`),
+        pubsub.asyncIterator([`LOW_STOCK_ALERT_${vendorId}`]),
     },
     outOfStockAlert: {
       subscribe: (_: any, { vendorId }: any) =>
-        pubsub.asyncIterator(`OUT_OF_STOCK_ALERT_${vendorId}`),
+        pubsub.asyncIterator([`OUT_OF_STOCK_ALERT_${vendorId}`]),
     },
   },
 

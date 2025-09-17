@@ -19,10 +19,16 @@ export class VendorLoader {
     // Loader for vendors by ID
     this.byIdLoader = new DataLoader<string, Vendor | null>(
       async (ids: readonly string[]) => {
-        const vendors = await this.vendorRepository.findByIds([...ids]);
-        const vendorMap = new Map(vendors.map((vendor) => [vendor.id, vendor]));
+        try {
+          const vendors = await this.vendorRepository.findByIds([...ids]);
+          const vendorMap = new Map(
+            vendors.map((vendor) => [vendor.id, vendor])
+          );
 
-        return ids.map((id) => vendorMap.get(id) || null);
+          return ids.map((id) => vendorMap.get(id) || null);
+        } catch (error) {
+          return ids.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -33,12 +39,18 @@ export class VendorLoader {
     // Loader for vendors by user ID
     this.byUserIdLoader = new DataLoader<string, Vendor | null>(
       async (userIds: readonly string[]) => {
-        const vendors = await this.vendorRepository.findByUserIds([...userIds]);
-        const vendorMap = new Map(
-          vendors.map((vendor) => [vendor.userId, vendor])
-        );
+        try {
+          const vendors = await this.vendorRepository.findByUserIds([
+            ...userIds,
+          ]);
+          const vendorMap = new Map(
+            vendors.map((vendor) => [vendor.userId, vendor])
+          );
 
-        return userIds.map((userId) => vendorMap.get(userId) || null);
+          return userIds.map((userId) => vendorMap.get(userId) || null);
+        } catch (error) {
+          return userIds.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -49,12 +61,16 @@ export class VendorLoader {
     // Loader for vendors by slug
     this.bySlugLoader = new DataLoader<string, Vendor | null>(
       async (slugs: readonly string[]) => {
-        const vendors = await this.vendorRepository.findBySlugs([...slugs]);
-        const vendorMap = new Map(
-          vendors.map((vendor) => [vendor.slug, vendor])
-        );
+        try {
+          const vendors = await this.vendorRepository.findBySlugs([...slugs]);
+          const vendorMap = new Map(
+            vendors.map((vendor) => [vendor.slug, vendor])
+          );
 
-        return slugs.map((slug) => vendorMap.get(slug) || null);
+          return slugs.map((slug) => vendorMap.get(slug) || null);
+        } catch (error) {
+          return slugs.map(() => error as Error);
+        }
       },
       {
         cache: true,
@@ -69,7 +85,7 @@ export class VendorLoader {
   }
 
   // Load multiple vendors by IDs
-  async loadManyByIds(ids: string[]): Promise<(Vendor | null)[]> {
+  async loadManyByIds(ids: string[]): Promise<(Vendor | null | Error)[]> {
     return this.byIdLoader.loadMany(ids);
   }
 
@@ -79,7 +95,9 @@ export class VendorLoader {
   }
 
   // Load multiple vendors by user IDs
-  async loadManyByUserIds(userIds: string[]): Promise<(Vendor | null)[]> {
+  async loadManyByUserIds(
+    userIds: string[]
+  ): Promise<(Vendor | null | Error)[]> {
     return this.byUserIdLoader.loadMany(userIds);
   }
 
@@ -89,7 +107,7 @@ export class VendorLoader {
   }
 
   // Load multiple vendors by slugs
-  async loadManyBySlugs(slugs: string[]): Promise<(Vendor | null)[]> {
+  async loadManyBySlugs(slugs: string[]): Promise<(Vendor | null | Error)[]> {
     return this.bySlugLoader.loadMany(slugs);
   }
 

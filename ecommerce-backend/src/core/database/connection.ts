@@ -23,6 +23,11 @@ export type DrizzleDB = typeof db;
 // Export connection utilities
 export { client as postgresClient };
 
+// Get database instance function
+export function getDatabase(): Database {
+  return db;
+}
+
 // Graceful shutdown
 export async function closeDatabase(): Promise<void> {
   await client.end();

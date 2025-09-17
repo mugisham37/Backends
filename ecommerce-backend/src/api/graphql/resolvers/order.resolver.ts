@@ -7,7 +7,7 @@ import { GraphQLError } from "graphql";
 import { GraphQLContext, requireAuth, requireRole } from "../context.js";
 import { PubSub } from "graphql-subscriptions";
 
-const pubsub = new PubSub();
+const pubsub = new PubSub() as any; // Temporary fix for TypeScript issues
 
 // Helper function to generate order number
 const generateOrderNumber = (): string => {
@@ -109,7 +109,7 @@ export const orderResolvers = {
 
       try {
         // This would use a proper order repository method to find by user ID
-        const orders = await context.repositories.order.findByUserId(user.id);
+        const orders = await context.repositories.order.findByUser(user.id);
 
         // Apply pagination (simplified)
         const limit = args.pagination?.first || 20;
@@ -409,21 +409,21 @@ export const orderResolvers = {
   Subscription: {
     orderUpdated: {
       subscribe: (_: any, { orderId }: any) =>
-        pubsub.asyncIterator(`ORDER_UPDATED_${orderId}`),
+        pubsub.asyncIterator([`ORDER_UPDATED_${orderId}`]),
     },
     orderStatusChanged: {
       subscribe: (_: any, { userId }: any) =>
         userId
-          ? pubsub.asyncIterator(`ORDER_STATUS_CHANGED_${userId}`)
-          : pubsub.asyncIterator("ORDER_STATUS_CHANGED"),
+          ? pubsub.asyncIterator([`ORDER_STATUS_CHANGED_${userId}`])
+          : pubsub.asyncIterator(["ORDER_STATUS_CHANGED"]),
     },
     vendorOrderReceived: {
       subscribe: (_: any, { vendorId }: any) =>
-        pubsub.asyncIterator(`VENDOR_ORDER_RECEIVED_${vendorId}`),
+        pubsub.asyncIterator([`VENDOR_ORDER_RECEIVED_${vendorId}`]),
     },
     paymentProcessed: {
       subscribe: (_: any, { orderId }: any) =>
-        pubsub.asyncIterator(`PAYMENT_PROCESSED_${orderId}`),
+        pubsub.asyncIterator([`PAYMENT_PROCESSED_${orderId}`]),
     },
   },
 
