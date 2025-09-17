@@ -9,19 +9,19 @@ import type {
   FastifyRequest,
   FastifyReply,
 } from "fastify";
-import { authRoutes } from "./routes/auth.routes.js";
-import { userRoutes } from "./routes/user.routes.js";
-import { vendorRoutes } from "./routes/vendor.routes.js";
-import { productRoutes } from "./routes/product.routes.js";
-import { orderRoutes } from "./routes/order.routes.js";
-import { healthRoutes } from "./routes/health.routes.js";
-import { notificationRoutes } from "./routes/notification.routes.js";
-import { analyticsRoutes } from "./routes/analytics.routes.js";
-import { webhookRoutes } from "./routes/webhook.routes.js";
+import { authRoutes } from "./routes/auth.routes";
+import { userRoutes } from "./routes/user.routes";
+import { vendorRoutes } from "./routes/vendor.routes";
+import { productRoutes } from "./routes/product.routes";
+import { orderRoutes } from "./routes/order.routes";
+import { healthRoutes } from "./routes/health.routes";
+import { notificationRoutes } from "./routes/notification.routes";
+import { analyticsRoutes } from "./routes/analytics.routes";
+import { webhookRoutes } from "./routes/webhook.routes";
 import {
   ResponseBuilder,
   HTTP_STATUS,
-} from "../../shared/utils/response.utils.js";
+} from "../../shared/utils/response.utils";
 
 export async function restApiPlugin(
   fastify: FastifyInstance,

@@ -1,130 +1,127 @@
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-import app from "./app";
-import logger from "./config/logger";
-import { initScheduler, stopAllJobs } from "./services/scheduler.service";
-import { closeRedisConnection } from "./config/redis";
-import { initializeDefaultSettings } from "./services/settings.service";
+/**
+ * Server Entry Point
+ * E-commerce Backend Server with PostgreSQL, Drizzle ORM, and Clean Architecture
+ */
 
-// Load environment variables
-dotenv.config();
+import { config } from "./shared/config/env.config";
+import { logger } from "./shared/utils/logger";
+import { createApp } from "./app";
+import { closeDatabase } from "./core/database/connection";
+import type { FastifyInstance } from "fastify";
 
-// Set up unhandled rejection handler
+// Global error handlers
 process.on("unhandledRejection", (err: Error) => {
-  logger.error(`Unhandled Rejection: ${err.message}`);
-  logger.error(err.stack);
-
-  // Graceful shutdown
-  gracefulShutdown("Unhandled Rejection");
+  logger.error("💥 Unhandled Promise Rejection:", err);
+  gracefulShutdown("Unhandled Promise Rejection");
 });
 
-// Set up uncaught exception handler
 process.on("uncaughtException", (err: Error) => {
-  logger.error(`Uncaught Exception: ${err.message}`);
-  logger.error(err.stack);
-
-  // For uncaught exceptions, we should exit immediately
+  logger.error("💥 Uncaught Exception:", err);
+  // For uncaught exceptions, exit immediately
   process.exit(1);
 });
 
-// Connect to MongoDB
-const connectDB = async (): Promise<mongoose.Connection> => {
-  try {
-    const conn = await mongoose.connect(
-      process.env.MONGODB_URI || "mongodb://localhost:27017/ecommerce",
-      {
-        serverSelectionTimeoutMS: 5000, // 5 seconds
-      }
-    );
-    logger.info(`MongoDB Connected: ${conn.connection.host}`);
-    return conn.connection;
-  } catch (error) {
-    logger.error(`Error connecting to MongoDB: ${error.message}`);
-    throw error;
-  }
-};
-
-// Graceful shutdown function
-const gracefulShutdown = async (reason: string): Promise<void> => {
-  logger.info(`Server is shutting down: ${reason}`);
+// Graceful shutdown handler
+const gracefulShutdown = async (signal: string): Promise<void> => {
+  logger.info(`🛑 ${signal} received. Starting graceful shutdown...`);
 
   try {
-    // Stop all scheduled jobs
-    logger.info("Stopping all scheduled jobs");
-    await stopAllJobs();
+    // Close all connections in order
+    await Promise.allSettled([closeDatabase()]);
 
-    // Close Redis connection
-    logger.info("Closing Redis connection");
-    await closeRedisConnection();
-
-    // Close MongoDB connection
-    if (mongoose.connection.readyState === 1) {
-      logger.info("Closing MongoDB connection");
-      await mongoose.connection.close();
-    }
-
-    logger.info("All connections closed successfully");
+    logger.info("✅ All connections closed successfully");
     process.exit(0);
   } catch (error) {
-    logger.error(`Error during graceful shutdown: ${error.message}`);
+    logger.error("❌ Error during graceful shutdown:", error);
     process.exit(1);
   }
 };
 
-// Handle termination signals
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM received"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT received"));
+// Signal handlers
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-// Start server
-const startServer = async (): Promise<any> => {
+/**
+ * Start the ecommerce backend server
+ */
+const startServer = async (): Promise<void> => {
+  let app: FastifyInstance | null = null;
+
   try {
-    // Connect to MongoDB
-    const dbConnection = await connectDB();
+    logger.info("🚀 Starting E-commerce Backend Server...");
+    logger.info(`📦 Environment: ${config.nodeEnv}`);
+    logger.info(`🔧 Node Version: ${process.version}`);
 
-    // Initialize default settings
-    try {
-      await initializeDefaultSettings();
-    } catch (error) {
-      logger.error(`Error initializing default settings: ${error.message}`);
-      // Continue starting the server even if settings initialization fails
+    // Create and configure the application
+    logger.info("⚙️ Creating application...");
+    app = await createApp();
+
+    if (!app) {
+      throw new Error("Failed to create application instance");
     }
 
-    // Set up connection error handler
-    dbConnection.on("error", (err) => {
-      logger.error(`MongoDB connection error: ${err.message}`);
-      gracefulShutdown("MongoDB connection error");
-    });
+    // Start the server
+    const port = config.port;
+    const host = config.nodeEnv === "production" ? "0.0.0.0" : "localhost";
 
-    // Set up connection close handler
-    dbConnection.on("close", () => {
-      logger.info("MongoDB connection closed");
-    });
+    await app.listen({ port, host });
 
-    // Initialize scheduler
-    initScheduler();
+    logger.info(`🎉 Server successfully started!`);
+    logger.info(`🌐 Server running on: http://${host}:${port}`);
+    logger.info(`📋 Health check: http://${host}:${port}/health`);
+    logger.info(`📚 API Documentation: http://${host}:${port}/api/docs`);
+    logger.info(`🔍 GraphQL Playground: http://${host}:${port}/graphql`);
 
-    // Start server
-    const PORT = process.env.PORT || 5000;
-    const server = app.listen(PORT, () => {
-      logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-    });
-
-    // Handle server errors
-    server.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "EADDRINUSE") {
-        logger.error(`Port ${PORT} is already in use`);
-      } else {
-        logger.error(`Server error: ${error.message}`);
-      }
-      process.exit(1);
-    });
-
-    return server;
+    // Log available endpoints
+    logger.info("📡 Available Endpoints:");
+    logger.info("   REST API: /api/v1/*");
+    logger.info("   GraphQL: /graphql");
+    logger.info("   Health: /health");
+    logger.info("   Metrics: /metrics");
   } catch (error) {
-    logger.error(`Error starting server: ${error.message}`);
+    logger.error("💥 Failed to start server:", error);
+
+    // Attempt cleanup if app was created
+    if (app) {
+      try {
+        await app.close();
+      } catch (closeError) {
+        logger.error(
+          "❌ Error closing app during startup failure:",
+          closeError
+        );
+      }
+    }
+
     process.exit(1);
   }
 };
 
-// Start the server
-startServer();
+/**
+ * Handle startup errors with detailed logging
+ */
+const handleStartupError = (error: Error): void => {
+  logger.error("💥 Startup Error Details:");
+  logger.error(`   Message: ${error.message}`);
+  logger.error(`   Stack: ${error.stack}`);
+
+  if (error.message.includes("EADDRINUSE")) {
+    logger.error(`   💡 Port ${config.port} is already in use`);
+    logger.error("   Try changing the PORT environment variable");
+  }
+
+  if (error.message.includes("ECONNREFUSED")) {
+    logger.error("   💡 Database connection refused");
+    logger.error("   Check your DATABASE_URL and ensure PostgreSQL is running");
+  }
+
+  if (error.message.includes("Redis")) {
+    logger.error("   💡 Redis connection failed");
+    logger.error("   Check your REDIS_URL and ensure Redis is running");
+  }
+
+  process.exit(1);
+};
+
+// Start the server with error handling
+startServer().catch(handleStartupError);

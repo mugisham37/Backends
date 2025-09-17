@@ -1,7 +1,7 @@
 // Export all error classes
-export * from "./app-error.js";
-export * from "./error-types.js";
-export * from "./error-handler.js";
+export * from "./app-error";
+export * from "./error-types";
+export * from "./error-handler";
 
 // Re-export commonly used items with shorter names
 export {
@@ -14,7 +14,7 @@ export {
   DatabaseError,
   ExternalServiceError,
   BusinessLogicError,
-} from "./app-error.js";
+} from "./app-error";
 
 export {
   ERROR_CODES,
