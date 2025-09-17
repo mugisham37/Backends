@@ -1,26 +1,35 @@
 export interface Webhook {
   id: string;
+  name: string;
   url: string;
   events: WebhookEvent[];
-  secret: string;
-  active: boolean;
-  tenantId: string;
+  secret?: string;
+  status: WebhookStatus;
+  tenantId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
+export enum WebhookStatus {
+  ACTIVE = "active",
+  INACTIVE = "inactive",
+  FAILED = "failed",
+}
+
 export interface CreateWebhookData {
+  name: string;
   url: string;
   events: WebhookEvent[];
   secret?: string;
-  tenantId: string;
+  tenantId?: string;
 }
 
 export interface UpdateWebhookData {
+  name?: string;
   url?: string;
   events?: WebhookEvent[];
   secret?: string;
-  active?: boolean;
+  status?: WebhookStatus;
 }
 
 export enum WebhookEvent {
@@ -45,14 +54,15 @@ export interface WebhookPayload {
 export interface WebhookDelivery {
   id: string;
   webhookId: string;
-  payload: WebhookPayload;
-  status: WebhookDeliveryStatus;
-  attempts: number;
-  lastAttempt?: Date;
-  nextAttempt?: Date;
-  response?: WebhookResponse;
+  event: WebhookEvent;
+  payload: any;
+  success: boolean;
+  statusCode?: number;
+  response?: string;
+  error?: string;
+  attempt: number;
+  deliveredAt?: Date;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export enum WebhookDeliveryStatus {
@@ -74,4 +84,13 @@ export interface WebhookConfig {
   retryDelay: number;
   timeout: number;
   signatureHeader: string;
+}
+
+export interface WebhookJobData {
+  webhookId: string;
+  event: string;
+  payload: any;
+  url: string;
+  secret?: string;
+  attempt: number;
 }

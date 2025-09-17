@@ -1,4 +1,11 @@
 import { inject, injectable } from "tsyringe";
+import {
+  CacheShort,
+  CacheMedium,
+  CacheInvalidate,
+} from "../../core/decorators/cache.decorator";
+import { Validate } from "../../core/decorators/validate.decorator";
+import { createContentSchema, updateContentSchema } from "./content.schemas";
 import type {
   Content,
   ContentStatus,
@@ -17,6 +24,7 @@ import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
 import { SearchService } from "../search/search.service";
+import { WebhookService } from "../webhook/webhook.service";
 
 /**
  * Content management service with versioning and publishing
@@ -28,12 +36,14 @@ export class ContentService {
     @inject("ContentRepository") private _contentRepository: ContentRepository,
     @inject("CacheService") private _cacheService: CacheService,
     @inject("AuditService") private _auditService: AuditService,
-    @inject("SearchService") private _searchService: SearchService
+    @inject("SearchService") private _searchService: SearchService,
+    @inject("WebhookService") private _webhookService: WebhookService
   ) {}
 
   /**
    * Get all content items with filtering and pagination
    */
+  @CacheShort()
   async getAllContent(
     tenantId: string,
     filter: {
@@ -174,6 +184,7 @@ export class ContentService {
   /**
    * Get content by ID
    */
+  @CacheMedium()
   async getContentById(
     id: string,
     tenantId: string
@@ -213,6 +224,7 @@ export class ContentService {
   /**
    * Get content by slug
    */
+  @CacheMedium()
   async getContentBySlug(
     slug: string,
     tenantId: string
@@ -249,6 +261,7 @@ export class ContentService {
   /**
    * Create new content
    */
+  @Validate({ input: createContentSchema })
   async createContent(
     data: {
       title: string;
@@ -351,6 +364,16 @@ export class ContentService {
       // Index content for search
       await this._searchService.indexContent(result.data);
 
+      // Trigger webhook event
+      await this._webhookService.triggerWebhook(tenantId, "content.created", {
+        contentId: result.data.id,
+        title: result.data.title,
+        slug: result.data.slug,
+        contentType: result.data.contentType,
+        authorId: result.data.authorId,
+        createdAt: result.data.createdAt,
+      });
+
       // Log content creation
       await this._auditService.logContentEvent({
         contentId: result.data.id,
@@ -379,6 +402,8 @@ export class ContentService {
   /**
    * Update content
    */
+  @Validate({ input: updateContentSchema })
+  @CacheInvalidate()
   async updateContent(
     id: string,
     data: {
@@ -482,6 +507,16 @@ export class ContentService {
       // Update search index
       await this._searchService.updateContent(result.data);
 
+      // Trigger webhook event
+      await this._webhookService.triggerWebhook(tenantId, "content.updated", {
+        contentId: result.data.id,
+        title: result.data.title,
+        slug: result.data.slug,
+        contentType: result.data.contentType,
+        version: result.data.version,
+        updatedAt: result.data.updatedAt,
+      });
+
       // Log content update
       await this._auditService.logContentEvent({
         contentId: id,
@@ -539,6 +574,15 @@ export class ContentService {
 
       // Remove from search index
       await this._searchService.removeContent(id);
+
+      // Trigger webhook event
+      await this._webhookService.triggerWebhook(tenantId, "content.deleted", {
+        contentId: id,
+        title: existingContent.data.title,
+        slug: existingContent.data.slug,
+        contentType: existingContent.data.contentType,
+        deletedAt: new Date(),
+      });
 
       // Log content deletion
       await this._auditService.logContentEvent({
@@ -609,6 +653,16 @@ export class ContentService {
 
       // Update search index
       await this._searchService.updateContent(result.data);
+
+      // Trigger webhook event
+      await this._webhookService.triggerWebhook(tenantId, "content.published", {
+        contentId: result.data.id,
+        title: result.data.title,
+        slug: result.data.slug,
+        contentType: result.data.contentType,
+        publishedAt: result.data.publishedAt,
+        authorId: result.data.authorId,
+      });
 
       // Log content publishing
       await this._auditService.logContentEvent({

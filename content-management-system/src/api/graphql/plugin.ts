@@ -4,6 +4,13 @@ import { buildContext } from "./context";
 import { buildResolvers } from "./resolvers/index";
 import { buildSchema } from "./schema/index";
 
+// Extend FastifyInstance to include redis property
+declare module "fastify" {
+  interface FastifyInstance {
+    redis?: any;
+  }
+}
+
 /**
  * GraphQL API Plugin for Fastify using Mercurius
  *
@@ -14,13 +21,13 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
   fastify: FastifyInstance
 ) => {
   // Register Mercurius GraphQL plugin
-  await fastify.register(mercurius, {
+  await fastify.register(mercurius as any, {
     schema: buildSchema(),
     resolvers: buildResolvers(),
     context: buildContext,
     subscription: {
       emitter: fastify.redis || undefined,
-      verifyClient: (info, next) => {
+      verifyClient: (info: any, next: any) => {
         // Verify WebSocket connection for subscriptions
         const token = info.req.headers.authorization?.replace("Bearer ", "");
         if (token) {
@@ -31,16 +38,16 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
         }
       },
     },
-    graphiql: process.env.NODE_ENV === "development" ? "playground" : false,
-    ide: process.env.NODE_ENV === "development",
+    graphiql: process.env["NODE_ENV"] === "development" ? "playground" : false,
+    ide: process.env["NODE_ENV"] === "development",
     path: "/",
-    errorFormatter: (execution, context) => {
+    errorFormatter: (execution: any, context: any) => {
       // Custom error formatting
       const { errors } = execution;
 
       if (!errors) return execution;
 
-      const formattedErrors = errors.map((error) => {
+      const formattedErrors = errors.map((error: any) => {
         // Log the error
         context.reply.log.error(
           {
@@ -53,8 +60,8 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
 
         // In production, don't expose internal server errors
         if (
-          process.env.NODE_ENV === "production" &&
-          error.extensions?.code === "INTERNAL_SERVER_ERROR"
+          process.env["NODE_ENV"] === "production" &&
+          error.extensions?.["code"] === "INTERNAL_SERVER_ERROR"
         ) {
           return {
             message: "Internal server error",
@@ -83,7 +90,9 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
       timestamp: new Date().toISOString(),
       endpoint: "/graphql",
       playground:
-        process.env.NODE_ENV === "development" ? "/graphql/playground" : null,
+        process.env["NODE_ENV"] === "development"
+          ? "/graphql/playground"
+          : null,
       subscriptions: "enabled",
       dataLoaders: "enabled",
     });

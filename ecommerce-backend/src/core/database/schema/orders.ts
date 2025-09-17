@@ -170,37 +170,7 @@ export const orderItems = pgTable("order_items", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Payment records
-export const payments = pgTable("payments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orderId: uuid("order_id").notNull(), // References orders.id
-
-  // Payment information
-  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // stripe, paypal, etc.
-  paymentIntentId: varchar("payment_intent_id", { length: 255 }),
-  transactionId: varchar("transaction_id", { length: 255 }),
-
-  // Amount
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  currency: varchar("currency", { length: 3 }).default("USD"),
-
-  // Status
-  status: paymentStatusEnum("status").default("pending").notNull(),
-
-  // Gateway response
-  gatewayResponse: json("gateway_response").$type<{
-    [key: string]: any;
-  }>(),
-
-  // Timestamps
-  processedAt: timestamp("processed_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
-export type Payment = typeof payments.$inferSelect;
-export type NewPayment = typeof payments.$inferInsert;

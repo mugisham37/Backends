@@ -6,15 +6,14 @@
 import { GraphQLError } from "graphql";
 import { GraphQLContext, requireAuth, requireRole } from "../context.js";
 import { PubSub } from "graphql-subscriptions";
+import { getService } from "../../../core/container/index.js";
+import { OrderService } from "../../../modules/ecommerce/orders/order.service.js";
+import {
+  CreateOrderUseCase,
+  UpdateOrderStatusUseCase,
+} from "../../../modules/ecommerce/orders/use-cases/index.js";
 
 const pubsub = new PubSub() as any; // Temporary fix for TypeScript issues
-
-// Helper function to generate order number
-const generateOrderNumber = (): string => {
-  const timestamp = Date.now().toString();
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `ORD-${timestamp.slice(-6)}-${random}`;
-};
 
 export const orderResolvers = {
   Query: {
@@ -24,15 +23,14 @@ export const orderResolvers = {
       context: GraphQLContext
     ) => {
       const user = requireAuth(context);
+      const orderService = getService<OrderService>("orderService");
 
       try {
         let order;
         if (id) {
-          order = await context.repositories.order.findById(id);
+          order = await orderService.getOrder(id);
         } else if (orderNumber) {
-          order = await context.repositories.order.findByOrderNumber(
-            orderNumber
-          );
+          order = await orderService.getOrderByNumber(orderNumber);
         } else {
           throw new GraphQLError("Either id or orderNumber must be provided");
         }
@@ -63,15 +61,13 @@ export const orderResolvers = {
 
     orders: async (_: any, args: any, context: GraphQLContext) => {
       requireRole(context, ["admin", "moderator"]);
+      const orderService = getService<OrderService>("orderService");
 
       try {
         const { filters, pagination } = args;
 
-        // This would use a proper order repository method
-        const orders = await context.repositories.order.findWithFilters(
-          filters || {}
-        );
-        const totalCount = await context.repositories.order.count();
+        // Use OrderService to search orders
+        const orders = await orderService.searchOrders(filters || {});
 
         // Apply pagination (simplified)
         const limit = pagination?.first || 20;
@@ -97,7 +93,7 @@ export const orderResolvers = {
                   )
                 : null,
           },
-          totalCount,
+          totalCount: orders.length,
         };
       } catch (error) {
         throw new GraphQLError(`Failed to fetch orders: ${error.message}`);
@@ -106,10 +102,11 @@ export const orderResolvers = {
 
     myOrders: async (_: any, args: any, context: GraphQLContext) => {
       const user = requireAuth(context);
+      const orderService = getService<OrderService>("orderService");
 
       try {
-        // This would use a proper order repository method to find by user ID
-        const orders = await context.repositories.order.findByUser(user.id);
+        // Use OrderService to get user orders
+        const orders = await orderService.getUserOrders(user.id);
 
         // Apply pagination (simplified)
         const limit = args.pagination?.first || 20;
@@ -247,48 +244,18 @@ export const orderResolvers = {
     createOrder: async (_: any, { input }: any, context: GraphQLContext) => {
       // Orders can be created by authenticated users or as guest orders
       const user = context.user;
+      const createOrderUseCase =
+        getService<CreateOrderUseCase>("createOrderUseCase");
 
       try {
-        const orderNumber = generateOrderNumber();
+        // Prepare order data for the use case
+        const orderData = {
+          ...input,
+          userId: user?.id,
+        };
 
-        // Calculate totals from items
-        let subtotal = 0;
-        for (const item of input.items) {
-          subtotal += parseFloat(item.price) * item.quantity;
-        }
-
-        const order = await context.repositories.order.create({
-          orderNumber,
-          userId: user?.id || null,
-          customerEmail: input.customerEmail,
-          customerPhone: input.customerPhone,
-          status: "pending",
-          paymentStatus: "pending",
-          shippingStatus: "pending",
-          subtotal: subtotal.toString(),
-          taxAmount: "0.00", // Would be calculated based on tax rules
-          shippingAmount: "0.00", // Would be calculated based on shipping method
-          discountAmount: "0.00",
-          total: subtotal.toString(), // Would include tax and shipping
-          currency: "USD",
-          billingAddress: input.billingAddress,
-          shippingAddress: input.shippingAddress,
-          shippingMethod: input.shippingMethod,
-          customerNotes: input.customerNotes,
-          metadata: input.metadata,
-        });
-
-        // Create order items (this would be done in a transaction)
-        // for (const item of input.items) {
-        //   await context.repositories.orderItem.create({
-        //     orderId: order.id,
-        //     productId: item.productId,
-        //     variantId: item.variantId,
-        //     quantity: item.quantity,
-        //     price: item.price,
-        //     total: (parseFloat(item.price) * item.quantity).toString(),
-        //   });
-        // }
+        // Use the OrderService through use case
+        const order = await createOrderUseCase.execute({ orderData });
 
         // Publish subscription for vendor notifications
         pubsub.publish("VENDOR_ORDER_RECEIVED", {
@@ -307,9 +274,13 @@ export const orderResolvers = {
       context: GraphQLContext
     ) => {
       requireRole(context, ["admin", "moderator", "vendor"]);
+      const updateOrderStatusUseCase = getService<UpdateOrderStatusUseCase>(
+        "updateOrderStatusUseCase"
+      );
+      const orderService = getService<OrderService>("orderService");
 
       try {
-        const order = await context.repositories.order.findById(id);
+        const order = await orderService.getOrder(id);
         if (!order) {
           throw new GraphQLError("Order not found");
         }
@@ -326,14 +297,13 @@ export const orderResolvers = {
           }
         }
 
-        const updatedOrder = await context.repositories.order.update(id, {
-          status: input.status,
-          adminNotes: input.adminNotes,
+        // Use OrderService through use case
+        const updatedOrder = await updateOrderStatusUseCase.execute({
+          orderId: id,
+          newStatus: input.status,
+          updatedBy: context.user!.id,
+          reason: input.adminNotes,
         });
-
-        if (!updatedOrder) {
-          throw new GraphQLError("Failed to update order status");
-        }
 
         // Publish subscription
         pubsub.publish("ORDER_UPDATED", {

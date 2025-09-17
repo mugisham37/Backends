@@ -1,7 +1,53 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { container } from "tsyringe";
-import type { IAuthService } from "../../core/types/service.types";
+import type {
+  IAuthService,
+  IUserService,
+  ITenantService,
+  IContentService,
+  IMediaService,
+  ISearchService,
+} from "../../core/types/service.types";
 import { type DataLoaders, createDataLoaders } from "./dataloaders";
+
+/**
+ * Simple in-memory pubsub implementation
+ * In production, you'd want to use Redis or another message broker
+ */
+class SimplePubSub {
+  private subscribers = new Map<string, Set<(data: any) => void>>();
+
+  publish(topic: string, payload: any): void {
+    const callbacks = this.subscribers.get(topic);
+    if (callbacks) {
+      callbacks.forEach((callback) => callback(payload));
+    }
+  }
+
+  asyncIterator(topic: string): any {
+    // Simple implementation - in production use proper async iterator
+    return {
+      [Symbol.asyncIterator]: async function* () {
+        // This is a basic implementation
+        // In production, you'd implement proper async iteration
+        yield { topic, data: {} };
+      },
+    };
+  }
+
+  subscribe(topic: string, callback: (data: any) => void): () => void {
+    if (!this.subscribers.has(topic)) {
+      this.subscribers.set(topic, new Set());
+    }
+    this.subscribers.get(topic)!.add(callback);
+
+    return () => {
+      this.subscribers.get(topic)?.delete(callback);
+    };
+  }
+}
+
+const globalPubSub = new SimplePubSub();
 
 /**
  * GraphQL Context Builder
@@ -13,13 +59,14 @@ export interface GraphQLContext {
   user?: any;
   request: FastifyRequest;
   reply: FastifyReply;
+  pubsub: SimplePubSub;
   dataSources: {
     authService: IAuthService;
-    tenantService: any;
-    contentService: any;
-    mediaService: any;
-    searchService: any;
-    userService: any;
+    tenantService: ITenantService;
+    contentService: IContentService;
+    mediaService: IMediaService;
+    searchService: ISearchService;
+    userService: IUserService;
   };
   loaders: DataLoaders;
 }
@@ -43,24 +90,25 @@ export const buildContext = async (
       }
     } catch (error) {
       // Log authentication error but don't fail the request
-      request.log.warn("GraphQL authentication failed:", error);
+      request.log.warn("GraphQL authentication failed:", error as any);
     }
   }
 
   // Resolve services from DI container
   const dataSources = {
-    authService: container.resolve("AuthService"),
-    tenantService: container.resolve("TenantService"),
-    contentService: container.resolve("ContentService"),
-    mediaService: container.resolve("MediaService"),
-    searchService: container.resolve("SearchService"),
-    userService: container.resolve("UserService"),
+    authService: container.resolve<IAuthService>("AuthService"),
+    tenantService: container.resolve<ITenantService>("TenantService"),
+    contentService: container.resolve<IContentService>("ContentService"),
+    mediaService: container.resolve<IMediaService>("MediaService"),
+    searchService: container.resolve<ISearchService>("SearchService"),
+    userService: container.resolve<IUserService>("UserService"),
   };
 
   return {
     user,
     request,
     reply,
+    pubsub: globalPubSub,
     dataSources,
     loaders: createDataLoaders(),
   };

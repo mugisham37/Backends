@@ -1,4 +1,8 @@
 import { inject, injectable } from "tsyringe";
+import { CacheInvalidate } from "../../core/decorators/cache.decorator";
+import { Validate } from "../../core/decorators/validate.decorator";
+import { createTenantSchema, updateTenantSchema } from "./tenant.schemas";
+import { CACHE_KEYS, CACHE_TTL } from "../../shared/constants";
 import type { Tenant } from "../../core/database/schema/tenant.schema";
 import {
   BusinessRuleError,
@@ -29,6 +33,8 @@ export class TenantService {
   /**
    * Create a new tenant
    */
+  @Validate({ input: createTenantSchema })
+  @CacheInvalidate()
   async createTenant(data: {
     name: string;
     slug?: string;
@@ -138,7 +144,7 @@ export class TenantService {
   async getTenantById(id: string): Promise<Result<Tenant, NotFoundError>> {
     try {
       // Check cache first
-      const cacheKey = `tenant:${id}`;
+      const cacheKey = `${CACHE_KEYS.TENANT_PREFIX}${id}`;
       const cachedTenant = await this.cacheService.get<Tenant>(cacheKey);
       if (cachedTenant) {
         return { success: true, data: cachedTenant };
@@ -152,8 +158,8 @@ export class TenantService {
         };
       }
 
-      // Cache tenant for 10 minutes
-      await this.cacheService.set(cacheKey, result.data, 10 * 60);
+      // Cache tenant for configured time
+      await this.cacheService.set(cacheKey, result.data, CACHE_TTL.MEDIUM);
 
       return result as Result<Tenant, NotFoundError>;
     } catch (error) {
@@ -201,6 +207,7 @@ export class TenantService {
   /**
    * Update tenant
    */
+  @Validate({ input: updateTenantSchema })
   async updateTenant(
     id: string,
     data: Partial<{

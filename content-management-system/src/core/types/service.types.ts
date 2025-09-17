@@ -44,12 +44,14 @@ export interface IAuthService extends IBaseService {
 export interface IUserService extends IBaseService {
   createUser(data: CreateUserData): Promise<Result<User, Error>>;
   getUserById(id: string): Promise<Result<User | null, Error>>;
+  getUser(id: string): Promise<Result<User | null, Error>>; // Alias for getUserById
   getUserByEmail(email: string): Promise<Result<User | null, Error>>;
   updateUser(id: string, data: UpdateUserData): Promise<Result<User, Error>>;
   deleteUser(id: string): Promise<Result<void, Error>>;
   listUsers(
     options?: FilterOptions<User>
   ): Promise<Result<PaginatedResult<User>, Error>>;
+  getUsersByTenant(tenantId: string): Promise<Result<User[], Error>>; // Added for DataLoader
   activateUser(id: string): Promise<Result<User, Error>>;
   deactivateUser(id: string): Promise<Result<User, Error>>;
   changePassword(
@@ -108,10 +110,15 @@ export interface IContentService extends IBaseService {
   listContent(
     options?: FilterOptions<Content>
   ): Promise<Result<PaginatedResult<Content>, Error>>;
+  getContentsByTenant(tenantId: string): Promise<Result<Content[], Error>>; // Added for DataLoader
   publishContent(id: string): Promise<Result<Content, Error>>;
   unpublishContent(id: string): Promise<Result<Content, Error>>;
   archiveContent(id: string): Promise<Result<Content, Error>>;
   getContentVersions(id: string): Promise<Result<ContentVersion[], Error>>;
+  getContentsByTenant(
+    tenantId: string,
+    options?: FilterOptions<Content>
+  ): Promise<Result<Content[], Error>>; // Added for DataLoader
   revertToVersion(id: string, version: number): Promise<Result<Content, Error>>;
   duplicateContent(
     id: string,
@@ -133,6 +140,10 @@ export interface IMediaService extends IBaseService {
   listFiles(
     options?: FilterOptions<Media>
   ): Promise<Result<PaginatedResult<Media>, Error>>;
+  getMediaByTenant(
+    tenantId: string,
+    options?: FilterOptions<Media>
+  ): Promise<Result<Media[], Error>>; // Added for DataLoader
   processImage(
     id: string,
     transformations: ImageTransformation[]

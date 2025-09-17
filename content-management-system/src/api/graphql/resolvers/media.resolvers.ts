@@ -28,7 +28,10 @@ export const mediaResolvers = {
       // Implement media listing with filters
       const result = await context.dataSources.mediaService.getMediaByTenant(
         context.user.tenantId,
-        { page, limit, mimeType }
+        {
+          where: { mimeType },
+          pagination: { page, limit },
+        }
       );
 
       if (!result.success) {
@@ -96,7 +99,7 @@ export const mediaResolvers = {
           throw new Error("Authentication required");
         }
 
-        return context.reply.graphql.pubsub.asyncIterator(
+        return context.pubsub.asyncIterator(
           `MEDIA_UPLOADED_${tenantId || context.user.tenantId}`
         );
       },

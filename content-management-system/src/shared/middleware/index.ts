@@ -195,3 +195,81 @@ export const extractIpAddress = (
 
   return "unknown";
 };
+
+/**
+ * Enhanced Middleware Configuration Presets
+ * Ready-to-use middleware configurations for common scenarios
+ */
+export const ENHANCED_MIDDLEWARE_PRESETS = {
+  // Basic authentication for public APIs
+  PUBLIC_API: {
+    auth: {
+      enabled: true,
+      required: false,
+      roles: [],
+      permissions: [],
+    },
+    monitoring: {
+      enabled: true,
+      enableMetrics: true,
+      enableHealthCheck: true,
+      enablePerformanceTracking: true,
+    },
+  },
+
+  // Secure authentication for admin APIs
+  ADMIN_API: {
+    auth: {
+      enabled: true,
+      required: true,
+      roles: ["admin"],
+      permissions: ["admin:read", "admin:write"],
+    },
+    monitoring: {
+      enabled: true,
+      enableMetrics: true,
+      enableHealthCheck: true,
+      enableAuditLogs: true,
+      enablePerformanceTracking: true,
+    },
+  },
+
+  // Content management APIs
+  CONTENT_API: {
+    auth: {
+      enabled: true,
+      required: true,
+      roles: ["editor", "admin"],
+      permissions: ["content:read", "content:write"],
+    },
+    monitoring: {
+      enabled: true,
+      enableMetrics: true,
+      enablePerformanceTracking: true,
+    },
+  },
+
+  // Development mode with comprehensive monitoring
+  DEVELOPMENT: {
+    auth: {
+      enabled: true,
+      required: false,
+    },
+    monitoring: {
+      enabled: true,
+      enableMetrics: true,
+      enableHealthCheck: true,
+      enableAuditLogs: true,
+      enablePerformanceTracking: true,
+    },
+  },
+} as const;
+
+/**
+ * Apply enhanced middleware preset configuration
+ */
+export function applyEnhancedMiddlewarePreset(
+  preset: keyof typeof ENHANCED_MIDDLEWARE_PRESETS
+) {
+  return ENHANCED_MIDDLEWARE_PRESETS[preset];
+}

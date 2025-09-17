@@ -20,7 +20,10 @@ export enum ApiKeyScope {
   WEBHOOKS_WRITE = "webhooks:write",
 }
 
-// Legacy exports for compatibility
+/**
+ * @deprecated Use the actual API key schema from core/database/schema instead
+ * This type is kept for backward compatibility only
+ */
 export type ApiKeyModel = {
   _id: string;
   name: string;
@@ -33,3 +36,6 @@ export type ApiKeyModel = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+// Export actual schema types for new code
+export type { ApiKey } from "../../../core/database/schema/api-key.schema";

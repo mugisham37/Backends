@@ -11,6 +11,7 @@ import type {
 } from "../../core/types/service.types";
 import { logger } from "../../shared/utils/logger";
 import { CacheService } from "../cache/cache.service";
+import { AuditService } from "../audit/audit.service";
 
 interface SearchDocument {
   id: string;
@@ -80,7 +81,10 @@ export class SearchService implements ISearchService {
     noResultsQueries: new Map<string, number>(),
   };
 
-  constructor(@inject("CacheService") private cacheService: CacheService) {
+  constructor(
+    @inject("CacheService") private cacheService: CacheService,
+    @inject("AuditService") private auditService: AuditService
+  ) {
     this.initializeIndex();
   }
 
@@ -660,6 +664,22 @@ export class SearchService implements ISearchService {
       if (!cacheSetResult.success) {
         logger.warn("Failed to cache search result:", cacheSetResult.error);
       }
+
+      // Log search analytics
+      await this.auditService.logUserAction({
+        userId: "system", // Could be passed as parameter
+        ...(tenantId !== undefined ? { tenantId } : {}),
+        action: "search_performed",
+        resource: "search",
+        details: {
+          query: query,
+          type: type,
+          resultsCount: total,
+          searchTime: searchTime,
+          hasResults: total > 0,
+          timestamp: new Date(),
+        },
+      });
 
       return { success: true, data: result };
     } catch (error) {

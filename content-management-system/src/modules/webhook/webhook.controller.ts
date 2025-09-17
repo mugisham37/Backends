@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { WebhookService } from "./webhook.service";
-import { parsePaginationParams } from "../utils/helpers";
+import { parsePaginationParams } from "../../shared/utils/helpers";
 
 export class WebhookController {
   private webhookService: WebhookService;

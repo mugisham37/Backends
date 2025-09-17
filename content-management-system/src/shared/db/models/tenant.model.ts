@@ -1,7 +1,11 @@
-// Legacy Tenant model for backward compatibility
+// Legacy types for backward compatibility - redirected to actual schema types
 
 export type TenantUserRole = "owner" | "admin" | "member" | "viewer";
 
+/**
+ * @deprecated Use the actual tenant schema from core/database/schema instead
+ * This interface is kept for backward compatibility only
+ */
 export interface TenantModel {
   _id: string;
   id: string;
@@ -16,28 +20,5 @@ export interface TenantModel {
   updatedAt: Date;
 }
 
-// Mock TenantModel class for legacy compatibility
-export class TenantModel {
-  static async findById(id: string): Promise<TenantModel | null> {
-    console.warn("TenantModel.findById called with legacy interface:", id);
-    return null;
-  }
-
-  static async findOne(query: any): Promise<TenantModel | null> {
-    console.warn("TenantModel.findOne called with legacy interface:", query);
-    return null;
-  }
-
-  static async findBySlug(slug: string): Promise<TenantModel | null> {
-    console.warn("TenantModel.findBySlug called with legacy interface:", slug);
-    return null;
-  }
-
-  static async findByDomain(domain: string): Promise<TenantModel | null> {
-    console.warn(
-      "TenantModel.findByDomain called with legacy interface:",
-      domain
-    );
-    return null;
-  }
-}
+// Export actual schema types for new code
+export type { Tenant } from "../../../core/database/schema/tenant.schema";

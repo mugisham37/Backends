@@ -16,11 +16,7 @@ export const tenantResolvers = {
       return result.data;
     },
 
-    tenants: async (
-      _parent: any,
-      { page, limit }: any,
-      context: GraphQLContext
-    ) => {
+    tenants: async (_parent: any, _args: any, context: GraphQLContext) => {
       if (!context.user) {
         throw new Error("Authentication required");
       }
@@ -47,8 +43,9 @@ export const tenantResolvers = {
         throw new Error("Authentication required");
       }
 
-      const result =
-        await context.dataSources.tenantService.createTenant(input);
+      const result = await context.dataSources.tenantService.createTenant(
+        input
+      );
 
       if (!result.success) {
         throw new Error(result.error.message);

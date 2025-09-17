@@ -128,6 +128,14 @@ export function registerServices(): void {
       path: "../../modules/webhook/webhook.service",
     },
     { token: TOKENS.AuditService, path: "../../modules/audit/audit.service" },
+    {
+      token: TOKENS.ApiKeyService,
+      path: "../../shared/services/api-key.service",
+    },
+    {
+      token: TOKENS.PerformanceMonitorService,
+      path: "../../shared/services/performance-monitor.service",
+    },
   ];
 
   for (const service of services) {

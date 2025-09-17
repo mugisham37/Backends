@@ -54,6 +54,23 @@ export const tenantRoutes: FastifyPluginAsync = async (
     "/my",
     {
       preHandler: [fastify.authenticate],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: {
+                type: "object",
+                properties: {
+                  tenants: { type: "array" },
+                },
+              },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.getUserTenants
   );
@@ -68,6 +85,18 @@ export const tenantRoutes: FastifyPluginAsync = async (
         fastify.authenticate,
         validate({ querystring: tenantQuerySchema }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: { type: "object" },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.listTenants
   );
@@ -80,6 +109,23 @@ export const tenantRoutes: FastifyPluginAsync = async (
         fastify.authenticate,
         validate({ body: createTenantSchema }),
       ],
+      schema: {
+        response: {
+          201: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: {
+                type: "object",
+                properties: {
+                  tenant: { type: "object" },
+                },
+              },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.createTenant
   );
@@ -92,6 +138,23 @@ export const tenantRoutes: FastifyPluginAsync = async (
         fastify.authenticate,
         validate({ params: tenantSlugParamsSchema }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: {
+                type: "object",
+                properties: {
+                  tenant: { type: "object" },
+                },
+              },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.getTenantBySlug
   );
@@ -104,6 +167,23 @@ export const tenantRoutes: FastifyPluginAsync = async (
         fastify.authenticate,
         validate({ params: tenantParamsSchema }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: {
+                type: "object",
+                properties: {
+                  tenant: { type: "object" },
+                },
+              },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.getTenantById
   );
@@ -122,6 +202,23 @@ export const tenantRoutes: FastifyPluginAsync = async (
           body: updateTenantSchema,
         }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: {
+                type: "object",
+                properties: {
+                  tenant: { type: "object" },
+                },
+              },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.updateTenant
   );
@@ -136,6 +233,18 @@ export const tenantRoutes: FastifyPluginAsync = async (
         fastify.authenticate,
         validate({ params: tenantParamsSchema }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              message: { type: "string" },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.deleteTenant
   );
@@ -150,6 +259,18 @@ export const tenantRoutes: FastifyPluginAsync = async (
         fastify.authenticate,
         validate({ params: tenantParamsSchema }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: { type: "object" },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.getTenantStats
   );
@@ -168,6 +289,23 @@ export const tenantRoutes: FastifyPluginAsync = async (
           body: updateTenantSettingsSchema,
         }),
       ],
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              data: {
+                type: "object",
+                properties: {
+                  tenant: { type: "object" },
+                },
+              },
+              timestamp: { type: "string" },
+            },
+          },
+        },
+      },
     },
     tenantController.updateTenantSettings
   );

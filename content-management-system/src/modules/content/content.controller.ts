@@ -1,7 +1,11 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { inject, injectable } from "tsyringe";
 import { ContentService } from "./content.service";
-import { parsePaginationParams, parseSortParams } from "../utils/helpers";
+import {
+  parsePaginationParams,
+  parseSortParams,
+} from "../../shared/utils/helpers";
+import { Auth } from "../../core/decorators/auth.decorator";
 
 // Type definitions for Fastify requests
 interface ContentQueryParams extends Record<string, unknown> {
@@ -70,6 +74,7 @@ interface PublishContentBody {
 }
 
 @injectable()
+@Auth()
 export class ContentController {
   constructor(
     @inject("ContentService") private contentService: ContentService

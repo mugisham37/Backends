@@ -36,7 +36,10 @@ export const contentResolvers = {
       const result =
         await context.dataSources.contentService.getContentsByTenant(
           context.user.tenantId,
-          { page, limit, status, authorId }
+          {
+            where: { status, authorId },
+            pagination: { page, limit },
+          }
         );
 
       if (!result.success) {
@@ -82,8 +85,9 @@ export const contentResolvers = {
         tenantId: context.user.tenantId,
       };
 
-      const result =
-        await context.dataSources.contentService.createContent(contentData);
+      const result = await context.dataSources.contentService.createContent(
+        contentData
+      );
 
       if (!result.success) {
         throw new Error(result.error.message);
@@ -140,8 +144,9 @@ export const contentResolvers = {
         throw new Error("Authentication required");
       }
 
-      const result =
-        await context.dataSources.contentService.publishContent(id);
+      const result = await context.dataSources.contentService.publishContent(
+        id
+      );
 
       if (!result.success) {
         throw new Error(result.error.message);
@@ -161,7 +166,7 @@ export const contentResolvers = {
 
       const updateResult =
         await context.dataSources.contentService.updateContent(id, {
-          status: "DRAFT",
+          status: "draft",
         });
 
       if (!updateResult.success) {
@@ -184,7 +189,7 @@ export const contentResolvers = {
         }
 
         // Return subscription iterator for content creation events
-        return context.reply.graphql.pubsub.asyncIterator(
+        return context.pubsub.asyncIterator(
           `CONTENT_CREATED_${tenantId || context.user.tenantId}`
         );
       },
@@ -200,9 +205,7 @@ export const contentResolvers = {
           throw new Error("Authentication required");
         }
 
-        return context.reply.graphql.pubsub.asyncIterator(
-          `CONTENT_UPDATED_${contentId}`
-        );
+        return context.pubsub.asyncIterator(`CONTENT_UPDATED_${contentId}`);
       },
     },
 
@@ -216,7 +219,7 @@ export const contentResolvers = {
           throw new Error("Authentication required");
         }
 
-        return context.reply.graphql.pubsub.asyncIterator(
+        return context.pubsub.asyncIterator(
           `CONTENT_PUBLISHED_${tenantId || context.user.tenantId}`
         );
       },

@@ -5,7 +5,7 @@ import {
   healthCheckMiddleware,
   metricsMiddleware,
   systemHealthSummaryMiddleware,
-} from "../../../middleware/monitoring.middleware";
+} from "../../../shared/middleware/monitoring.middleware";
 
 /**
  * Health and monitoring routes
@@ -63,7 +63,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { MonitoringController } = await import(
-        "../../../controllers/monitoring.controller"
+        "../../../shared/controllers/monitoring.controller"
       );
       const controller = new MonitoringController();
       return controller.getHealthStatus(request, reply);
@@ -211,7 +211,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { MonitoringController } = await import(
-        "../../../controllers/monitoring.controller"
+        "../../../shared/controllers/monitoring.controller"
       );
       const controller = new MonitoringController();
       return controller.getPerformanceMetrics(request, reply);
@@ -240,7 +240,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
     },
     async (request, reply) => {
       const { MonitoringController } = await import(
-        "../../../controllers/monitoring.controller"
+        "../../../shared/controllers/monitoring.controller"
       );
       const controller = new MonitoringController();
       return controller.getDashboardData(request, reply);

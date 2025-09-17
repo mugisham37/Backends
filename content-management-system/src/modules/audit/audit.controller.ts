@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { container } from "tsyringe";
 import { AuditService } from "./audit.service";
-import { parsePaginationParams } from "../utils/helpers";
+import { parsePaginationParams } from "../../shared/utils/helpers";
 
 interface AuditQueryParams {
   action?: string;

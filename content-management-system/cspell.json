@@ -69,7 +69,8 @@
     "HSTS",
     "hsts",
     "frameguard",
-    "nosniff"
+    "nosniff",
+    "dataloaders"
   ],
   "ignorePaths": [
     "node_modules/**",

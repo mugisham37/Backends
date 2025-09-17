@@ -10,6 +10,9 @@ import type { Result } from "../../core/types/result.types";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
+import { CacheShort, CacheMedium } from "../../core/decorators/cache.decorator";
+import { Validate } from "../../core/decorators/validate.decorator";
+import { loginSchema, registerSchema } from "./auth.schemas";
 
 /**
  * Authentication and authorization service
@@ -26,6 +29,7 @@ export class AuthService {
   /**
    * Authenticate user with email and password
    */
+  @Validate({ input: loginSchema })
   async authenticate(credentials: {
     email: string;
     password: string;
@@ -142,6 +146,7 @@ export class AuthService {
   /**
    * Register a new user
    */
+  @Validate({ input: registerSchema })
   async registerUser(data: {
     email: string;
     password: string;
@@ -549,6 +554,7 @@ export class AuthService {
   /**
    * Validate JWT token and return user payload
    */
+  @CacheMedium()
   async validateToken(
     token: string
   ): Promise<Result<UserPayload, AuthenticationError>> {
@@ -913,6 +919,7 @@ export class AuthService {
   /**
    * Check if user has permission for resource and action
    */
+  @CacheShort()
   async hasPermission(
     userId: string,
     resource: string,

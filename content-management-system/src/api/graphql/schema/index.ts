@@ -5,6 +5,9 @@
  * and subscriptions for the Content Management System.
  */
 
+import { auditSchema } from "./audit.schema";
+import { cacheSchema } from "./cache.schema";
+
 export const buildSchema = (): string => {
   return `
     # Scalar types
@@ -208,5 +211,8 @@ export const buildSchema = (): string => {
       # Media subscriptions
       mediaUploaded(tenantId: ID): Media!
     }
+
+    ${auditSchema}
+    ${cacheSchema}
   `;
 };

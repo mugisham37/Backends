@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { HTTP_STATUS } from "../constants";
 import { ApiError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -22,7 +23,7 @@ export const errorHandler = (
 
   // Handle validation errors
   if (err.name === "ValidationError") {
-    return res.status(400).json({
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
       status: "error",
       message: err.message,
       ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
@@ -31,7 +32,7 @@ export const errorHandler = (
 
   // Handle MongoDB duplicate key error
   if (err.name === "MongoError" && (err as any).code === 11000) {
-    return res.status(409).json({
+    return res.status(HTTP_STATUS.CONFLICT).json({
       status: "error",
       message: "Duplicate key error",
       ...(process.env["NODE_ENV"] === "development" && {
@@ -43,7 +44,7 @@ export const errorHandler = (
 
   // Handle JWT errors
   if (err.name === "JsonWebTokenError") {
-    return res.status(401).json({
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       status: "error",
       message: "Invalid token",
       ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
@@ -51,7 +52,7 @@ export const errorHandler = (
   }
 
   if (err.name === "TokenExpiredError") {
-    return res.status(401).json({
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       status: "error",
       message: "Token expired",
       ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
@@ -60,7 +61,7 @@ export const errorHandler = (
 
   // Handle multer errors
   if (err.name === "MulterError") {
-    return res.status(400).json({
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
       status: "error",
       message: err.message,
       ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
@@ -68,7 +69,7 @@ export const errorHandler = (
   }
 
   // Handle other errors
-  return res.status(500).json({
+  return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
     status: "error",
     message: "Internal server error",
     ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),

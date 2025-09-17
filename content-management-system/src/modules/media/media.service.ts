@@ -22,6 +22,7 @@ import type { Result } from "../../core/types/result.types";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
+import { WebhookService } from "../webhook/webhook.service";
 
 /**
  * File upload and management service with CDN integration
@@ -34,7 +35,8 @@ export class MediaService {
   constructor(
     @inject("MediaRepository") private _mediaRepository: MediaRepository,
     @inject("CacheService") private _cacheService: CacheService,
-    @inject("AuditService") private _auditService: AuditService
+    @inject("AuditService") private _auditService: AuditService,
+    @inject("WebhookService") private _webhookService: WebhookService
   ) {
     this.uploadDir = path.resolve(
       process.cwd(),
@@ -179,6 +181,18 @@ export class MediaService {
       if (mediaType === "image") {
         await this.generateThumbnails(result.data.id, fullPath);
       }
+
+      // Trigger webhook event
+      await this._webhookService.triggerWebhook(tenantId, "media.uploaded", {
+        mediaId: result.data.id,
+        filename: result.data.filename,
+        originalName: result.data.originalName,
+        mediaType: result.data.mediaType,
+        size: result.data.size,
+        url: result.data.url,
+        uploaderId: result.data.uploaderId,
+        uploadedAt: result.data.createdAt,
+      });
 
       // Log media upload
       await this._auditService.logMediaEvent({
@@ -501,6 +515,15 @@ export class MediaService {
 
       // Clear cache
       await this._cacheService.delete(`media:${id}`);
+
+      // Trigger webhook event
+      await this._webhookService.triggerWebhook(tenantId, "media.deleted", {
+        mediaId: id,
+        filename: existingMedia.data.filename,
+        originalName: existingMedia.data.originalName,
+        mediaType: existingMedia.data.mediaType,
+        deletedAt: new Date(),
+      });
 
       // Log media deletion
       await this._auditService.logMediaEvent({

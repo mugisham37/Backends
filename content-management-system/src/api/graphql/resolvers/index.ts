@@ -1,5 +1,6 @@
-import type { IResolvers } from "mercurius";
+import { auditResolvers } from "./audit.resolvers";
 import { authResolvers } from "./auth.resolvers";
+import { cacheResolvers } from "./cache.resolvers";
 import { contentTypeResolvers } from "./content-type.resolvers";
 import { contentResolvers } from "./content.resolvers";
 import { mediaResolvers } from "./media.resolvers";
@@ -15,7 +16,7 @@ import { workflowResolvers } from "./workflow.resolvers";
  * Combines all resolver modules into a single resolver map
  * for the GraphQL schema.
  */
-export const buildResolvers = (): IResolvers => {
+export const buildResolvers = (): any => {
   return {
     // Scalar resolvers
     DateTime: {
@@ -42,7 +43,9 @@ export const buildResolvers = (): IResolvers => {
 
     // Root resolvers
     Query: {
+      ...auditResolvers.Query,
       ...authResolvers.Query,
+      ...cacheResolvers.Query,
       ...tenantResolvers.Query,
       ...contentResolvers.Query,
       ...mediaResolvers.Query,
@@ -54,7 +57,9 @@ export const buildResolvers = (): IResolvers => {
     },
 
     Mutation: {
+      ...auditResolvers.Mutation,
       ...authResolvers.Mutation,
+      ...cacheResolvers.Mutation,
       ...tenantResolvers.Mutation,
       ...contentResolvers.Mutation,
       ...mediaResolvers.Mutation,
@@ -112,5 +117,8 @@ export const buildResolvers = (): IResolvers => {
         return context.loaders.userLoader.load(parent.uploadedBy);
       },
     },
+
+    // Audit log relationships
+    ...(auditResolvers.AuditLog && { AuditLog: auditResolvers.AuditLog }),
   };
 };

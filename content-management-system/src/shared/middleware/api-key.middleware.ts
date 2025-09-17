@@ -4,12 +4,13 @@ import { ApiKeyScope } from "../db/models/api-key.model";
 import { ApiKeyService } from "../services/api-key.service";
 import { ApiError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { TOKENS } from "../../core/container";
 
 export class ApiKeyMiddleware {
   private apiKeyService: ApiKeyService;
 
   constructor() {
-    this.apiKeyService = container.resolve(ApiKeyService);
+    this.apiKeyService = container.resolve<ApiKeyService>(TOKENS.ApiKeyService);
   }
 
   /**

@@ -20,6 +20,12 @@ import {
   ResponseBuilder,
   HTTP_STATUS,
 } from "../../../shared/utils/response.utils.js";
+import { getService } from "../../../core/container/index.js";
+import { OrderService } from "../../../modules/ecommerce/orders/order.service.js";
+import {
+  CreateOrderUseCase,
+  UpdateOrderStatusUseCase,
+} from "../../../modules/ecommerce/orders/use-cases/index.js";
 
 // Interfaces for request/response types
 interface OrderParams {
@@ -36,19 +42,54 @@ interface OrderQuery {
 }
 
 interface CreateOrderBody {
+  userId?: string;
+  customerEmail: string;
+  customerPhone?: string;
   items: Array<{
     productId: string;
+    variantId?: string;
+    variantTitle?: string;
     quantity: number;
-    price: number;
   }>;
-  shippingAddress: {
-    street: string;
+  taxAmount?: number;
+  shippingAmount?: number;
+  discountAmount?: number;
+  currency?: string;
+  billingAddress: {
+    firstName: string;
+    lastName: string;
+    company?: string;
+    address1: string;
+    address2?: string;
     city: string;
     state: string;
     postalCode: string;
     country: string;
+    phone?: string;
   };
-  paymentMethod: string;
+  shippingAddress: {
+    firstName: string;
+    lastName: string;
+    company?: string;
+    address1: string;
+    address2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+  };
+  shippingMethod?: string;
+  customerNotes?: string;
+  metadata?: {
+    source?: string;
+    utm?: {
+      source?: string;
+      medium?: string;
+      campaign?: string;
+    };
+    [key: string]: any;
+  };
 }
 
 interface UpdateOrderStatusBody {
@@ -80,6 +121,14 @@ export async function orderRoutes(
   const authMiddleware = new AuthMiddleware(jwtService);
   const rateLimitMiddleware = new RateLimitMiddleware();
 
+  // Get services from container
+  const orderService = getService<OrderService>("orderService");
+  const createOrderUseCase =
+    getService<CreateOrderUseCase>("createOrderUseCase");
+  const updateOrderStatusUseCase = getService<UpdateOrderStatusUseCase>(
+    "updateOrderStatusUseCase"
+  );
+
   // Apply security middleware to all order routes
   fastify.addHook("preHandler", securityMiddleware.securityHeaders());
   fastify.addHook("preHandler", securityMiddleware.sanitizeInput());
@@ -97,33 +146,84 @@ export async function orderRoutes(
       body: {
         type: "object",
         properties: {
+          customerEmail: { type: "string", format: "email" },
+          customerPhone: { type: "string" },
           items: {
             type: "array",
             items: {
               type: "object",
               properties: {
                 productId: { type: "string" },
+                variantId: { type: "string" },
+                variantTitle: { type: "string" },
                 quantity: { type: "number", minimum: 1 },
-                price: { type: "number", minimum: 0 },
               },
-              required: ["productId", "quantity", "price"],
+              required: ["productId", "quantity"],
             },
             minItems: 1,
           },
-          shippingAddress: {
+          taxAmount: { type: "number", minimum: 0 },
+          shippingAmount: { type: "number", minimum: 0 },
+          discountAmount: { type: "number", minimum: 0 },
+          currency: { type: "string", pattern: "^[A-Z]{3}$" },
+          billingAddress: {
             type: "object",
             properties: {
-              street: { type: "string" },
+              firstName: { type: "string" },
+              lastName: { type: "string" },
+              company: { type: "string" },
+              address1: { type: "string" },
+              address2: { type: "string" },
               city: { type: "string" },
               state: { type: "string" },
               postalCode: { type: "string" },
               country: { type: "string" },
+              phone: { type: "string" },
             },
-            required: ["street", "city", "state", "postalCode", "country"],
+            required: [
+              "firstName",
+              "lastName",
+              "address1",
+              "city",
+              "state",
+              "postalCode",
+              "country",
+            ],
           },
-          paymentMethod: { type: "string" },
+          shippingAddress: {
+            type: "object",
+            properties: {
+              firstName: { type: "string" },
+              lastName: { type: "string" },
+              company: { type: "string" },
+              address1: { type: "string" },
+              address2: { type: "string" },
+              city: { type: "string" },
+              state: { type: "string" },
+              postalCode: { type: "string" },
+              country: { type: "string" },
+              phone: { type: "string" },
+            },
+            required: [
+              "firstName",
+              "lastName",
+              "address1",
+              "city",
+              "state",
+              "postalCode",
+              "country",
+            ],
+          },
+          shippingMethod: { type: "string" },
+          customerNotes: { type: "string" },
+          metadata: { type: "object" },
         },
-        required: ["items", "shippingAddress", "paymentMethod"],
+        required: [
+          "customerEmail",
+          "items",
+          "billingAddress",
+          "shippingAddress",
+        ],
       },
       response: {
         201: {
@@ -151,25 +251,14 @@ export async function orderRoutes(
             );
         }
 
-        const { items, shippingAddress, paymentMethod } = request.body;
-
-        // TODO: Implement with OrderService
-        // const order = await orderService.createOrder(userId, request.body);
-
-        // Placeholder response
-        const order = {
-          id: "order-123",
+        // Prepare order data for the use case
+        const orderData = {
+          ...request.body,
           userId,
-          items,
-          shippingAddress,
-          paymentMethod,
-          total: items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0
-          ),
-          status: "pending",
-          createdAt: new Date().toISOString(),
         };
+
+        // Use the OrderService through use case
+        const order = await createOrderUseCase.execute({ orderData });
 
         return reply
           .status(HTTP_STATUS.CREATED)
@@ -255,19 +344,8 @@ export async function orderRoutes(
           offset: (parseInt(page) - 1) * parseInt(limit),
         };
 
-        // TODO: Implement with OrderService
-        // const orders = await orderService.searchOrders(filters);
-
-        // Placeholder response
-        const orders = [
-          {
-            id: "order-123",
-            userId: userId || "user-123",
-            total: 99.99,
-            status: "pending",
-            createdAt: new Date().toISOString(),
-          },
-        ];
+        // Use OrderService to search orders
+        const orders = await orderService.searchOrders(filters);
 
         return reply
           .status(HTTP_STATUS.OK)
@@ -318,26 +396,14 @@ export async function orderRoutes(
             );
         }
 
-        // TODO: Implement with OrderService
-        // const statistics = await orderService.getOrderStatistics(vendorId);
+        // Use OrderService to get order statistics
+        const statistics = await orderService.getOrderStatistics();
 
-        // Placeholder response
-        const statistics = {
-          totalOrders: 150,
-          pendingOrders: 12,
-          completedOrders: 120,
-          cancelledOrders: 18,
-          totalRevenue: 15000.5,
-          averageOrderValue: 100.0,
-        };
-
-        return reply
-          .status(HTTP_STATUS.OK)
-          .send(
-            ResponseBuilder.success(statistics, {
-              requestId: (request as any).id,
-            })
-          );
+        return reply.status(HTTP_STATUS.OK).send(
+          ResponseBuilder.success(statistics, {
+            requestId: (request as any).id,
+          })
+        );
       } catch (error) {
         const message =
           error instanceof Error
@@ -386,17 +452,8 @@ export async function orderRoutes(
         const userRole = (request.user as any)?.role;
         const isAdmin = userRole === "admin";
 
-        // TODO: Implement with OrderService
-        // const order = await orderService.getOrder(id);
-
-        // Placeholder response
-        const order = {
-          id,
-          userId: "user-123",
-          total: 99.99,
-          status: "pending",
-          createdAt: new Date().toISOString(),
-        };
+        // Use OrderService to get order
+        const order = await orderService.getOrder(id);
 
         if (!order) {
           return reply
@@ -507,16 +564,14 @@ export async function orderRoutes(
             );
         }
 
-        // TODO: Implement with OrderService
-        // const order = await orderService.updateOrderStatus(id, status, notes);
-
-        // Placeholder response
-        const order = {
-          id,
-          status,
-          notes,
-          updatedAt: new Date().toISOString(),
-        };
+        // Use OrderService through use case to update order status
+        const userId = (request.user as any)?.id;
+        const order = await updateOrderStatusUseCase.execute({
+          orderId: id,
+          newStatus: status,
+          updatedBy: userId,
+          reason: notes,
+        });
 
         return reply
           .status(HTTP_STATUS.OK)
@@ -585,16 +640,13 @@ export async function orderRoutes(
             );
         }
 
-        // TODO: Implement with OrderService
-        // const order = await orderService.cancelOrder(id, userId, reason);
-
-        // Placeholder response
-        const order = {
-          id,
-          status: "cancelled",
-          cancelReason: reason,
-          cancelledAt: new Date().toISOString(),
-        };
+        // Use OrderService through use case to cancel order
+        const order = await updateOrderStatusUseCase.execute({
+          orderId: id,
+          newStatus: "cancelled",
+          updatedBy: userId,
+          reason: reason,
+        });
 
         return reply
           .status(HTTP_STATUS.OK)
@@ -664,12 +716,17 @@ export async function orderRoutes(
         const { id } = request.params;
         const { amount, reason } = request.body;
 
-        // TODO: Implement with OrderService
-        // const refund = await orderService.refundOrder(id, amount, reason);
+        // First update order status to refunded
+        const order = await updateOrderStatusUseCase.execute({
+          orderId: id,
+          newStatus: "refunded",
+          updatedBy: (request.user as any)?.id,
+          reason: reason,
+        });
 
-        // Placeholder response
+        // Create refund record (placeholder for now until payment service is implemented)
         const refund = {
-          id: "refund-123",
+          id: `refund-${Date.now()}`,
           orderId: id,
           amount,
           reason,

@@ -32,6 +32,8 @@ export const TOKENS = {
   QueueService: "QueueService",
   WebhookService: "WebhookService",
   AuditService: "AuditService",
+  ApiKeyService: "ApiKeyService",
+  PerformanceMonitorService: "PerformanceMonitorService",
 
   // External services
   RedisClient: "RedisClient",

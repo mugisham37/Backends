@@ -2,8 +2,12 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import type { MultipartFile } from "@fastify/multipart";
 import { inject, injectable } from "tsyringe";
 import { MediaService } from "./media.service";
-import { parsePaginationParams, parseSortParams } from "../utils/helpers";
+import {
+  parsePaginationParams,
+  parseSortParams,
+} from "../../shared/utils/helpers";
 import { logger } from "../../shared/utils/logger";
+import { Auth } from "../../core/decorators/auth.decorator";
 
 // Type definitions for Fastify requests
 interface MediaQueryParams extends Record<string, unknown> {
@@ -67,6 +71,7 @@ interface FolderQueryParams {
  * Handles file uploads, media management, and folder operations
  */
 @injectable()
+@Auth()
 export class MediaController {
   constructor(@inject("MediaService") private mediaService: MediaService) {}
 

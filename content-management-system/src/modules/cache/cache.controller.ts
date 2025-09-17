@@ -10,6 +10,8 @@ import type {
   CreateSessionRequest,
   UpdateSessionRequest,
 } from "./cache.schemas";
+import type { SessionData } from "./cache.types";
+import { RequireAdmin } from "../../core/decorators/auth.decorator";
 
 // Type definitions for Fastify requests
 interface SessionParams {
@@ -25,6 +27,7 @@ interface CacheStatsQuery {
  * Handles Redis cache operations, session management, and cache administration
  */
 @injectable()
+@RequireAdmin()
 export class CacheController {
   constructor(@inject("CacheService") private cacheService: CacheService) {}
 
@@ -562,11 +565,17 @@ export class CacheController {
       const { sessionId, data, options } = request.body;
       const ttl = options?.ttl || 86400; // 24 hours default
 
-      // Ensure data has required fields for session
+      // Ensure data has required fields for session with proper type checking
       const sessionData = {
-        ...data,
-        tenantId: data.tenantId || "default", // Provide default if not specified
-        lastActivity: new Date(data.lastActivity), // Convert string to Date
+        userId: String(data.userId || ""),
+        tenantId: String(data.tenantId || "default"),
+        role: String(data.role || ""),
+        permissions: Array.isArray(data.permissions) ? data.permissions : [],
+        lastActivity: data.lastActivity
+          ? typeof data.lastActivity === "string"
+            ? new Date(data.lastActivity)
+            : new Date(String(data.lastActivity))
+          : new Date(),
       };
 
       const result = await this.cacheService.createSession(
@@ -658,15 +667,34 @@ export class CacheController {
       const { sessionId, data, extendTtl } = request.body;
       const ttl = extendTtl ? 86400 : undefined; // Extend for 24 hours if requested
 
-      // Process data for session update, converting date strings to Date objects if needed
-      const processedData: any = {
-        ...data,
-        ...(data.lastActivity && { lastActivity: new Date(data.lastActivity) }),
-      };
+      // Process data for session update with proper type checking
+      const processedData: Partial<SessionData> = {};
+
+      if (data.userId) {
+        processedData.userId = String(data.userId);
+      }
+      if (data.tenantId) {
+        processedData.tenantId = String(data.tenantId);
+      }
+      if (data.role) {
+        processedData.role = String(data.role);
+      }
+      if (data.permissions) {
+        processedData.permissions = Array.isArray(data.permissions)
+          ? data.permissions.map((p) => String(p))
+          : [];
+      }
+      if (data.lastActivity) {
+        try {
+          processedData.lastActivity = new Date(String(data.lastActivity));
+        } catch {
+          processedData.lastActivity = new Date();
+        }
+      }
 
       const result = await this.cacheService.updateSession(
         sessionId,
-        processedData,
+        processedData as Partial<SessionData>,
         ttl
       );
 

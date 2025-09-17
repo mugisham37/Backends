@@ -1,8 +1,11 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { auditRoutes } from "./routes/audit.routes";
 import { authRoutes } from "./routes/auth.routes";
+import { cacheRoutes } from "./routes/cache.routes";
 import { contentRoutes } from "./routes/content.routes";
+import { healthRoutes } from "./routes/health.routes";
 import { mediaRoutes } from "./routes/media.routes";
+import { performanceRoutes } from "./routes/performance.routes";
 import { searchRoutes } from "./routes/search.routes";
 import { tenantRoutes } from "./routes/tenant.routes";
 import { webhookRoutes } from "./routes/webhook.routes";
@@ -34,6 +37,9 @@ export const restApiPlugin: FastifyPluginAsync = async (
   await fastify.register(searchRoutes, { prefix: "/search" });
   await fastify.register(webhookRoutes, { prefix: "/webhooks" });
   await fastify.register(auditRoutes, { prefix: "/audit" });
+  await fastify.register(cacheRoutes, { prefix: "/cache" });
+  await fastify.register(healthRoutes, { prefix: "/health" });
+  await fastify.register(performanceRoutes, { prefix: "/performance" });
 
   // REST API documentation endpoint
   fastify.get("/docs", async (_request, reply) => {
@@ -49,6 +55,9 @@ export const restApiPlugin: FastifyPluginAsync = async (
         search: "/search - Search and filtering",
         webhooks: "/webhooks - Webhook management",
         audit: "/audit - Audit logs and monitoring",
+        cache: "/cache - Cache management and sessions",
+        health: "/health - System health monitoring",
+        performance: "/performance - Performance metrics",
       },
       timestamp: new Date().toISOString(),
     });

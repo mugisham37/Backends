@@ -1,8 +1,9 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { inject, injectable } from "tsyringe";
 import { TenantService } from "./tenant.service";
-import { parsePaginationParams } from "../utils/helpers";
+import { parsePaginationParams } from "../../shared/utils/helpers";
 import type { User } from "../../core/repositories/user.repository";
+import { Auth } from "../../core/decorators/auth.decorator";
 
 // Type definitions for Fastify requests
 interface TenantQueryParams extends Record<string, unknown> {
@@ -49,6 +50,7 @@ interface UpdateTenantSettingsBody {
  * Handles tenant management operations with proper authentication and validation
  */
 @injectable()
+@Auth()
 export class TenantController {
   constructor(@inject("TenantService") private tenantService: TenantService) {}
 

@@ -3,13 +3,17 @@ import { inject, injectable } from "tsyringe";
 import { BaseError } from "../../core/errors/base.error";
 import type { Result } from "../../core/types/result.types";
 import { logger } from "../../shared/utils/logger";
-// Queue functionality integrated into webhook service
-export interface WebhookJobData {
-  webhookId: string;
-  event: string;
-  payload: Record<string, unknown>;
-  attempt: number;
-}
+import { AuditService } from "../audit/audit.service";
+import { CacheService } from "../cache/cache.service";
+import {
+  Webhook,
+  WebhookEvent,
+  WebhookStatus,
+  CreateWebhookData,
+  UpdateWebhookData,
+  WebhookJobData,
+  WebhookDelivery,
+} from "./webhook.types.js";
 
 /**
  * Webhook-related errors
@@ -30,86 +34,18 @@ export class WebhookDeliveryError extends BaseError {
 }
 
 /**
- * Webhook event types
- */
-export enum WebhookEvent {
-  CONTENT_CREATED = "content.created",
-  CONTENT_UPDATED = "content.updated",
-  CONTENT_DELETED = "content.deleted",
-  CONTENT_PUBLISHED = "content.published",
-  MEDIA_UPLOADED = "media.uploaded",
-  MEDIA_DELETED = "media.deleted",
-  USER_CREATED = "user.created",
-  USER_UPDATED = "user.updated",
-  TENANT_CREATED = "tenant.created",
-  TENANT_UPDATED = "tenant.updated",
-}
-
-/**
- * Webhook status
- */
-export enum WebhookStatus {
-  ACTIVE = "active",
-  INACTIVE = "inactive",
-  FAILED = "failed",
-}
-
-/**
- * Webhook interfaces
- */
-export interface Webhook {
-  id: string;
-  name: string;
-  url: string;
-  secret?: string;
-  events: WebhookEvent[];
-  status: WebhookStatus;
-  tenantId?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface WebhookDelivery {
-  id: string;
-  webhookId: string;
-  event: WebhookEvent;
-  payload: any;
-  success: boolean;
-  statusCode?: number;
-  response?: string;
-  error?: string;
-  attempt: number;
-  deliveredAt?: Date;
-  createdAt: Date;
-}
-
-export interface CreateWebhookData {
-  name: string;
-  url: string;
-  secret?: string;
-  events: WebhookEvent[];
-  tenantId?: string;
-}
-
-export interface UpdateWebhookData {
-  name?: string;
-  url?: string;
-  secret?: string;
-  events?: WebhookEvent[];
-  status?: WebhookStatus;
-}
-
-/**
  * Webhook service with background job processing
  * Handles webhook event system, delivery with retry logic, and signature verification
  */
 @injectable()
 export class WebhookService {
-  private readonly WEBHOOK_QUEUE = "webhooks";
   private webhooks: Map<string, Webhook> = new Map();
   private deliveries: Map<string, WebhookDelivery> = new Map();
 
-  constructor() {
+  constructor(
+    @inject("AuditService") private _auditService: AuditService,
+    @inject("CacheService") private _cacheService: CacheService
+  ) {
     this.initializeWebhookProcessor();
   }
 
@@ -121,19 +57,14 @@ export class WebhookService {
   }
 
   /**
-   * Process webhook job
+   * Process webhook delivery
    */
-  private async processWebhookJob(job: any): Promise<any> {
-    const {
-      webhookId,
-      event,
-      payload,
-      url,
-      secret,
-      attempt = 1,
-    } = job.data as WebhookJobData;
-
+  private async processWebhookDelivery(
+    jobData: Omit<WebhookJobData, "attempt"> & { attempt?: number }
+  ): Promise<{ success: boolean; delivery?: string }> {
     try {
+      const { webhookId, event, payload, url, secret, attempt = 1 } = jobData;
+
       // Send webhook
       const result = await this.sendWebhook(url, payload, secret);
 
@@ -162,6 +93,8 @@ export class WebhookService {
 
       return { success: true, delivery: delivery.id };
     } catch (error: any) {
+      const { webhookId, event, payload, attempt = 1 } = jobData;
+
       // Record failed delivery
       const delivery: WebhookDelivery = {
         id: crypto.randomUUID(),
@@ -183,9 +116,7 @@ export class WebhookService {
         error: error.message,
       });
 
-      throw new WebhookDeliveryError(
-        `Webhook delivery failed: ${error.message}`
-      );
+      return { success: false };
     }
   }
 
@@ -215,6 +146,13 @@ export class WebhookService {
     >
   > {
     try {
+      // Check cache first
+      const cacheKey = `webhooks:${JSON.stringify({ filter, pagination })}`;
+      const cachedResult = await this._cacheService.get(cacheKey);
+      if (cachedResult) {
+        return { success: true, data: cachedResult as any };
+      }
+
       let filteredWebhooks = Array.from(this.webhooks.values());
 
       // Apply filters
@@ -258,14 +196,19 @@ export class WebhookService {
       const totalCount = filteredWebhooks.length;
       const totalPages = Math.ceil(totalCount / limit);
 
+      const result = {
+        webhooks: paginatedWebhooks,
+        totalCount,
+        page,
+        totalPages,
+      };
+
+      // Cache the result for 5 minutes
+      await this._cacheService.set(cacheKey, result, 300);
+
       return {
         success: true,
-        data: {
-          webhooks: paginatedWebhooks,
-          totalCount,
-          page,
-          totalPages,
-        },
+        data: result,
       };
     } catch (error) {
       logger.error("Failed to get webhooks:", error);
@@ -305,21 +248,22 @@ export class WebhookService {
    */
   async createWebhook(
     data: CreateWebhookData
-  ): Promise<Result<Webhook, WebhookError>> {
+  ): Promise<Result<Webhook, WebhookError | WebhookValidationError>> {
     try {
       // Validate URL
       const urlValidation = this.validateUrl(data.url);
       if (!urlValidation.success) {
-        return urlValidation;
+        return {
+          success: false,
+          error: new WebhookError(urlValidation.error.message),
+        };
       }
 
       // Validate events
       if (!data.events || data.events.length === 0) {
         return {
           success: false,
-          error: new WebhookValidationError(
-            "At least one event must be specified"
-          ),
+          error: new WebhookError("At least one event must be specified"),
         };
       }
 
@@ -327,15 +271,32 @@ export class WebhookService {
         id: crypto.randomUUID(),
         name: data.name,
         url: data.url,
-        secret: data.secret,
         events: data.events,
         status: WebhookStatus.ACTIVE,
-        tenantId: data.tenantId,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...(data.secret !== undefined ? { secret: data.secret } : {}),
+        ...(data.tenantId !== undefined ? { tenantId: data.tenantId } : {}),
       };
 
       this.webhooks.set(webhook.id, webhook);
+
+      // Log webhook creation
+      if (webhook.tenantId) {
+        await this._auditService.logUserAction({
+          userId: "system", // Could be passed as parameter
+          tenantId: webhook.tenantId,
+          action: "webhook_created",
+          resource: "webhook",
+          details: {
+            webhookId: webhook.id,
+            name: webhook.name,
+            url: webhook.url,
+            events: webhook.events,
+            timestamp: new Date(),
+          },
+        });
+      }
 
       logger.info("Webhook created", {
         webhookId: webhook.id,
@@ -373,7 +334,10 @@ export class WebhookService {
       if (data.url) {
         const urlValidation = this.validateUrl(data.url);
         if (!urlValidation.success) {
-          return urlValidation;
+          return {
+            success: false,
+            error: new WebhookError(urlValidation.error.message),
+          };
         }
       }
 
@@ -475,20 +439,14 @@ export class WebhookService {
       };
 
       // Process webhook directly
-      const jobResult = await this.processWebhookDelivery(
-        {
-          webhookId: webhook.id,
-          event: "test",
-          payload,
-          url: webhook.url,
-          secret: webhook.secret,
-          attempt: 1,
-        },
-        {
-          attempts: 1, // Don't retry test webhooks
-          priority: 10, // High priority for tests
-        }
-      );
+      const jobResult = await this.processWebhookDelivery({
+        webhookId: webhook.id,
+        event: "test",
+        payload,
+        url: webhook.url,
+        ...(webhook.secret !== undefined ? { secret: webhook.secret } : {}),
+        attempt: 1,
+      });
 
       if (!jobResult.success) {
         return {
@@ -548,19 +506,14 @@ export class WebhookService {
       }
 
       // Process retry directly
-      const jobResult = await this.processWebhookDelivery(
-        {
-          webhookId: webhook.id,
-          event: delivery.event,
-          payload: delivery.payload,
-          url: webhook.url,
-          secret: webhook.secret,
-          attempt: delivery.attempt + 1,
-        },
-        {
-          priority: 5, // Medium priority for retries
-        }
-      );
+      const jobResult = await this.processWebhookDelivery({
+        webhookId: webhook.id,
+        event: delivery.event,
+        payload: delivery.payload,
+        url: webhook.url,
+        ...(webhook.secret !== undefined ? { secret: webhook.secret } : {}),
+        attempt: delivery.attempt + 1,
+      });
 
       if (!jobResult.success) {
         return {
@@ -583,16 +536,16 @@ export class WebhookService {
    * Trigger webhook for event
    */
   async triggerWebhook(
-    event: WebhookEvent,
-    data: any,
-    tenantId?: string
+    tenantId: string,
+    event: WebhookEvent | string,
+    data: any
   ): Promise<Result<{ success: number; failed: number }, WebhookError>> {
     try {
       // Find webhooks for this event
       let webhooks = Array.from(this.webhooks.values()).filter(
         (webhook) =>
           webhook.status === WebhookStatus.ACTIVE &&
-          webhook.events.includes(event)
+          webhook.events.includes(event as WebhookEvent)
       );
 
       // Filter by tenant if specified
@@ -620,8 +573,8 @@ export class WebhookService {
           event,
           payload,
           url: webhook.url,
-          secret: webhook.secret,
           attempt: 1,
+          ...(webhook.secret !== undefined ? { secret: webhook.secret } : {}),
         })
       );
 
@@ -711,7 +664,7 @@ export class WebhookService {
 
       // Don't allow localhost in production
       if (
-        process.env.NODE_ENV === "production" &&
+        process.env["NODE_ENV"] === "production" &&
         (parsedUrl.hostname === "localhost" ||
           parsedUrl.hostname === "127.0.0.1")
       ) {

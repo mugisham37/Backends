@@ -1,70 +1,15 @@
-import http from "http";
-import { ApolloServer } from "@apollo/server";
-import { expressMiddleware } from "@apollo/server/express4";
-import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
-import type { Application } from "express";
-import { config } from "../../config";
-import { authMiddleware } from "../../middleware/auth";
-import { logger } from "../../utils/logger";
-import { resolvers } from "./resolvers";
-import { typeDefs } from "./schema";
+/**
+ * GraphQL API setup for Fastify with Mercurius
+ *
+ * This file provides the main GraphQL functionality using Mercurius
+ * instead of Apollo Server, which is more appropriate for Fastify.
+ */
 
-export const setupGraphQL = async (app: Application): Promise<void> => {
-  // Create HTTP server
-  const httpServer = http.createServer(app);
+// Re-export the main GraphQL plugin
+export { graphqlApiPlugin } from "./plugin";
 
-  // Create Apollo Server
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers,
-    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
-    formatError: (formattedError, _error) => {
-      // Log the error
-      logger.error("GraphQL Error:", {
-        message: formattedError.message,
-        path: formattedError.path,
-        extensions: formattedError.extensions,
-      });
-
-      // In production, don't expose internal server errors
-      if (
-        config.isProduction &&
-        formattedError.extensions?.code === "INTERNAL_SERVER_ERROR"
-      ) {
-        return {
-          message: "Internal server error",
-          path: formattedError.path,
-          extensions: {
-            code: "INTERNAL_SERVER_ERROR",
-          },
-        };
-      }
-
-      return formattedError;
-    },
-  });
-
-  // Start the Apollo Server
-  await server.start();
-
-  // Apply middleware
-  app.use(
-    "/graphql",
-    expressMiddleware(server, {
-      context: async ({ req, res }) => {
-        // Apply authentication middleware to get user
-        await new Promise<void>((resolve) => {
-          authMiddleware(req, res, () => resolve());
-        });
-
-        return {
-          user: (req as any).user,
-          req,
-          res,
-        };
-      },
-    })
-  );
-
-  logger.info("GraphQL server set up at /graphql");
-};
+// Re-export GraphQL utilities
+export { buildContext, type GraphQLContext } from "./context";
+export { buildResolvers } from "./resolvers/index";
+export { buildSchema } from "./schema/index";
+export { createDataLoaders, type DataLoaders } from "./dataloaders/index";
