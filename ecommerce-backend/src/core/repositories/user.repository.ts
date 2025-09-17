@@ -5,7 +5,7 @@
 
 import { eq, and, ilike, or, sql, inArray } from "drizzle-orm";
 import { BaseRepository } from "./base.repository";
-import { Database } from "../database/connection";
+import type { Database } from "../database/connection";
 import {
   users,
   User,
@@ -13,6 +13,8 @@ import {
   userRoleEnum,
   userStatusEnum,
 } from "../database/schema";
+import { MonitorAllQueries } from "../decorators/query-monitor.decorator";
+import { Cache } from "../decorators/cache.decorator";
 
 // User-specific types
 export interface UserFilters {
@@ -29,6 +31,11 @@ export interface CreateUserData
 export interface UpdateUserData
   extends Partial<Omit<User, "id" | "createdAt" | "updatedAt">> {}
 
+@MonitorAllQueries({
+  warnThreshold: 500,
+  errorThreshold: 2000,
+  logSlowQueries: true,
+})
 export class UserRepository extends BaseRepository<
   User,
   NewUser,
@@ -43,6 +50,11 @@ export class UserRepository extends BaseRepository<
   }
 
   // Find user by email
+  @Cache({
+    ttl: 300000, // 5 minutes
+    keyGenerator: (email: string) => `user:email:${email}`,
+    tags: ["user"],
+  })
   async findByEmail(email: string): Promise<User | null> {
     const result = await this.db
       .select()
@@ -54,6 +66,11 @@ export class UserRepository extends BaseRepository<
   }
 
   // Find users by role
+  @Cache({
+    ttl: 600000, // 10 minutes
+    keyGenerator: (role: string) => `users:role:${role}`,
+    tags: ["user", "user-list"],
+  })
   async findByRole(
     role: (typeof userRoleEnum.enumValues)[number]
   ): Promise<User[]> {

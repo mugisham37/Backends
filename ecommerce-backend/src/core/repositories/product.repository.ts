@@ -20,7 +20,7 @@ import {
   QueryOptions,
   PaginatedResult,
 } from "./base.repository";
-import { Database } from "../database/connection";
+import type { Database } from "../database/connection";
 import {
   products,
   Product,
@@ -31,6 +31,8 @@ import {
   vendors,
   productVariants,
 } from "../database/schema";
+import { MonitorAllQueries } from "../decorators/query-monitor.decorator";
+import { Cache } from "../decorators/cache.decorator";
 
 // Product-specific types
 export interface ProductFilters {
@@ -81,6 +83,11 @@ export interface ProductStats {
   averagePrice: number;
 }
 
+@MonitorAllQueries({
+  warnThreshold: 800,
+  errorThreshold: 3000,
+  logSlowQueries: true,
+})
 export class ProductRepository extends BaseRepository<
   Product,
   NewProduct,
@@ -95,6 +102,11 @@ export class ProductRepository extends BaseRepository<
   }
 
   // Find product by slug
+  @Cache({
+    ttl: 600000, // 10 minutes
+    keyGenerator: (slug: string) => `product:slug:${slug}`,
+    tags: ["product"],
+  })
   async findBySlug(slug: string): Promise<Product | null> {
     const result = await this.db
       .select()
@@ -106,6 +118,11 @@ export class ProductRepository extends BaseRepository<
   }
 
   // Find product by SKU
+  @Cache({
+    ttl: 600000, // 10 minutes
+    keyGenerator: (sku: string) => `product:sku:${sku}`,
+    tags: ["product"],
+  })
   async findBySku(sku: string): Promise<Product | null> {
     const result = await this.db
       .select()

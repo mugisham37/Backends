@@ -14,11 +14,17 @@ import { UserRepository } from "../repositories/user.repository";
 import { VendorRepository } from "../repositories/vendor.repository";
 import { ProductRepository } from "../repositories/product.repository";
 import { OrderRepository } from "../repositories/order.repository";
+import { PaymentRepository } from "../repositories/payment.repository";
+import { NotificationRepository } from "../repositories/notification.repository";
+import { AnalyticsRepository } from "../repositories/analytics.repository";
+import { WebhookRepository } from "../repositories/webhook.repository";
 
 // Services
 import { ProductService } from "../../modules/ecommerce/products/product.service";
 import { VendorService } from "../../modules/ecommerce/vendors/vendor.service";
 import { OrderService } from "../../modules/ecommerce/orders/order.service";
+import { AuthService } from "../../modules/auth/auth.service";
+import { JWTService } from "../../modules/auth/jwt.service";
 
 // Use Cases
 import {
@@ -59,6 +65,22 @@ export function registerServices(): void {
     dependencies: ["database"],
   });
 
+  container.registerClass("paymentRepository", PaymentRepository, {
+    dependencies: ["database"],
+  });
+
+  container.registerClass("notificationRepository", NotificationRepository, {
+    dependencies: ["database"],
+  });
+
+  container.registerClass("analyticsRepository", AnalyticsRepository, {
+    dependencies: ["database"],
+  });
+
+  container.registerClass("webhookRepository", WebhookRepository, {
+    dependencies: ["database"],
+  });
+
   // Register services
   container.registerClass("productService", ProductService, {
     dependencies: ["productRepository", "vendorRepository"],
@@ -70,6 +92,15 @@ export function registerServices(): void {
 
   container.registerClass("orderService", OrderService, {
     dependencies: ["orderRepository", "productRepository", "userRepository"],
+  });
+
+  // Register auth services
+  container.registerClass("jwtService", JWTService, {
+    dependencies: [],
+  });
+
+  container.registerClass("authService", AuthService, {
+    dependencies: ["database", "jwtService"],
   });
 
   // Register use cases

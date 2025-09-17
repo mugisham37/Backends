@@ -10,7 +10,7 @@ import {
   securityPresets,
 } from "./shared/config/security.config";
 import { logger } from "./shared/utils/logger";
-import { db, getDatabase } from "./core/database/connection";
+import { getDatabase, initializeDatabaseSystem } from "./core/database/index";
 import { container, registerServices } from "./core/container/index";
 import { sql } from "drizzle-orm";
 
@@ -75,10 +75,12 @@ export const createApp = async (): Promise<FastifyInstance> => {
   const app: FastifyInstance = fastify(serverOptions);
 
   try {
-    logger.info("📊 Testing database connection...");
-    // Test database connection
-    await db.execute(sql`SELECT 1`);
-    logger.info("✅ Database connection successful");
+    logger.info("📊 Initializing database system with optimization...");
+    // Initialize complete database system
+    await initializeDatabaseSystem();
+    logger.info(
+      "✅ Database system initialized with optimization and monitoring"
+    );
 
     logger.info("📝 Registering core services...");
     // Initialize dependency injection container
@@ -200,6 +202,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
 
       try {
         // Test database
+        const db = getDatabase();
         await db.execute(sql`SELECT 1`);
         const dbResponseTime = Date.now() - startTime;
 
@@ -222,6 +225,9 @@ export const createApp = async (): Promise<FastifyInstance> => {
             rest: "active",
             graphql: "active",
             container: "initialized",
+            databaseOptimization: "active",
+            performanceMonitoring: "active",
+            errorHandling: "sophisticated",
           },
         });
       } catch (error) {
@@ -239,6 +245,7 @@ export const createApp = async (): Promise<FastifyInstance> => {
     // Ready check endpoint
     app.get("/ready", async (request, reply) => {
       try {
+        const db = getDatabase();
         await db.execute(sql`SELECT 1`);
         return reply.status(200).send({
           status: "ready",
@@ -314,56 +321,19 @@ export const createApp = async (): Promise<FastifyInstance> => {
       );
     });
 
-    logger.info("⚠️ Setting up error handlers...");
-    // Basic error handling (will improve when error handler is available)
-    app.setErrorHandler(async (error, request, reply) => {
-      const errorId = `err_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
+    logger.info("⚠️ Setting up sophisticated error handlers...");
+    // Use the sophisticated error handler with proper configuration
+    const errorHandler = createErrorHandler(
+      {
+        logErrors: true,
+        includeStackTrace: config.nodeEnv === "development",
+        enableCorrelationId: true,
+        sanitizeErrors: config.nodeEnv === "production",
+      },
+      logger
+    );
 
-      request.log.error(
-        {
-          errorId,
-          error: error.message,
-          stack: error.stack,
-          method: request.method,
-          url: request.url,
-        },
-        "Application error occurred"
-      );
-
-      // Handle validation errors
-      if (error.validation) {
-        return reply.status(400).send({
-          error: "Validation Error",
-          message: error.message,
-          details: error.validation,
-          errorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Handle authentication errors
-      if (error.statusCode === 401) {
-        return reply.status(401).send({
-          error: "Authentication Error",
-          message: "Authentication required",
-          errorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Handle server errors
-      return reply.status(error.statusCode || 500).send({
-        error: "Internal Server Error",
-        message:
-          config.nodeEnv === "development"
-            ? error.message
-            : "Something went wrong",
-        errorId,
-        timestamp: new Date().toISOString(),
-      });
-    });
+    app.setErrorHandler(errorHandler);
 
     // Not found handler
     app.setNotFoundHandler(async (request, reply) => {
@@ -380,6 +350,40 @@ export const createApp = async (): Promise<FastifyInstance> => {
         suggestions,
         timestamp: new Date().toISOString(),
         requestId: request.id,
+      });
+    });
+
+    // Service monitoring endpoint
+    app.get("/services", async (request, reply) => {
+      const registeredServices = container.getServiceNames();
+      const serviceStatus: Record<string, any> = {};
+
+      for (const serviceName of registeredServices) {
+        try {
+          const service = container.resolve(serviceName);
+          serviceStatus[serviceName] = {
+            status: "available",
+            type: typeof service,
+            hasInstance: !!service,
+          };
+        } catch (error) {
+          serviceStatus[serviceName] = {
+            status: "error",
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+      }
+
+      return reply.status(200).send({
+        total: registeredServices.length,
+        services: serviceStatus,
+        features: {
+          dependencyInjection: "active",
+          queryMonitoring: "active",
+          caching: "active",
+          errorHandling: "sophisticated",
+          validation: "active",
+        },
       });
     });
 

@@ -5,11 +5,12 @@
 
 import { BaseContext } from "@apollo/server";
 import { Database } from "../../core/database/connection.js";
-import { UserRepository } from "../../core/repositories/user.repository.js";
-import { VendorRepository } from "../../core/repositories/vendor.repository.js";
-import { ProductRepository } from "../../core/repositories/product.repository.js";
-import { OrderRepository } from "../../core/repositories/order.repository.js";
-import { PaymentRepository } from "../../core/repositories/payment.repository.js";
+import { getService } from "../../core/container/index.js";
+import type { UserRepository } from "../../core/repositories/user.repository.js";
+import type { VendorRepository } from "../../core/repositories/vendor.repository.js";
+import type { ProductRepository } from "../../core/repositories/product.repository.js";
+import type { OrderRepository } from "../../core/repositories/order.repository.js";
+import type { PaymentRepository } from "../../core/repositories/payment.repository.js";
 import { User } from "../../core/database/schema/index.js";
 import { verifyJWT } from "../../shared/utils/jwt.utils.js";
 import { UserLoader } from "./dataloaders/user.loader.js";
@@ -57,18 +58,16 @@ export interface ContextInput {
 export const createContext = async ({
   req,
 }: ContextInput): Promise<GraphQLContext> => {
-  // Get database connection (this would come from your DI container)
-  const db = await import("../../core/database/connection.js").then((m) =>
-    m.getDatabase()
-  );
+  // Get database connection from container
+  const db = getService<Database>("database");
 
-  // Initialize repositories
+  // Get repositories from DI container
   const repositories = {
-    user: new UserRepository(db),
-    vendor: new VendorRepository(db),
-    product: new ProductRepository(db),
-    order: new OrderRepository(db),
-    payment: new PaymentRepository(db),
+    user: getService<UserRepository>("userRepository"),
+    vendor: getService<VendorRepository>("vendorRepository"),
+    product: getService<ProductRepository>("productRepository"),
+    order: getService<OrderRepository>("orderRepository"),
+    payment: getService<PaymentRepository>("paymentRepository"),
   };
 
   // Initialize data loaders

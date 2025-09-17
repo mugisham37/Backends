@@ -18,6 +18,8 @@ import {
 } from "../../shared/validators/auth.validators.js";
 import { AppError } from "../../core/errors/app-error.js";
 import type { AuthenticatedRequest } from "../../shared/middleware/auth.middleware.js";
+import { Validate } from "../../core/decorators/validate.decorator.js";
+import { MonitorQuery } from "../../core/decorators/query-monitor.decorator.js";
 
 export class AuthController {
   constructor(
@@ -28,13 +30,14 @@ export class AuthController {
   /**
    * Register a new user
    */
+  @Validate({ target: "body", schema: registerSchema })
+  @MonitorQuery({ description: "User registration" })
   async register(
     request: FastifyRequest<{ Body: RegisterInput }>,
     reply: FastifyReply
   ): Promise<void> {
-    const validatedInput = registerSchema.parse(request.body);
-
-    const result = await this.authService.register(validatedInput);
+    // Validation is handled by decorator
+    const result = await this.authService.register(request.body);
 
     reply.status(201).send({
       success: true,
