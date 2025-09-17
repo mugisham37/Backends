@@ -70,7 +70,8 @@ export const config = {
 
   database: {
     url:
-      process.env.DATABASE_URL || "postgresql://localhost:5432/ecommerce_dev",
+      process.env.DATABASE_URL ||
+      "postgresql://postgres:moses@localhost:5432/ecommerce-node-backend",
     maxConnections: Number(process.env.DB_MAX_CONNECTIONS) || 20,
   },
 

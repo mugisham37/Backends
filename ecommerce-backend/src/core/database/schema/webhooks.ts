@@ -114,9 +114,7 @@ export const webhookEndpoints = pgTable(
     statusIdx: index("idx_webhook_endpoints_status").on(table.status),
     userIdIdx: index("idx_webhook_endpoints_user_id").on(table.userId),
     vendorIdIdx: index("idx_webhook_endpoints_vendor_id").on(table.vendorId),
-    eventTypesIdx: index("idx_webhook_endpoints_event_types").on(
-      table.eventTypes
-    ),
+    // eventTypesIdx: removed because JSON columns cannot be indexed with btree
   })
 );
 

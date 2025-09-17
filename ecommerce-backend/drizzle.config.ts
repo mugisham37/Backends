@@ -5,7 +5,9 @@ export default {
   out: "./src/core/database/migrations",
   driver: "pg",
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL || "postgresql://localhost:5432/ecommerce_dev",
+    connectionString:
+      process.env.DATABASE_URL ||
+      "postgresql://postgres:moses@localhost:5432/ecommerce-node-backend",
   },
   verbose: true,
   strict: true,

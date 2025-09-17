@@ -13,7 +13,7 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./users.js";
+import { users } from "./users";
 
 // Permissions table
 export const permissions = pgTable("permissions", {
