@@ -29,3 +29,14 @@ export {
   getUserIdFromParams,
   isAuthenticatedRequest,
 } from "./auth.middleware.js";
+
+// Enhanced middleware functions
+export { requestIdMiddleware } from "./request-id.middleware.js";
+export {
+  createRequestLoggingMiddleware,
+  createPerformanceMiddleware,
+} from "./request-logging.middleware.js";
+export {
+  createApiVersionMiddleware,
+  createVersionHandler,
+} from "./api-version.middleware.js";

@@ -4,6 +4,7 @@
  */
 
 import { GraphQLError, GraphQLFormattedError } from "graphql";
+import { logger } from "./logger";
 
 export interface CustomGraphQLError extends GraphQLError {
   extensions: {
@@ -16,7 +17,7 @@ export interface CustomGraphQLError extends GraphQLError {
 // Format GraphQL errors for client response
 export const formatError = (error: GraphQLError): GraphQLFormattedError => {
   // Log the error for debugging
-  console.error("GraphQL Error:", {
+  logger.error("GraphQL Error occurred", {
     message: error.message,
     locations: error.locations,
     path: error.path,

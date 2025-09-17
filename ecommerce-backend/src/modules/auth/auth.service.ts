@@ -3,7 +3,6 @@
  * Handles user authentication, registration, and session management
  */
 
-import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { AppError } from "../../core/errors/app-error.js";
 import {
@@ -19,6 +18,11 @@ import type {
   ChangePasswordInput,
   RefreshTokenInput,
 } from "../../shared/validators/auth.validators.js";
+import {
+  hashPassword,
+  comparePassword,
+  generateRandomToken,
+} from "../../shared/utils/crypto.utils.js";
 
 export interface AuthResult {
   user: Omit<User, "password">;
@@ -26,8 +30,6 @@ export interface AuthResult {
 }
 
 export class AuthService {
-  private readonly saltRounds = 12;
-
   constructor(
     private readonly db: DrizzleDB,
     private readonly jwtService: JWTService
@@ -44,7 +46,7 @@ export class AuthService {
     }
 
     // Hash password
-    const hashedPassword = await this.hashPassword(input.password);
+    const hashedPassword = await hashPassword(input.password);
 
     // Create user
     const userData: NewUser = {
@@ -176,7 +178,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const hashedNewPassword = await this.hashPassword(input.newPassword);
+    const hashedNewPassword = await hashPassword(input.newPassword);
 
     // Update password
     await this.db
@@ -250,15 +252,11 @@ export class AuthService {
     return user || null;
   }
 
-  private async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, this.saltRounds);
-  }
-
   private async verifyPassword(
     password: string,
     hashedPassword: string
   ): Promise<boolean> {
-    return bcrypt.compare(password, hashedPassword);
+    return comparePassword(password, hashedPassword);
   }
 
   private async updateLastLogin(userId: string): Promise<void> {

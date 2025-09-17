@@ -3,7 +3,7 @@
  * Handles API version routing and compatibility
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { FastifyRequest, FastifyReply } from "fastify";
 import { ResponseBuilder, HTTP_STATUS } from "../utils/response.utils";
 
 export interface ApiVersionConfig {
@@ -18,15 +18,18 @@ const DEFAULT_CONFIG: ApiVersionConfig = {
   deprecatedVersions: [],
 };
 
-export const apiVersionMiddleware = (
+export const createApiVersionMiddleware = (
   config: ApiVersionConfig = DEFAULT_CONFIG
 ) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
     // Extract version from URL path, header, or query parameter
     let version =
-      extractVersionFromPath(req.path) ||
-      (req.headers["api-version"] as string) ||
-      (req.query.version as string) ||
+      extractVersionFromPath(request.url) ||
+      (request.headers["api-version"] as string) ||
+      (request.query as any)?.version ||
       config.defaultVersion;
 
     // Normalize version format
@@ -34,7 +37,7 @@ export const apiVersionMiddleware = (
 
     // Check if version is supported
     if (!config.supportedVersions.includes(version)) {
-      res.status(HTTP_STATUS.BAD_REQUEST).json(
+      return reply.status(HTTP_STATUS.BAD_REQUEST).send(
         ResponseBuilder.error(
           `API version ${version} is not supported. Supported versions: ${config.supportedVersions.join(
             ", "
@@ -44,35 +47,32 @@ export const apiVersionMiddleware = (
             requestedVersion: version,
             supportedVersions: config.supportedVersions,
           },
-          { requestId: req.id }
+          { requestId: (request as any).id }
         )
       );
-      return;
     }
 
     // Add deprecation warning for deprecated versions
     if (config.deprecatedVersions.includes(version)) {
-      res.setHeader(
+      reply.header(
         "X-API-Deprecation-Warning",
         `API version ${version} is deprecated`
       );
-      res.setHeader(
+      reply.header(
         "X-API-Supported-Versions",
         config.supportedVersions.join(", ")
       );
     }
 
     // Set version headers
-    res.setHeader("X-API-Version", version);
-    res.setHeader(
+    reply.header("X-API-Version", version);
+    reply.header(
       "X-API-Supported-Versions",
       config.supportedVersions.join(", ")
     );
 
     // Add version to request object
-    (req as any).apiVersion = version;
-
-    next();
+    (request as any).apiVersion = version;
   };
 };
 
@@ -90,30 +90,32 @@ function normalizeVersion(version: string): string {
 }
 
 // Middleware for handling version-specific logic
-export const versionHandler = (
+export const createVersionHandler = (
   handlers: Record<
     string,
-    (req: Request, res: Response, next: NextFunction) => void
+    (request: FastifyRequest, reply: FastifyReply) => Promise<void> | void
   >
 ) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const version = (req as any).apiVersion || "v1";
+  return async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    const version = (request as any).apiVersion || "v1";
     const handler = handlers[version] || handlers["default"];
 
     if (!handler) {
-      res
+      return reply
         .status(HTTP_STATUS.NOT_IMPLEMENTED)
-        .json(
+        .send(
           ResponseBuilder.error(
             `Handler for API version ${version} not implemented`,
             "VERSION_HANDLER_NOT_FOUND",
             undefined,
-            { requestId: req.id }
+            { requestId: (request as any).id }
           )
         );
-      return;
     }
 
-    handler(req, res, next);
+    await handler(request, reply);
   };
 };

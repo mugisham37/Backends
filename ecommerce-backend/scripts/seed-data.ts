@@ -8,6 +8,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import bcrypt from "bcryptjs";
+import { hashPassword } from "../src/shared/utils/crypto.utils";
 import { config } from "../src/shared/config/env.config";
 import {
   users,
@@ -52,7 +53,7 @@ async function seedDatabase() {
     // Create admin user
     const adminUser: NewUser = {
       email: "admin@ecommerce.dev",
-      password: await bcrypt.hash("admin123", 12),
+      password: await hashPassword("admin123"),
       firstName: "Admin",
       lastName: "User",
       role: "admin",
@@ -63,7 +64,7 @@ async function seedDatabase() {
     // Create vendor user
     const vendorUser: NewUser = {
       email: "vendor@ecommerce.dev",
-      password: await bcrypt.hash("vendor123", 12),
+      password: await hashPassword("vendor123"),
       firstName: "John",
       lastName: "Vendor",
       role: "vendor",
@@ -74,7 +75,7 @@ async function seedDatabase() {
     // Create customer user
     const customerUser: NewUser = {
       email: "customer@ecommerce.dev",
-      password: await bcrypt.hash("customer123", 12),
+      password: await hashPassword("customer123"),
       firstName: "Jane",
       lastName: "Customer",
       role: "customer",

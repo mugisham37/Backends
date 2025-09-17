@@ -5,15 +5,20 @@
 
 import fastify, { FastifyInstance, FastifyServerOptions } from "fastify";
 import { config } from "./shared/config/env.config";
+import {
+  getSecurityConfig,
+  securityPresets,
+} from "./shared/config/security.config";
 import { logger } from "./shared/utils/logger";
 import { db, getDatabase } from "./core/database/connection";
 import { container, registerServices } from "./core/container/index";
 import { sql } from "drizzle-orm";
 
-// Import middleware
-import cors from "@fastify/cors";
-import helmet from "@fastify/helmet";
-import rateLimit from "@fastify/rate-limit";
+// Import plugins
+import securityPlugin from "./shared/plugins/security.plugin";
+import advancedMiddlewarePlugin, {
+  middlewarePresets,
+} from "./shared/plugins/advanced-middleware.plugin";
 import multipart from "@fastify/multipart";
 import jwt from "@fastify/jwt";
 import swagger from "@fastify/swagger";
@@ -75,43 +80,35 @@ export const createApp = async (): Promise<FastifyInstance> => {
     await db.execute(sql`SELECT 1`);
     logger.info("✅ Database connection successful");
 
-    logger.info("� Registering core services...");
+    logger.info("📝 Registering core services...");
     // Initialize dependency injection container
     await registerServices();
     logger.info("✅ Services registered");
 
-    logger.info("�🛡️ Configuring security middleware...");
-    // Register security middleware
-    await app.register(helmet, {
-      global: true,
-      contentSecurityPolicy:
-        config.nodeEnv === "production" ? undefined : false,
-    });
+    logger.info("🛡️ Setting up comprehensive security...");
+    // Get security configuration based on environment
+    const securityConfig = getSecurityConfig();
+    const securityOptions =
+      config.nodeEnv === "production"
+        ? securityPresets.production
+        : securityPresets.development;
 
-    await app.register(cors, {
-      origin:
-        config.nodeEnv === "development" ? true : ["https://your-domain.com"],
-      credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "x-correlation-id"],
-    });
+    // Register comprehensive security plugin
+    await app.register(securityPlugin, securityOptions);
 
-    logger.info("⚡ Configuring rate limiting...");
-    // Rate limiting
-    await app.register(rateLimit, {
-      global: true,
-      max: config.rateLimit.max,
-      timeWindow: config.rateLimit.window,
-      errorResponseBuilder: (request, context) => ({
-        error: "Too Many Requests",
-        message: `Rate limit exceeded. Try again in ${Math.round(
-          context.ttl / 1000
-        )} seconds.`,
-        retryAfter: Math.round(context.ttl / 1000),
-      }),
-      skipOnError: true,
-      keyGenerator: (request) => request.ip,
-    });
+    // Initialize default RBAC setup
+    await securityConfig.setupDefaultRBAC();
+    logger.info("✅ Security configuration completed");
+
+    logger.info("🔧 Setting up advanced middleware...");
+    // Register advanced middleware plugin
+    const middlewareOptions =
+      config.nodeEnv === "production"
+        ? middlewarePresets.production
+        : middlewarePresets.development;
+
+    await app.register(advancedMiddlewarePlugin, middlewareOptions);
+    logger.info("✅ Advanced middleware registered");
 
     logger.info("🔐 Configuring JWT authentication...");
     // JWT Authentication

@@ -2,23 +2,14 @@
  * Request ID middleware for correlation tracking
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { FastifyRequest, FastifyReply } from "fastify";
 import { randomUUID } from "crypto";
 
-declare global {
-  namespace Express {
-    interface Request {
-      id: string;
-    }
-  }
-}
-
-export const requestIdMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  req.id = (req.headers["x-request-id"] as string) || randomUUID();
-  res.setHeader("X-Request-ID", req.id);
-  next();
+export const requestIdMiddleware = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  const requestId = (request.headers["x-request-id"] as string) || randomUUID();
+  (request as any).id = requestId;
+  reply.header("X-Request-ID", requestId);
 };

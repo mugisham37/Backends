@@ -3,7 +3,8 @@
  * Logs API requests and responses with correlation IDs
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { logger } from "../utils/logger";
 
 interface LogEntry {
   requestId: string;
@@ -37,26 +38,30 @@ const DEFAULT_CONFIG: RequestLoggingConfig = {
   sensitiveFields: ["password", "token", "authorization", "cookie"],
 };
 
-export const requestLoggingMiddleware = (
+export const createRequestLoggingMiddleware = (
   config: Partial<RequestLoggingConfig> = {}
 ) => {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
     const startTime = Date.now();
 
     // Skip logging for excluded paths
-    if (finalConfig.excludePaths.some((path) => req.path.includes(path))) {
-      return next();
+    if (finalConfig.excludePaths.some((path) => request.url.includes(path))) {
+      return;
     }
 
+    const requestId = (request as any).id || "unknown";
     const logEntry: LogEntry = {
-      requestId: req.id,
-      method: req.method,
-      url: req.originalUrl,
-      userAgent: req.get("User-Agent"),
-      ip: getClientIp(req),
-      userId: (req as any).user?.id,
+      requestId,
+      method: request.method,
+      url: request.url,
+      userAgent: request.headers["user-agent"],
+      ip: getClientIp(request),
+      userId: (request as any).user?.id,
       timestamp: new Date().toISOString(),
     };
 
@@ -65,75 +70,55 @@ export const requestLoggingMiddleware = (
       const requestLog = {
         ...logEntry,
         type: "REQUEST",
-        ...(finalConfig.logHeaders && {
-          headers: sanitizeHeaders(req.headers, finalConfig.sensitiveFields),
-        }),
-        ...(finalConfig.logBody &&
-          req.body && {
-            body: sanitizeObject(req.body, finalConfig.sensitiveFields),
-          }),
+        headers: finalConfig.logHeaders
+          ? sanitizeHeaders(request.headers, finalConfig.sensitiveFields)
+          : undefined,
+        body:
+          finalConfig.logBody && request.body
+            ? sanitizeObject(request.body, finalConfig.sensitiveFields)
+            : undefined,
       };
 
-      console.log(JSON.stringify(requestLog));
+      logger.info("API Request", requestLog);
     }
 
-    // Capture original response methods
-    const originalSend = res.send;
-    const originalJson = res.json;
-
-    // Override response methods to capture response data
-    res.send = function (body: any) {
-      logResponse(body);
-      return originalSend.call(this, body);
-    };
-
-    res.json = function (body: any) {
-      logResponse(body);
-      return originalJson.call(this, body);
-    };
-
-    function logResponse(body: any) {
+    // Track response using server hooks
+    const logResponse = () => {
       if (!finalConfig.logResponses) return;
 
       const duration = Date.now() - startTime;
-      const responseSize = Buffer.byteLength(
-        JSON.stringify(body || ""),
-        "utf8"
-      );
 
       const responseLog = {
         ...logEntry,
         type: "RESPONSE",
         duration,
-        statusCode: res.statusCode,
-        responseSize,
-        ...(res.statusCode >= 400 && {
-          error: body?.error?.message || "Unknown error",
-        }),
-        ...(finalConfig.logBody &&
-          body && { body: sanitizeObject(body, finalConfig.sensitiveFields) }),
+        statusCode: reply.statusCode,
       };
 
       // Log with appropriate level based on status code
-      if (res.statusCode >= 500) {
-        console.error(JSON.stringify(responseLog));
-      } else if (res.statusCode >= 400) {
-        console.warn(JSON.stringify(responseLog));
+      if (reply.statusCode >= 500) {
+        logger.error("API Error Response", responseLog);
+      } else if (reply.statusCode >= 400) {
+        logger.warn("API Client Error", responseLog);
       } else {
-        console.log(JSON.stringify(responseLog));
+        logger.info("API Response", responseLog);
       }
-    }
+    };
 
-    next();
+    // Use onResponse hook for logging
+    request.server.addHook("onResponse", async (request, reply) => {
+      if (request.url === logEntry.url) {
+        logResponse();
+      }
+    });
   };
 };
 
-function getClientIp(req: Request): string {
+function getClientIp(request: FastifyRequest): string {
   return (
-    (req.headers["x-forwarded-for"] as string) ||
-    (req.headers["x-real-ip"] as string) ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress ||
+    (request.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    (request.headers["x-real-ip"] as string) ||
+    request.ip ||
     "unknown"
   );
 }
@@ -178,40 +163,33 @@ function sanitizeObject(obj: any, sensitiveFields: string[]): any {
 }
 
 // Performance monitoring middleware
-export const performanceMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  const startTime = process.hrtime.bigint();
+export const createPerformanceMiddleware = () => {
+  return async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> => {
+    const startTime = process.hrtime.bigint();
 
-  // Override the end method to capture timing before response is sent
-  const originalEnd = res.end;
-  res.end = function (chunk?: any, encoding?: any) {
-    const endTime = process.hrtime.bigint();
-    const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
+    request.server.addHook("onResponse", async (req, res) => {
+      if (req.url === request.url) {
+        const endTime = process.hrtime.bigint();
+        const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
 
-    // Set performance header before ending response
-    if (!res.headersSent) {
-      res.setHeader("X-Response-Time", `${duration.toFixed(2)}ms`);
-    }
+        // Set performance header
+        res.header("X-Response-Time", `${duration.toFixed(2)}ms`);
 
-    // Log slow requests (> 1 second)
-    if (duration > 1000) {
-      console.warn(
-        JSON.stringify({
-          type: "SLOW_REQUEST",
-          requestId: req.id,
-          method: req.method,
-          url: req.originalUrl,
-          duration: `${duration.toFixed(2)}ms`,
-          timestamp: new Date().toISOString(),
-        })
-      );
-    }
-
-    return originalEnd.call(this, chunk, encoding);
+        // Log slow requests (> 1 second)
+        if (duration > 1000) {
+          logger.warn("Slow Request Detected", {
+            type: "SLOW_REQUEST",
+            requestId: (request as any).id,
+            method: request.method,
+            url: request.url,
+            duration: `${duration.toFixed(2)}ms`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    });
   };
-
-  next();
 };

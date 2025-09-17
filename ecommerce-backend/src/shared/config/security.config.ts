@@ -17,6 +17,7 @@ import {
 } from "../middleware/index.js";
 import { db } from "../../core/database/connection.js";
 import { config } from "./env.config.js";
+import { logger } from "../utils/logger.js";
 
 export interface SecuritySetupOptions {
   enableRateLimit?: boolean;
@@ -395,9 +396,9 @@ export class SecurityConfig {
         }
       }
 
-      console.log("✅ Default RBAC setup completed");
+      logger.info("✅ Default RBAC setup completed");
     } catch (error) {
-      console.error("❌ Failed to setup default RBAC:", error);
+      logger.error("❌ Failed to setup default RBAC:", error);
     }
   }
 }

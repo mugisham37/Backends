@@ -7,6 +7,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { AppError } from "../../core/errors/app-error.js";
 import { getRedisClient } from "../../modules/cache/redis.client.js";
 import { config } from "../config/env.config.js";
+import { logger } from "../utils/logger.js";
 
 export interface RateLimitOptions {
   max: number; // Maximum requests
@@ -112,7 +113,7 @@ export class RateLimitMiddleware {
           throw error;
         }
         // If Redis fails, allow the request but log the error
-        console.error("Rate limiting error:", error);
+        console.error("Brute force protection error:", error);
       }
     };
   };
@@ -188,7 +189,7 @@ export class RateLimitMiddleware {
         if (error instanceof AppError) {
           throw error;
         }
-        console.error("Brute force protection error:", error);
+        logger.error("Brute force protection error:", error);
       }
     };
   };

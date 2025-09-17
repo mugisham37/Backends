@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { logger } from "../utils/logger.js";
 
 const envSchema = z.object({
   // Server
@@ -57,7 +58,7 @@ function validateEnv() {
   try {
     return envSchema.parse(process.env);
   } catch (error) {
-    console.error("❌ Invalid environment configuration:", error);
+    logger.error("❌ Invalid environment configuration:", error);
     process.exit(1);
   }
 }
