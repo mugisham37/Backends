@@ -9,6 +9,8 @@ export * from "./vendors";
 export * from "./products";
 export * from "./orders";
 export * from "./notifications";
+export * from "./analytics";
+export * from "./webhooks";
 
 // Export relations
 export * from "./relations";

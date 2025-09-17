@@ -16,6 +16,8 @@ import { productRoutes } from "./routes/product.routes.js";
 import { orderRoutes } from "./routes/order.routes.js";
 import { healthRoutes } from "./routes/health.routes.js";
 import { notificationRoutes } from "./routes/notification.routes.js";
+import { analyticsRoutes } from "./routes/analytics.routes.js";
+import { webhookRoutes } from "./routes/webhook.routes.js";
 import {
   ResponseBuilder,
   HTTP_STATUS,
@@ -96,6 +98,8 @@ export async function restApiPlugin(
   await fastify.register(orderRoutes, { prefix: "/orders" });
   await fastify.register(healthRoutes, { prefix: "/health" });
   await fastify.register(notificationRoutes, { prefix: "/notifications" });
+  await fastify.register(analyticsRoutes, { prefix: "/analytics" });
+  await fastify.register(webhookRoutes, { prefix: "/webhooks" });
 
   // 404 handler for unmatched routes
   fastify.setNotFoundHandler(

@@ -8,6 +8,8 @@ import { userTypeDefs } from "./user.schema.js";
 import { vendorTypeDefs } from "./vendor.schema.js";
 import { productTypeDefs } from "./product.schema.js";
 import { orderTypeDefs } from "./order.schema.js";
+import { analyticsTypeDefs } from "./analytics.schema.js";
+import { webhookTypeDefs } from "./webhook.schema.js";
 
 // Base schema with common types and root operations
 const baseTypeDefs = gql`
@@ -68,4 +70,6 @@ export const typeDefs = [
   vendorTypeDefs,
   productTypeDefs,
   orderTypeDefs,
+  analyticsTypeDefs,
+  webhookTypeDefs,
 ];

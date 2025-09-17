@@ -9,6 +9,8 @@ import { userResolvers } from "./user.resolver.js";
 import { vendorResolvers } from "./vendor.resolver.js";
 import { productResolvers } from "./product.resolver.js";
 import { orderResolvers } from "./order.resolver.js";
+import { analyticsResolvers } from "./analytics.resolver.js";
+import { webhookResolvers } from "./webhook.resolver.js";
 import { GraphQLContext } from "../context.js";
 
 // Custom scalar resolvers
@@ -149,6 +151,8 @@ export const resolvers = {
     ...vendorResolvers.Query,
     ...productResolvers.Query,
     ...orderResolvers.Query,
+    ...analyticsResolvers.Query,
+    ...webhookResolvers.Query,
   },
   Mutation: {
     ...baseResolvers.Mutation,
@@ -156,6 +160,8 @@ export const resolvers = {
     ...vendorResolvers.Mutation,
     ...productResolvers.Mutation,
     ...orderResolvers.Mutation,
+    ...analyticsResolvers.Mutation,
+    ...webhookResolvers.Mutation,
   },
   Subscription: {
     ...baseResolvers.Subscription,
@@ -172,4 +178,12 @@ export const resolvers = {
   OrderItem: orderResolvers.OrderItem,
   Category: productResolvers.Category,
   Payment: orderResolvers.Payment,
+  AnalyticsEvent: analyticsResolvers.AnalyticsEvent,
+  BusinessMetric: analyticsResolvers.BusinessMetric,
+  UserBehavior: analyticsResolvers.UserBehavior,
+  ProductAnalytics: analyticsResolvers.ProductAnalytics,
+  WebhookEndpoint: webhookResolvers.WebhookEndpoint,
+  WebhookEvent: webhookResolvers.WebhookEvent,
+  WebhookDelivery: webhookResolvers.WebhookDelivery,
+  WebhookLog: webhookResolvers.WebhookLog,
 };
