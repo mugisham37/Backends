@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   successResponseSchema,
   uuidSchema,
-} from "../../shared/validators/common.schemas.js";
+} from "../../shared/validators/common.schemas";
 
 /**
  * Zod validation schemas for search management endpoints

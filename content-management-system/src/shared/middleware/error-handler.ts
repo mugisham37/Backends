@@ -10,7 +10,7 @@ export const errorHandler = (
   _next: NextFunction
 ) => {
   // Log error
-  logger.error(err);
+  logger.error("Error occurred in error handler:", err);
 
   // Check if error is an ApiError
   if (err instanceof ApiError) {

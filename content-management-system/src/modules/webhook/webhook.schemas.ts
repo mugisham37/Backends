@@ -7,7 +7,7 @@ import {
   successResponseSchema,
   urlValidation,
   uuidSchema,
-} from "../../shared/validators/common.schemas.js";
+} from "../../shared/validators/common.schemas";
 
 /**
  * Zod validation schemas for webhook management endpoints
@@ -194,7 +194,7 @@ export const getWebhookDeliveriesEndpoint = {
   headers: z.void(),
 };
 
-// Type exports
+// Type exports (avoid conflicts with domain types)
 export type CreateWebhookRequest = z.infer<typeof createWebhookSchema>;
 export type UpdateWebhookRequest = z.infer<typeof updateWebhookSchema>;
 export type WebhookQueryParams = z.infer<typeof webhookQuerySchema>;
@@ -202,11 +202,11 @@ export type WebhookDeliveryQueryParams = z.infer<
   typeof webhookDeliveryQuerySchema
 >;
 export type TestWebhookRequest = z.infer<typeof testWebhookSchema>;
-export type Webhook = z.infer<typeof webhookSchema>;
-export type WebhookDelivery = z.infer<typeof webhookDeliverySchema>;
+export type WebhookSchema = z.infer<typeof webhookSchema>;
+export type WebhookDeliverySchema = z.infer<typeof webhookDeliverySchema>;
 export type WebhookStats = z.infer<typeof webhookStatsSchema>;
-export type WebhookEvent = z.infer<typeof webhookEventSchema>;
-export type WebhookResponse = z.infer<typeof webhookResponseSchema>;
+export type WebhookEventSchema = z.infer<typeof webhookEventSchema>;
+export type WebhookResponseSchema = z.infer<typeof webhookResponseSchema>;
 export type WebhookListResponse = z.infer<typeof webhookListResponseSchema>;
 export type WebhookDeliveryResponse = z.infer<
   typeof webhookDeliveryResponseSchema
