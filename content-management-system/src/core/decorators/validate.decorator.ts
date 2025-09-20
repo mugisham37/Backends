@@ -15,6 +15,30 @@ export interface ValidationConfig {
 }
 
 /**
+ * Type definitions for validation metadata
+ */
+export interface ValidationMetadata {
+  input?: ZodSchema;
+  output?: ZodSchema;
+  skipValidation?: boolean;
+  target: any;
+  propertyKey: string;
+}
+
+export interface ParamValidationMetadata {
+  schema: ZodSchema;
+  paramIndex: number;
+  target: any;
+  propertyKey: string;
+}
+
+export interface ValidationOptions {
+  skipValidation?: boolean;
+  customErrorMessage?: string;
+  throwOnError?: boolean;
+}
+
+/**
  * Method decorator for validating service method inputs and outputs
  */
 export function Validate(config: ValidationConfig) {
@@ -129,6 +153,147 @@ export function ValidateParam(schema: ZodSchema, paramIndex = 0) {
 }
 
 /**
+ * Body validation decorator for HTTP request bodies
+ */
+export function ValidateBody(schema: ZodSchema) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      // Assume body is the first parameter for REST endpoints
+      if (args[0] !== undefined) {
+        try {
+          args[0] = schema.parse(args[0]);
+        } catch (error: any) {
+          throw new ValidationError(
+            `Request body validation failed for ${target.constructor.name}.${propertyKey}`,
+            error
+          );
+        }
+      }
+
+      return originalMethod.apply(this, args);
+    };
+
+    return descriptor;
+  };
+}
+
+/**
+ * Query parameters validation decorator
+ */
+export function ValidateQuery(schema: ZodSchema) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      // Assume query is the second parameter after body
+      const queryIndex = 1;
+      if (args[queryIndex] !== undefined) {
+        try {
+          args[queryIndex] = schema.parse(args[queryIndex]);
+        } catch (error: any) {
+          throw new ValidationError(
+            `Query parameters validation failed for ${target.constructor.name}.${propertyKey}`,
+            error
+          );
+        }
+      }
+
+      return originalMethod.apply(this, args);
+    };
+
+    return descriptor;
+  };
+}
+
+/**
+ * URL parameters validation decorator
+ */
+export function ValidateParams(schema: ZodSchema) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      // Assume params is the third parameter after body and query
+      const paramsIndex = 2;
+      if (args[paramsIndex] !== undefined) {
+        try {
+          args[paramsIndex] = schema.parse(args[paramsIndex]);
+        } catch (error: any) {
+          throw new ValidationError(
+            `URL parameters validation failed for ${target.constructor.name}.${propertyKey}`,
+            error
+          );
+        }
+      }
+
+      return originalMethod.apply(this, args);
+    };
+
+    return descriptor;
+  };
+}
+
+/**
+ * Headers validation decorator
+ */
+export function ValidateHeaders(schema: ZodSchema) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      // Assume headers is the fourth parameter
+      const headersIndex = 3;
+      if (args[headersIndex] !== undefined) {
+        try {
+          args[headersIndex] = schema.parse(args[headersIndex]);
+        } catch (error: any) {
+          throw new ValidationError(
+            `Headers validation failed for ${target.constructor.name}.${propertyKey}`,
+            error
+          );
+        }
+      }
+
+      return originalMethod.apply(this, args);
+    };
+
+    return descriptor;
+  };
+}
+
+/**
+ * Response validation decorator
+ */
+export function ValidateResponse(schema: ZodSchema) {
+  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      const result = await originalMethod.apply(this, args);
+
+      try {
+        return schema.parse(result);
+      } catch (error: any) {
+        throw new ValidationError(
+          `Response validation failed for ${target.constructor.name}.${propertyKey}`,
+          error
+        );
+      }
+    };
+
+    return descriptor;
+  };
+}
+
+/**
+ * Validation metadata for reflection
+ */
+export const VALIDATION_METADATA_KEY = Symbol("validation");
+export const PARAM_VALIDATION_KEY = Symbol("param_validation");
+
+/**
  * Utility function to create validation schemas for common patterns
  */
 export const ValidationSchemas = {
@@ -193,10 +358,133 @@ export const ValidationSchemas = {
   },
 };
 
+// Export as CommonSchemas for backward compatibility
+export const CommonSchemas = ValidationSchemas;
+
 /**
- * Validation metadata for reflection
+ * Validation utilities for common operations
  */
-export const VALIDATION_METADATA_KEY = Symbol("validation");
+export const ValidationUtils = {
+  /**
+   * Extract validation metadata from a target
+   */
+  getValidationMetadata: (target: any, propertyKey?: string) => {
+    if (propertyKey) {
+      return Reflect.getMetadata(VALIDATION_METADATA_KEY, target, propertyKey);
+    }
+    return Reflect.getMetadata(VALIDATION_METADATA_KEY, target);
+  },
+
+  /**
+   * Set validation metadata on a target
+   */
+  setValidationMetadata: (
+    config: ValidationConfig,
+    target: any,
+    propertyKey?: string
+  ) => {
+    if (propertyKey) {
+      Reflect.defineMetadata(
+        VALIDATION_METADATA_KEY,
+        config,
+        target,
+        propertyKey
+      );
+    } else {
+      Reflect.defineMetadata(VALIDATION_METADATA_KEY, config, target);
+    }
+  },
+
+  /**
+   * Check if a target has validation metadata
+   */
+  hasValidationMetadata: (target: any, propertyKey?: string) => {
+    if (propertyKey) {
+      return Reflect.hasMetadata(VALIDATION_METADATA_KEY, target, propertyKey);
+    }
+    return Reflect.hasMetadata(VALIDATION_METADATA_KEY, target);
+  },
+
+  /**
+   * Get all validation metadata for a class
+   */
+  getAllValidationMetadata: (target: any) => {
+    const methodNames = Object.getOwnPropertyNames(target.prototype).filter(
+      (name) =>
+        name !== "constructor" && typeof target.prototype[name] === "function"
+    );
+
+    const metadata: Record<string, any> = {};
+    methodNames.forEach((methodName) => {
+      const methodMetadata = Reflect.getMetadata(
+        VALIDATION_METADATA_KEY,
+        target.prototype,
+        methodName
+      );
+      if (methodMetadata) {
+        metadata[methodName] = methodMetadata;
+      }
+    });
+
+    return metadata;
+  },
+};
+
+/**
+ * Common validators for frequently used patterns
+ */
+export const CommonValidators = {
+  /**
+   * Create validator for UUID strings
+   */
+  uuid: () => {
+    const { z } = require("zod");
+    return z.string().uuid("Invalid UUID format");
+  },
+
+  /**
+   * Create validator for email addresses
+   */
+  email: () => {
+    const { z } = require("zod");
+    return z.string().email("Invalid email format");
+  },
+
+  /**
+   * Create validator for pagination parameters
+   */
+  pagination: () => {
+    const { z } = require("zod");
+    return z.object({
+      page: z.number().int().min(1).default(1),
+      limit: z.number().int().min(1).max(100).default(20),
+    });
+  },
+
+  /**
+   * Create validator for date strings
+   */
+  dateString: () => {
+    const { z } = require("zod");
+    return z.string().datetime("Invalid date format");
+  },
+
+  /**
+   * Create validator for positive integers
+   */
+  positiveInt: () => {
+    const { z } = require("zod");
+    return z.number().int().positive("Must be a positive integer");
+  },
+
+  /**
+   * Create validator for non-empty strings
+   */
+  nonEmptyString: () => {
+    const { z } = require("zod");
+    return z.string().min(1, "String cannot be empty");
+  },
+};
 
 /**
  * Store validation metadata for runtime inspection
