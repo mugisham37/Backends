@@ -25,10 +25,10 @@ export interface PaginationResult<T> {
 export function parsePaginationParams(
   query: Record<string, unknown>
 ): PaginationParams {
-  const page = Math.max(1, parseInt((query["page"] as string) || "1", 10));
+  const page = Math.max(1, parseInt((query.page as string) || "1", 10));
   const limit = Math.max(
     1,
-    Math.min(100, parseInt((query["limit"] as string) || "20", 10))
+    Math.min(100, parseInt((query.limit as string) || "20", 10))
   );
 
   return { page, limit };
@@ -103,22 +103,21 @@ export function parseSortParams(
   defaultDirection?: "asc" | "desc"
 ): any {
   if (defaultField && defaultDirection) {
-    const field = (query["sortBy"] as string) || defaultField;
+    const field = (query.sortBy as string) || defaultField;
     const direction =
-      (query["sortOrder"] as string)?.toLowerCase() === "desc"
+      (query.sortOrder as string)?.toLowerCase() === "desc"
         ? "desc"
-        : (query["sortOrder"] as string)?.toLowerCase() === "asc"
-        ? "asc"
-        : defaultDirection;
+        : (query.sortOrder as string)?.toLowerCase() === "asc"
+          ? "asc"
+          : defaultDirection;
 
     return { field, direction };
-  } else {
-    const sortBy = query["sortBy"] as string | undefined;
-    const sortOrder =
-      (query["sortOrder"] as string)?.toLowerCase() === "desc" ? "desc" : "asc";
-
-    return { sortBy, sortOrder };
   }
+  const sortBy = query.sortBy as string | undefined;
+  const sortOrder =
+    (query.sortOrder as string)?.toLowerCase() === "desc" ? "desc" : "asc";
+
+  return { sortBy, sortOrder };
 }
 
 /**
@@ -128,17 +127,17 @@ export function parseDateRange(query: Record<string, unknown>): {
   startDate?: Date | undefined;
   endDate?: Date | undefined;
 } {
-  const startDateStr = query["startDate"] as string | undefined;
-  const endDateStr = query["endDate"] as string | undefined;
+  const startDateStr = query.startDate as string | undefined;
+  const endDateStr = query.endDate as string | undefined;
 
   const startDate = startDateStr ? new Date(startDateStr) : undefined;
   const endDate = endDateStr ? new Date(endDateStr) : undefined;
 
   // Validate dates
-  if (startDate && isNaN(startDate.getTime())) {
+  if (startDate && Number.isNaN(startDate.getTime())) {
     throw new Error("Invalid startDate format");
   }
-  if (endDate && isNaN(endDate.getTime())) {
+  if (endDate && Number.isNaN(endDate.getTime())) {
     throw new Error("Invalid endDate format");
   }
 
@@ -155,8 +154,8 @@ export function parseSearchParams(query: Record<string, unknown>): {
   search?: string | undefined;
   searchFields?: string[] | undefined;
 } {
-  const search = query["search"] as string | undefined;
-  const searchFieldsRaw = query["searchFields"];
+  const search = query.search as string | undefined;
+  const searchFieldsRaw = query.searchFields;
   const searchFields = searchFieldsRaw
     ? ((Array.isArray(searchFieldsRaw)
         ? searchFieldsRaw

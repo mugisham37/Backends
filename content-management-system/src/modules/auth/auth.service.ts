@@ -2,16 +2,16 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { inject, injectable } from "tsyringe";
-import { config } from "../../shared/config";
 import type { User, UserRole } from "../../core/database/schema/auth.schema";
+import { CacheMedium, CacheShort } from "../../core/decorators/cache.decorator";
+import { Validate } from "../../core/decorators/validate.decorator";
 import { AuthenticationError, ValidationError } from "../../core/errors";
 import { UserRepository } from "../../core/repositories/user.repository";
 import type { Result } from "../../core/types/result.types";
+import { config } from "../../shared/config";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
-import { CacheShort, CacheMedium } from "../../core/decorators/cache.decorator";
-import { Validate } from "../../core/decorators/validate.decorator";
 import { loginSchema, registerSchema } from "./auth.schemas";
 
 /**
@@ -472,7 +472,7 @@ export class AuthService {
         config.jwt.refreshSecret || config.jwt.secret
       ) as jwt.JwtPayload;
 
-      if (decoded["type"] !== "refresh") {
+      if (decoded.type !== "refresh") {
         return {
           success: false,
           error: new AuthenticationError("Invalid token type"),
@@ -589,7 +589,7 @@ export class AuthService {
       // Verify JWT token
       const decoded = jwt.verify(token, config.jwt.secret) as jwt.JwtPayload;
 
-      if (decoded["type"] !== "access") {
+      if (decoded.type !== "access") {
         return {
           success: false,
           error: new AuthenticationError("Invalid token type"),

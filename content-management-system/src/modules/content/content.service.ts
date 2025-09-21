@@ -1,11 +1,4 @@
 import { inject, injectable } from "tsyringe";
-import {
-  CacheShort,
-  CacheMedium,
-  CacheInvalidate,
-} from "../../core/decorators/cache.decorator";
-import { Validate } from "../../core/decorators/validate.decorator";
-import { createContentSchema, updateContentSchema } from "./content.schemas";
 import type {
   Content,
   ContentStatus,
@@ -13,6 +6,12 @@ import type {
   ContentVersion,
   NewContent,
 } from "../../core/database/schema/content.schema";
+import {
+  CacheInvalidate,
+  CacheMedium,
+  CacheShort,
+} from "../../core/decorators/cache.decorator";
+import { Validate } from "../../core/decorators/validate.decorator";
 import {
   ConflictError,
   NotFoundError,
@@ -25,6 +24,7 @@ import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
 import { SearchService } from "../search/search.service";
 import { WebhookService } from "../webhook/webhook.service";
+import { createContentSchema, updateContentSchema } from "./content.schemas";
 
 /**
  * Content management service with versioning and publishing

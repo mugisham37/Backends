@@ -38,8 +38,8 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
         }
       },
     },
-    graphiql: process.env["NODE_ENV"] === "development" ? "playground" : false,
-    ide: process.env["NODE_ENV"] === "development",
+    graphiql: process.env.NODE_ENV === "development" ? "playground" : false,
+    ide: process.env.NODE_ENV === "development",
     path: "/",
     errorFormatter: (execution: any, context: any) => {
       // Custom error formatting
@@ -60,8 +60,8 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
 
         // In production, don't expose internal server errors
         if (
-          process.env["NODE_ENV"] === "production" &&
-          error.extensions?.["code"] === "INTERNAL_SERVER_ERROR"
+          process.env.NODE_ENV === "production" &&
+          error.extensions?.code === "INTERNAL_SERVER_ERROR"
         ) {
           return {
             message: "Internal server error",
@@ -90,9 +90,7 @@ export const graphqlApiPlugin: FastifyPluginAsync = async (
       timestamp: new Date().toISOString(),
       endpoint: "/graphql",
       playground:
-        process.env["NODE_ENV"] === "development"
-          ? "/graphql/playground"
-          : null,
+        process.env.NODE_ENV === "development" ? "/graphql/playground" : null,
       subscriptions: "enabled",
       dataLoaders: "enabled",
     });

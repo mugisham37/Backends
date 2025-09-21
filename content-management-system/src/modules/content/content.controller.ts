@@ -1,11 +1,11 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { inject, injectable } from "tsyringe";
-import { ContentService } from "./content.service";
+import { Auth } from "../../core/decorators/auth.decorator";
 import {
   parsePaginationParams,
   parseSortParams,
 } from "../../shared/utils/helpers";
-import { Auth } from "../../core/decorators/auth.decorator";
+import { ContentService } from "./content.service";
 
 // Type definitions for Fastify requests
 interface ContentQueryParams extends Record<string, unknown> {
@@ -77,7 +77,7 @@ interface PublishContentBody {
 @Auth()
 export class ContentController {
   constructor(
-    @inject("ContentService") private contentService: ContentService
+    @inject("ContentService") private _contentService: ContentService
   ) {}
 
   /**
@@ -139,7 +139,7 @@ export class ContentController {
       }
 
       // Get content
-      const result = await this.contentService.getAllContent(
+      const result = await this._contentService.getAllContent(
         tenantId,
         filter,
         { field, direction },
@@ -166,7 +166,7 @@ export class ContentController {
           },
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -195,7 +195,7 @@ export class ContentController {
       }
 
       const tenantId = (request as any).tenantId || "default";
-      const result = await this.contentService.getContentById(id, tenantId);
+      const result = await this._contentService.getContentById(id, tenantId);
 
       if (!result.success) {
         return reply.status(404).send({
@@ -211,7 +211,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -240,7 +240,7 @@ export class ContentController {
       }
 
       const tenantId = (request as any).tenantId || "default";
-      const result = await this.contentService.getContentBySlug(slug, tenantId);
+      const result = await this._contentService.getContentBySlug(slug, tenantId);
 
       if (!result.success) {
         return reply.status(404).send({
@@ -256,7 +256,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -285,7 +285,7 @@ export class ContentController {
         });
       }
 
-      const result = await this.contentService.createContent(
+      const result = await this._contentService.createContent(
         request.body,
         tenantId,
         userId
@@ -305,7 +305,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -344,7 +344,7 @@ export class ContentController {
         });
       }
 
-      const result = await this.contentService.updateContent(
+      const result = await this._contentService.updateContent(
         id,
         request.body,
         tenantId,
@@ -365,7 +365,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -403,7 +403,7 @@ export class ContentController {
         });
       }
 
-      const result = await this.contentService.deleteContent(
+      const result = await this._contentService.deleteContent(
         id,
         tenantId,
         userId
@@ -421,7 +421,7 @@ export class ContentController {
         status: "success",
         data: null,
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -464,7 +464,7 @@ export class ContentController {
         ? new Date(request.body.scheduledAt)
         : undefined;
 
-      const result = await this.contentService.publishContent(
+      const result = await this._contentService.publishContent(
         id,
         tenantId,
         userId,
@@ -485,7 +485,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -523,7 +523,7 @@ export class ContentController {
         });
       }
 
-      const result = await this.contentService.unpublishContent(
+      const result = await this._contentService.unpublishContent(
         id,
         tenantId,
         userId
@@ -543,7 +543,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -582,7 +582,7 @@ export class ContentController {
       }
 
       // Archive is implemented as updating status to 'archived'
-      const result = await this.contentService.updateContent(
+      const result = await this._contentService.updateContent(
         id,
         { status: "archived" as any },
         tenantId,
@@ -603,7 +603,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -632,7 +632,7 @@ export class ContentController {
       }
 
       const tenantId = (request as any).tenantId || "default";
-      const result = await this.contentService.getContentVersions(
+      const result = await this._contentService.getContentVersions(
         contentId,
         tenantId
       );
@@ -651,7 +651,7 @@ export class ContentController {
           versions: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -690,14 +690,14 @@ export class ContentController {
       }
 
       const versionNumber = parseInt(versionId, 10);
-      if (isNaN(versionNumber)) {
+      if (Number.isNaN(versionNumber)) {
         return reply.status(400).send({
           status: "error",
           message: "Invalid version ID",
         });
       }
 
-      const result = await this.contentService.restoreVersion(
+      const result = await this._contentService.restoreVersion(
         contentId,
         versionNumber,
         tenantId,
@@ -718,7 +718,7 @@ export class ContentController {
           content: result.data,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",

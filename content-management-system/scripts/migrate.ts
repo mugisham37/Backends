@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 
 import {
-  initializeDatabase,
   closeDatabase,
+  initializeDatabase,
 } from "../src/core/database/connection.js";
 import {
-  runMigrations,
-  resetDatabase,
   checkMigrationStatus,
+  resetDatabase,
+  runMigrations,
   validateSchema,
 } from "../src/core/database/migrator.ts";
 import { dbLogger } from "../src/utils/logger.ts";
@@ -52,7 +52,7 @@ const runCommand = async (command: Command) => {
     await initializeDatabase();
 
     switch (command) {
-      case "up":
+      case "up": {
         console.log("🚀 Running database migrations...");
         const migrationResult = await runMigrations();
 
@@ -63,8 +63,9 @@ const runCommand = async (command: Command) => {
           process.exit(1);
         }
         break;
+      }
 
-      case "status":
+      case "status": {
         console.log("📊 Checking migration status...");
         const status = await checkMigrationStatus();
 
@@ -78,8 +79,9 @@ const runCommand = async (command: Command) => {
           `⏳ Pending migrations: ${status.pending ? "Yes" : "Unknown"}`
         );
         break;
+      }
 
-      case "reset":
+      case "reset": {
         console.log("⚠️  WARNING: This will delete ALL data!");
         console.log("🔄 Resetting database...");
 
@@ -92,8 +94,9 @@ const runCommand = async (command: Command) => {
           process.exit(1);
         }
         break;
+      }
 
-      case "validate":
+      case "validate": {
         console.log("🔍 Validating database schema...");
         const validation = await validateSchema();
 
@@ -113,6 +116,7 @@ const runCommand = async (command: Command) => {
           process.exit(1);
         }
         break;
+      }
 
       default:
         console.error(`❌ Unknown command: ${command}`);

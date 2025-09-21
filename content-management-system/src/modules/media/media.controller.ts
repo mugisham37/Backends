@@ -1,13 +1,13 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
 import type { MultipartFile } from "@fastify/multipart";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { inject, injectable } from "tsyringe";
-import { MediaService } from "./media.service";
+import { Auth } from "../../core/decorators/auth.decorator";
 import {
   parsePaginationParams,
   parseSortParams,
 } from "../../shared/utils/helpers";
 import { logger } from "../../shared/utils/logger";
-import { Auth } from "../../core/decorators/auth.decorator";
+import { MediaService } from "./media.service";
 
 // Type definitions for Fastify requests
 interface MediaQueryParams extends Record<string, unknown> {
@@ -73,7 +73,7 @@ interface FolderQueryParams {
 @injectable()
 @Auth()
 export class MediaController {
-  constructor(@inject("MediaService") private mediaService: MediaService) {}
+  constructor(@inject("MediaService") private _mediaService: MediaService) {}
 
   /**
    * Get all media with pagination and filtering
@@ -126,7 +126,7 @@ export class MediaController {
       }
 
       // Get media with pagination
-      const result = await this.mediaService.getAllMedia(
+      const result = await this._mediaService.getAllMedia(
         tenantId,
         filter,
         { field, direction },
@@ -173,7 +173,7 @@ export class MediaController {
       const { id } = request.params;
       const tenantId = (request as any).tenantId || "default";
 
-      const result = await this.mediaService.getMediaById(id, tenantId);
+      const result = await this._mediaService.getMediaById(id, tenantId);
 
       if (!result.success) {
         if (result.error?.message.includes("not found")) {
@@ -294,7 +294,7 @@ export class MediaController {
       }
 
       // Upload file using the service
-      const result = await this.mediaService.uploadFile(
+      const result = await this._mediaService.uploadFile(
         {
           buffer,
           originalname: file.filename,
@@ -356,7 +356,7 @@ export class MediaController {
         });
       }
 
-      const result = await this.mediaService.updateMedia(
+      const result = await this._mediaService.updateMedia(
         id,
         updateData,
         tenantId,
@@ -419,7 +419,7 @@ export class MediaController {
         });
       }
 
-      const result = await this.mediaService.deleteMedia(id, tenantId, userId);
+      const result = await this._mediaService.deleteMedia(id, tenantId, userId);
 
       if (!result.success) {
         if (result.error?.message.includes("not found")) {
@@ -487,7 +487,7 @@ export class MediaController {
       if (parentId) folderData.parentId = parentId;
       if (description) folderData.description = description;
 
-      const result = await this.mediaService.createFolder(
+      const result = await this._mediaService.createFolder(
         folderData,
         tenantId,
         userId

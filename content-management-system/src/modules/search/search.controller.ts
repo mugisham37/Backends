@@ -1,4 +1,4 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { container } from "tsyringe";
 import type { SearchService } from "./search.service";
 
@@ -93,7 +93,7 @@ export class SearchController {
           searchTime: result.data.searchTime,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         success: false,
         error: "Search failed",
@@ -175,7 +175,7 @@ export class SearchController {
           searchTime: result.data.searchTime,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         success: false,
         error: "Media search failed",
@@ -216,7 +216,7 @@ export class SearchController {
         success: true,
         data: result.data,
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         success: false,
         error: "Failed to get suggestions",
@@ -249,7 +249,7 @@ export class SearchController {
         success: true,
         message: `Reindexing started for tenant: ${tenantId}`,
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         success: false,
         error: "Failed to start reindexing",
@@ -284,7 +284,7 @@ export class SearchController {
         success: true,
         data: result.data,
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         success: false,
         error: "Failed to get analytics",

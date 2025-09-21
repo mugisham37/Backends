@@ -1,438 +1,448 @@
+/**
+ * Content Management System Backend Application
+ * Streamlined application factory with essential functionality
+ */
+
+import { sql } from "drizzle-orm";
+import fastify, { FastifyInstance, FastifyServerOptions } from "fastify";
+import {
+  getDatabase,
+  initializeDatabase as initDb,
+} from "./core/database/index.js";
+import { config } from "./shared/config/env.config.js";
+import { logger } from "./shared/utils/logger.js";
+
+import compress from "@fastify/compress";
+import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import jwt from "@fastify/jwt";
+// Core Fastify plugins
 import multipart from "@fastify/multipart";
-import fastify, {
-  type FastifyInstance,
-  type FastifyServerOptions,
-} from "fastify";
-import { apiGatewayPlugin } from "./api/gateway";
-import { config } from "./shared/config";
-import {
-  getApplicationStatus,
-  initializeApplication,
-} from "./core/container/bootstrap";
-import {
-  checkDatabaseHealth,
-  getConnectionStats,
-  initializeDatabase,
-  isDatabaseConnected,
-} from "./core/database/connection";
-import { compressionSecurityPlugin } from "./shared/middleware/compression-security";
-import authPlugin from "./shared/middleware/fastify-auth";
-import validationPlugin from "./shared/middleware/validation";
-import { logger } from "./shared/utils/logger";
-import { PerformanceMonitorService } from "./shared/services/performance-monitor.service";
+import rateLimit from "@fastify/rate-limit";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
+
+// API modules
+import { setupRestApi } from "./api/rest/index.js";
+
+// Error handling
+import { createErrorHandler } from "./core/errors/index.js";
+
+// Service registration
+import { registerAllServices } from "./core/container/registry.js";
 
 /**
- * Application Factory
- *
- * Creates and configures the main Fastify application instance with all
- * necessary middleware, plugins, and services properly integrated.
+ * Initialize database connection
+ */
+const initializeDatabase = async (): Promise<void> => {
+  try {
+    logger.info("📊 Initializing database...");
+    await initDb();
+
+    // Basic health check
+    const db = getDatabase();
+    await db.execute(sql`SELECT 1`);
+
+    logger.info("✅ Database initialized");
+  } catch (error) {
+    logger.error("❌ Database initialization failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Initialize services
+ */
+const initializeServices = async (): Promise<void> => {
+  try {
+    logger.info("📝 Initializing services...");
+    await registerAllServices();
+    logger.info("✅ Services initialized");
+  } catch (error) {
+    logger.error("❌ Service initialization failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Configure core plugins
+ */
+const configureCorePlugins = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("🔧 Setting up core plugins...");
+
+    // CORS
+    await app.register(cors, {
+      origin: config.cors.origin,
+      credentials: config.cors.credentials,
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Tenant-ID",
+        "X-API-Key",
+      ],
+    });
+
+    // Security headers
+    await app.register(
+      helmet,
+      config.isProduction
+        ? {}
+        : {
+            contentSecurityPolicy: false,
+          }
+    );
+
+    // Compression
+    await app.register(compress, {
+      global: true,
+      threshold: 1024,
+    });
+
+    // Rate limiting
+    await app.register(rateLimit, {
+      max: config.rateLimit.max,
+      timeWindow: config.rateLimit.windowMs,
+    });
+
+    logger.info("✅ Core plugins configured");
+  } catch (error) {
+    logger.error("❌ Core plugins configuration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Configure JWT authentication
+ */
+const configureJWT = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("🔐 Configuring JWT...");
+
+    await app.register(jwt, {
+      secret: config.jwt.accessSecret,
+      sign: {
+        expiresIn: config.jwt.accessExpiresIn,
+      },
+      verify: {
+        maxAge: config.jwt.accessExpiresIn,
+      },
+    });
+
+    logger.info("✅ JWT configured");
+  } catch (error) {
+    logger.error("❌ JWT configuration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Configure file upload
+ */
+const configureFileUpload = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("📁 Configuring file upload...");
+
+    await app.register(multipart, {
+      limits: {
+        fileSize: config.upload.maxFileSize,
+        files: 5,
+      },
+      attachFieldsToBody: "keyValues",
+    });
+
+    logger.info("✅ File upload configured");
+  } catch (error) {
+    logger.error("❌ File upload configuration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Configure API documentation
+ */
+const configureDocumentation = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("📚 Setting up API documentation...");
+
+    // Swagger/OpenAPI
+    await app.register(swagger, {
+      openapi: {
+        openapi: "3.0.0",
+        info: {
+          title: "Content Management System API",
+          description:
+            "Modern CMS with PostgreSQL, Drizzle ORM, and clean architecture",
+          version: "2.0.0",
+        },
+        servers: [
+          {
+            url: `http://localhost:${config.port}`,
+            description: "Development",
+          },
+        ],
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: "http",
+              scheme: "bearer",
+              bearerFormat: "JWT",
+            },
+          },
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    });
+
+    // Swagger UI
+    await app.register(swaggerUi, {
+      routePrefix: "/api/docs",
+      uiConfig: {
+        docExpansion: "list",
+        deepLinking: true,
+      },
+    });
+
+    logger.info("✅ API documentation configured");
+  } catch (error) {
+    logger.error("❌ Documentation configuration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Register API routes
+ */
+const registerAPIRoutes = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("🌐 Registering API routes...");
+
+    // Register REST API
+    await app.register(
+      async (fastify) => {
+        await setupRestApi(fastify);
+      },
+      {
+        prefix: "/api/v1",
+      }
+    );
+
+    logger.info("✅ API routes registered");
+  } catch (error) {
+    logger.error("❌ API routes registration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Configure monitoring endpoints
+ */
+const configureMonitoring = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("📊 Setting up monitoring...");
+
+    // Health check
+    app.get("/health", async (_request, reply) => {
+      try {
+        const db = getDatabase();
+        await db.execute(sql`SELECT 1`);
+
+        const memoryUsage = process.memoryUsage();
+
+        return reply.send({
+          status: "healthy",
+          timestamp: new Date().toISOString(),
+          uptime: process.uptime(),
+          environment: config.nodeEnv,
+          version: "2.0.0",
+          database: { status: "connected" },
+          memory: {
+            used: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+            total: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+          },
+        });
+      } catch (error) {
+        return reply.status(503).send({
+          status: "unhealthy",
+          timestamp: new Date().toISOString(),
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    });
+
+    // Ready check
+    app.get("/ready", async (_request, reply) => {
+      try {
+        const db = getDatabase();
+        await db.execute(sql`SELECT 1`);
+        return reply.send({
+          status: "ready",
+          timestamp: new Date().toISOString(),
+        });
+      } catch (_error) {
+        return reply.status(503).send({
+          status: "not ready",
+          reason: "Database not available",
+        });
+      }
+    });
+
+    // Version info
+    app.get("/version", async (_request, reply) => {
+      return reply.send({
+        version: "2.0.0",
+        name: "Content Management System Backend",
+        environment: config.nodeEnv,
+        node: process.version,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    // Metrics
+    app.get("/metrics", async (_request, reply) => {
+      const memoryUsage = process.memoryUsage();
+      return reply.send({
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: {
+          rss: Math.round(memoryUsage.rss / 1024 / 1024),
+          heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+        },
+        process: {
+          pid: process.pid,
+          platform: process.platform,
+          arch: process.arch,
+        },
+      });
+    });
+
+    logger.info("✅ Monitoring configured");
+  } catch (error) {
+    logger.error("❌ Monitoring configuration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Configure error handling
+ */
+const configureErrorHandling = async (app: FastifyInstance): Promise<void> => {
+  try {
+    logger.info("⚠️ Setting up error handling...");
+
+    // Request logging
+    app.addHook("onRequest", async (request) => {
+      (request as any).startTime = Date.now();
+    });
+
+    app.addHook("onResponse", async (request, _reply) => {
+      const responseTime =
+        Date.now() - ((request as any).startTime || Date.now());
+
+      if (responseTime > 1000) {
+        request.log.warn(
+          `Slow request: ${request.method} ${request.url} - ${responseTime}ms`
+        );
+      }
+    });
+
+    // Error handler
+    const errorHandler = createErrorHandler(
+      {
+        logErrors: true,
+        includeStackTrace: config.isDevelopment,
+        sanitizeErrors: config.isProduction,
+      },
+      logger
+    );
+
+    app.setErrorHandler(errorHandler);
+
+    // 404 handler
+    app.setNotFoundHandler(async (request, reply) => {
+      return reply.status(404).send({
+        error: "Not Found",
+        message: `Route ${request.method} ${request.url} not found`,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    logger.info("✅ Error handling configured");
+  } catch (error) {
+    logger.error("❌ Error handling configuration failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Create and configure the main Fastify application
  */
 export const createApp = async (): Promise<FastifyInstance> => {
-  // Fastify server options with optimized configuration
+  const startTime = Date.now();
+
+  logger.info("🏗️ Initializing CMS Backend Application...");
+
+  // Fastify server options
   const serverOptions: FastifyServerOptions = {
-    logger: config.logging.prettyPrint
+    logger: config.isDevelopment
       ? {
-          level: config.logging.level,
+          level: config.monitoring?.logLevel || "info",
           transport: {
             target: "pino-pretty",
             options: {
               colorize: true,
-              translateTime: "HH:MM:ss Z",
-              ignore: "pid,hostname",
-              singleLine: true,
+              translateTime: "HH:MM:ss",
             },
           },
         }
       : {
-          level: config.logging.level,
+          level: config.monitoring?.logLevel || "info",
         },
-    trustProxy: true,
-    bodyLimit: config.upload.maxSize,
-    keepAliveTimeout: 30000,
-    connectionTimeout: 10000,
-    requestTimeout: 30000,
-    // Enable JSON schema validation and optimization
-    ajv: {
-      customOptions: {
-        removeAdditional: "all",
-        useDefaults: true,
-        coerceTypes: "array",
-      },
-    },
+    trustProxy: config.isProduction,
+    bodyLimit: config.upload?.maxFileSize || 10485760,
+    ignoreTrailingSlash: true,
+    genReqId: () =>
+      `req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
   };
 
-  // Create Fastify application instance
   const app: FastifyInstance = fastify(serverOptions);
 
   try {
-    logger.info("🚀 Starting application initialization...");
-
-    // Step 1: Initialize database connection
-    logger.info("📊 Initializing database connection...");
+    // Initialize database
     await initializeDatabase();
-    logger.info("✅ Database connection established");
 
-    // Step 2: Initialize dependency injection container
-    logger.info("🔧 Initializing dependency injection container...");
-    await initializeApplication(app);
-    logger.info("✅ Container initialized with all services");
+    // Initialize services
+    initializeServices();
 
-    // Step 3: Register core middleware (order matters)
-    logger.info("🛡️ Registering security and performance middleware...");
+    // Configure core plugins
+    await configureCorePlugins(app);
 
-    // Security and compression (register early)
-    await app.register(compressionSecurityPlugin);
+    // Configure JWT
+    await configureJWT(app);
 
-    // Rate limiting (register after security)
-    logger.info("⚡ Configuring rate limiting...");
-    // Note: apiRateLimiter is Express middleware, would need Fastify adapter
-    // This is a placeholder for future Fastify rate limiting implementation
+    // Configure file upload
+    await configureFileUpload(app);
 
-    // Step 4: Register file upload support
-    logger.info("📁 Configuring file upload support...");
-    await app.register(multipart, {
-      limits: {
-        fieldNameSize: 100,
-        fieldSize: 100,
-        fields: 10,
-        fileSize: config.upload.maxSize,
-        files: 5,
-        headerPairs: 2000,
-      },
-      attachFieldsToBody: true,
-      sharedSchemaId: "MultipartFileType",
-    });
+    // Configure documentation
+    await configureDocumentation(app);
 
-    // Step 5: Register authentication and validation
-    logger.info("🔐 Setting up authentication and validation...");
-    await app.register(authPlugin);
-    await app.register(validationPlugin);
+    // Register API routes
+    await registerAPIRoutes(app);
 
-    // Step 6: Register API gateway (REST + GraphQL)
-    logger.info("🌐 Registering unified API gateway...");
-    await app.register(apiGatewayPlugin);
+    // Configure monitoring
+    await configureMonitoring(app);
 
-    // Step 7: Initialize Performance Monitoring
-    logger.info("📊 Initializing performance monitoring...");
-    const performanceMonitor = new PerformanceMonitorService();
+    // Configure error handling
+    await configureErrorHandling(app);
 
-    // Step 8: Register application lifecycle hooks
-    logger.info("🔄 Setting up application lifecycle hooks...");
+    const duration = Date.now() - startTime;
+    logger.info(`✅ Application initialized successfully in ${duration}ms`);
 
-    // Pre-request logging and performance tracking
-    app.addHook("onRequest", async (request) => {
-      // Start performance tracking
-      (request as any).startTime = Date.now();
-
-      request.log.info(
-        {
-          method: request.method,
-          url: request.url,
-          userAgent: request.headers["user-agent"],
-          ip: request.ip,
-          requestId: request.id,
-        },
-        "📥 Incoming request"
-      );
-    });
-
-    // Response logging with performance metrics
-    app.addHook("onResponse", async (request, reply) => {
-      const duration = (request as any).startTime
-        ? Date.now() - (request as any).startTime
-        : reply.elapsedTime || 0;
-
-      // Record performance metrics
-      await performanceMonitor.recordRequest(duration, request.url);
-
-      request.log.info(
-        {
-          method: request.method,
-          url: request.url,
-          statusCode: reply.statusCode,
-          responseTime: duration,
-          requestId: request.id,
-        },
-        "📤 Request completed"
-      );
-    });
-
-    // Error logging and tracking hook
-    app.addHook("onError", async (request, _reply, error) => {
-      // Record error in performance monitor
-      await performanceMonitor.recordError(error, request.url);
-
-      request.log.error(
-        {
-          error: error.message,
-          stack: error.stack,
-          method: request.method,
-          url: request.url,
-          requestId: request.id,
-        },
-        "❌ Request error occurred"
-      );
-    });
-
-    // Step 8: Register health and status endpoints
-    logger.info("🏥 Setting up health check endpoints...");
-
-    // Comprehensive health check endpoint
-    app.get("/health", async (_request, reply) => {
-      const appStatus = getApplicationStatus();
-      const dbHealth = await checkDatabaseHealth();
-      const connectionStats = isDatabaseConnected()
-        ? await getConnectionStats()
-        : null;
-
-      // Get performance metrics
-      const performanceMetrics = await performanceMonitor.getMetrics();
-      const performanceReport = await performanceMonitor.getReport();
-
-      const healthStatus = {
-        status: "ok",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        version: process.env["npm_package_version"] || config.app.version,
-        environment: config.env,
-        database: {
-          connected: isDatabaseConnected(),
-          health: dbHealth,
-          ...(connectionStats && {
-            queryMetrics: connectionStats.queryMetrics,
-            poolHealth: connectionStats.poolHealth.healthy,
-            recommendations: connectionStats.recommendations,
-          }),
-        },
-        container: {
-          initialized: appStatus.initialized,
-          ready: appStatus.containerReady,
-          services: appStatus.serviceCount,
-        },
-        memory: process.memoryUsage(),
-        performance: {
-          nodeVersion: process.version,
-          platform: process.platform,
-          arch: process.arch,
-          metrics: performanceMetrics.success ? performanceMetrics.data : null,
-          health: performanceReport.success
-            ? performanceReport.data.health
-            : null,
-        },
-      };
-
-      return reply.status(200).send(healthStatus);
-    });
-
-    // Ready check endpoint
-    app.get("/ready", async (_request, reply) => {
-      if (!isDatabaseConnected()) {
-        return reply.status(503).send({
-          status: "not ready",
-          message: "Database not connected",
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      const appStatus = getApplicationStatus();
-      if (!appStatus.containerReady) {
-        return reply.status(503).send({
-          status: "not ready",
-          message: "Application container not ready",
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      return reply.status(200).send({
-        status: "ready",
-        timestamp: new Date().toISOString(),
-        services: {
-          database: "connected",
-          container: "ready",
-          apis: ["REST", "GraphQL"],
-        },
-      });
-    });
-
-    // Application info endpoint
-    app.get("/info", async (_request, reply) => {
-      return reply.status(200).send({
-        name: config.app.name,
-        version: config.app.version,
-        description:
-          "Modern Content Management System with unified API gateway",
-        environment: config.env,
-        apis: {
-          rest: {
-            base: "/api/v1",
-            docs: "/api/v1/docs",
-          },
-          graphql: {
-            endpoint: "/graphql",
-            playground: config.isDevelopment ? "/graphql" : null,
-          },
-          gateway: "/api",
-        },
-        features: [
-          "Multi-tenant architecture",
-          "Real-time capabilities",
-          "File upload support",
-          "Authentication & authorization",
-          "Rate limiting",
-          "Caching",
-          "Audit logging",
-          "Search integration",
-        ],
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    // Performance metrics endpoint
-    app.get("/metrics", async (_request, reply) => {
-      const performanceReport = await performanceMonitor.getReport();
-
-      if (!performanceReport.success) {
-        return reply.status(500).send({
-          error: "Failed to retrieve performance metrics",
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      return reply.status(200).send({
-        performance: performanceReport.data,
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    // Performance recommendations endpoint
-    app.get("/metrics/recommendations", async (_request, reply) => {
-      const recommendations = await performanceMonitor.getRecommendations();
-
-      if (!recommendations.success) {
-        return reply.status(500).send({
-          error: "Failed to retrieve recommendations",
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      return reply.status(200).send({
-        recommendations: recommendations.data,
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    // Step 9: Register enhanced error handlers
-    logger.info("⚠️ Setting up error handlers...");
-
-    // Enhanced global error handler
-    app.setErrorHandler(async (error, request, reply) => {
-      const errorId = `err_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-
-      request.log.error(
-        {
-          errorId,
-          error: error.message,
-          stack: error.stack,
-          method: request.method,
-          url: request.url,
-          userAgent: request.headers["user-agent"],
-          ip: request.ip,
-        },
-        "💥 Application error occurred"
-      );
-
-      // Handle validation errors
-      if (error.validation) {
-        return reply.status(400).send({
-          error: "Validation Error",
-          message: error.message,
-          details: error.validation,
-          errorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Handle authentication errors
-      if (error.statusCode === 401) {
-        return reply.status(401).send({
-          error: "Authentication Error",
-          message: "Authentication required",
-          errorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Handle authorization errors
-      if (error.statusCode === 403) {
-        return reply.status(403).send({
-          error: "Authorization Error",
-          message: "Insufficient permissions",
-          errorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Handle known client errors (4xx)
-      if (
-        error.statusCode &&
-        error.statusCode >= 400 &&
-        error.statusCode < 500
-      ) {
-        return reply.status(error.statusCode).send({
-          error: error.name || "Client Error",
-          message: error.message,
-          errorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Handle server errors (5xx)
-      const isDevelopment = config.isDevelopment;
-      return reply.status(error.statusCode || 500).send({
-        error: "Internal Server Error",
-        message: isDevelopment
-          ? error.message
-          : "Something went wrong on our end",
-        errorId,
-        ...(isDevelopment && {
-          stack: error.stack,
-          details: error,
-        }),
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    // Enhanced not found handler
-    app.setNotFoundHandler(async (request, reply) => {
-      request.log.warn(
-        {
-          method: request.method,
-          url: request.url,
-          userAgent: request.headers["user-agent"],
-          ip: request.ip,
-        },
-        "🔍 Route not found"
-      );
-
-      return reply.status(404).send({
-        error: "Not Found",
-        message: `Route ${request.method} ${request.url} not found`,
-        suggestions: [
-          "Check the API documentation at /api/info",
-          "Use /health for health checks",
-          "Access GraphQL at /graphql",
-          "Try REST API at /api/v1",
-        ],
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    logger.info("🎉 Application created successfully!");
     return app;
   } catch (error) {
-    logger.error("💥 Failed to create application:", error);
+    logger.error("❌ Failed to create application:", error);
     throw error;
   }
 };

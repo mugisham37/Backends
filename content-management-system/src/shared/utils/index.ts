@@ -112,14 +112,17 @@ export const groupBy = <T, K extends string | number | symbol>(
   array: T[],
   keyFn: (item: T) => K
 ): Record<K, T[]> => {
-  return array.reduce((groups, item) => {
-    const key = keyFn(item);
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(item);
-    return groups;
-  }, {} as Record<K, T[]>);
+  return array.reduce(
+    (groups, item) => {
+      const key = keyFn(item);
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(item);
+      return groups;
+    },
+    {} as Record<K, T[]>
+  );
 };
 
 export const chunk = <T>(array: T[], size: number): T[][] => {
@@ -131,9 +134,9 @@ export const chunk = <T>(array: T[], size: number): T[][] => {
 };
 
 // Environment utilities
-export const isDevelopment = process.env["NODE_ENV"] === "development";
-export const isProduction = process.env["NODE_ENV"] === "production";
-export const isTest = process.env["NODE_ENV"] === "test";
+export const isDevelopment = process.env.NODE_ENV === "development";
+export const isProduction = process.env.NODE_ENV === "production";
+export const isTest = process.env.NODE_ENV === "test";
 
 // Error handling utilities
 export const tryAsync = async <T>(

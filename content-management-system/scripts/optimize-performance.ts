@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 
-import { readFile } from "fs/promises";
 import { join } from "path";
+import { readFile } from "fs/promises";
 import {
+  closeDatabase,
   getConnectionPool,
   initializeDatabase,
-  closeDatabase,
 } from "../src/core/database/connection.ts";
 import { logger } from "../src/utils/logger.ts";
 

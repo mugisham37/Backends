@@ -2,11 +2,11 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import {
   fastifyAuthMiddleware,
+  fastifyFlexibleAuth,
   fastifyOptionalAuthMiddleware,
+  fastifyRequireApiKey,
   fastifyRequireAuth,
   fastifyRequireRoles,
-  fastifyRequireApiKey,
-  fastifyFlexibleAuth,
 } from "./auth";
 
 /**
@@ -94,7 +94,7 @@ declare module "fastify" {
   }
 
   interface FastifyRequest {
-    user?: {
+    authUser?: {
       id: string;
       email: string;
       role: string;

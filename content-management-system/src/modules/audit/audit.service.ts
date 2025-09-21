@@ -904,16 +904,16 @@ export class AuditService {
           // For entity filters, we check if the event details contain entity information
           const details = e.details;
           const matchesType =
-            !filter.entityType || details["entityType"] === filter.entityType;
+            !filter.entityType || details.entityType === filter.entityType;
           const matchesId =
-            !filter.entityId || details["entityId"] === filter.entityId;
+            !filter.entityId || details.entityId === filter.entityId;
           return matchesType && matchesId;
         });
       }
 
       if (filter.userEmail) {
         filteredEvents = filteredEvents.filter(
-          (e) => e.details["userEmail"] === filter.userEmail
+          (e) => e.details.userEmail === filter.userEmail
         );
       }
 

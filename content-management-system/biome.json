@@ -11,7 +11,10 @@
         "noExtraBooleanCast": "error",
         "noUselessCatch": "error",
         "noUselessTypeConstraint": "error",
-        "noWith": "error"
+        "noWith": "error",
+        "noForEach": "off",
+        "noBannedTypes": "off",
+        "noStaticOnlyClass": "off"
       },
       "correctness": {
         "noConstAssign": "error",
@@ -31,7 +34,7 @@
         "noUnsafeFinally": "error",
         "noUnsafeOptionalChaining": "error",
         "noUnusedLabels": "error",
-        "noUnusedVariables": "error",
+        "noUnusedVariables": "off",
         "useIsNan": "error",
         "useValidForDirection": "error",
         "useYield": "error"
@@ -40,7 +43,8 @@
         "noArguments": "error",
         "noVar": "error",
         "useConst": "error",
-        "useTemplate": "error"
+        "useTemplate": "error",
+        "noNonNullAssertion": "off"
       },
       "suspicious": {
         "noAsyncPromiseExecutor": "error",
@@ -53,23 +57,25 @@
         "noDuplicateClassMembers": "error",
         "noDuplicateObjectKeys": "error",
         "noDuplicateParameters": "error",
-        "noExplicitAny": "warn",
+        "noExplicitAny": "off",
         "noExtraNonNullAssertion": "error",
         "noFallthroughSwitchClause": "error",
         "noFunctionAssign": "error",
         "noImportAssign": "error",
         "noPrototypeBuiltins": "error",
         "noRedeclare": "error",
-        "noShadowRestrictedNames": "error",
+        "noShadowRestrictedNames": "off",
         "noUnsafeNegation": "error",
         "useGetterReturn": "error",
-        "useValidTypeof": "error"
+        "useValidTypeof": "error",
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off"
       }
     }
   },
   "formatter": {
     "enabled": true,
-    "formatWithErrors": false,
+    "formatWithErrors": true,
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",
@@ -85,6 +91,9 @@
       "bracketSpacing": true,
       "bracketSameLine": false,
       "quoteStyle": "double"
+    },
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
     }
   },
   "files": {

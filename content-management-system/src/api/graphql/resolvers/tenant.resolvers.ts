@@ -43,9 +43,8 @@ export const tenantResolvers = {
         throw new Error("Authentication required");
       }
 
-      const result = await context.dataSources.tenantService.createTenant(
-        input
-      );
+      const result =
+        await context.dataSources.tenantService.createTenant(input);
 
       if (!result.success) {
         throw new Error(result.error.message);

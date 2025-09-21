@@ -17,7 +17,7 @@ export const errorHandler = (
     return res.status(err.statusCode).json({
       status: "error",
       message: err.message,
-      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   }
 
@@ -26,7 +26,7 @@ export const errorHandler = (
     return res.status(HTTP_STATUS.BAD_REQUEST).json({
       status: "error",
       message: err.message,
-      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   }
 
@@ -35,7 +35,7 @@ export const errorHandler = (
     return res.status(HTTP_STATUS.CONFLICT).json({
       status: "error",
       message: "Duplicate key error",
-      ...(process.env["NODE_ENV"] === "development" && {
+      ...(process.env.NODE_ENV === "development" && {
         stack: err.stack,
         details: err,
       }),
@@ -47,7 +47,7 @@ export const errorHandler = (
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       status: "error",
       message: "Invalid token",
-      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   }
 
@@ -55,7 +55,7 @@ export const errorHandler = (
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       status: "error",
       message: "Token expired",
-      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   }
 
@@ -64,7 +64,7 @@ export const errorHandler = (
     return res.status(HTTP_STATUS.BAD_REQUEST).json({
       status: "error",
       message: err.message,
-      ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
     });
   }
 
@@ -72,6 +72,6 @@ export const errorHandler = (
   return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
     status: "error",
     message: "Internal server error",
-    ...(process.env["NODE_ENV"] === "development" && { stack: err.stack }),
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };

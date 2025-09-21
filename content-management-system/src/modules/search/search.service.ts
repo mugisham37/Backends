@@ -4,14 +4,14 @@ import type { Media } from "../../core/database/schema/media.schema";
 import type { Result } from "../../core/types/result.types";
 import type {
   ISearchService,
+  SearchHit,
   SearchQuery as ServiceSearchQuery,
   SearchResult as ServiceSearchResult,
-  SearchHit,
   SearchStats,
 } from "../../core/types/service.types";
 import { logger } from "../../shared/utils/logger";
-import { CacheService } from "../cache/cache.service";
 import { AuditService } from "../audit/audit.service";
+import { CacheService } from "../cache/cache.service";
 
 interface SearchDocument {
   id: string;
@@ -82,8 +82,8 @@ export class SearchService implements ISearchService {
   };
 
   constructor(
-    @inject("CacheService") private cacheService: CacheService,
-    @inject("AuditService") private auditService: AuditService
+    @inject("CacheService") private _cacheService: CacheService,
+    @inject("AuditService") private _auditService: AuditService
   ) {
     this.initializeIndex();
   }
@@ -94,7 +94,7 @@ export class SearchService implements ISearchService {
   private async initializeIndex(): Promise<void> {
     try {
       // Load cached index if available
-      const cachedIndex = await this.cacheService.get<
+      const cachedIndex = await this._cacheService.get<
         Array<[string, SearchDocument]>
       >("search:index");
       if (cachedIndex) {
@@ -473,7 +473,7 @@ export class SearchService implements ISearchService {
    */
   private async cacheIndex(): Promise<void> {
     try {
-      const result = await this.cacheService.set(
+      const result = await this._cacheService.set(
         "search:index",
         Array.from(this.searchIndex.entries()),
         3600 // 1 hour TTL
@@ -523,7 +523,7 @@ export class SearchService implements ISearchService {
 
       // Check cache first
       const cacheKey = `search:${JSON.stringify({ query, options })}`;
-      const cachedResult = await this.cacheService.get(cacheKey);
+      const cachedResult = await this._cacheService.get(cacheKey);
       if (cachedResult) {
         return { success: true, data: cachedResult as any };
       }
@@ -660,13 +660,13 @@ export class SearchService implements ISearchService {
       };
 
       // Cache the result
-      const cacheSetResult = await this.cacheService.set(cacheKey, result, 300); // 5 minutes TTL
+      const cacheSetResult = await this._cacheService.set(cacheKey, result, 300); // 5 minutes TTL
       if (!cacheSetResult.success) {
         logger.warn("Failed to cache search result:", cacheSetResult.error);
       }
 
       // Log search analytics
-      await this.auditService.logUserAction({
+      await this._auditService.logUserAction({
         userId: "system", // Could be passed as parameter
         ...(tenantId !== undefined ? { tenantId } : {}),
         action: "search_performed",
@@ -809,8 +809,7 @@ export class SearchService implements ISearchService {
 
     // Field-specific boosts
     if (
-      document.title &&
-      document.title.toLowerCase().includes(originalQuery.toLowerCase())
+      document.title?.toLowerCase().includes(originalQuery.toLowerCase())
     ) {
       score *= 2.0; // Title matches get higher score
     }
@@ -904,14 +903,14 @@ export class SearchService implements ISearchService {
       for (let i = 1; i <= str1.length; i++) {
         const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
         matrix[j]![i] = Math.min(
-          matrix[j]![i - 1]! + 1, // deletion
-          matrix[j - 1]![i]! + 1, // insertion
-          matrix[j - 1]![i - 1]! + indicator // substitution
+          matrix[j]?.[i - 1]! + 1, // deletion
+          matrix[j - 1]?.[i]! + 1, // insertion
+          matrix[j - 1]?.[i - 1]! + indicator // substitution
         );
       }
     }
 
-    return matrix[str2.length]![str1.length]!;
+    return matrix[str2.length]?.[str1.length]!;
   }
 
   /**
@@ -924,7 +923,7 @@ export class SearchService implements ISearchService {
   ): Promise<Result<string[], Error>> {
     try {
       const cacheKey = `suggestions:${query}:${tenantId || "all"}:${limit}`;
-      const cached = await this.cacheService.get<string[]>(cacheKey);
+      const cached = await this._cacheService.get<string[]>(cacheKey);
       if (cached) {
         return { success: true, data: cached };
       }
@@ -995,7 +994,7 @@ export class SearchService implements ISearchService {
         .map((s) => s.text);
 
       // Cache suggestions
-      const cacheSetResult = await this.cacheService.set(
+      const cacheSetResult = await this._cacheService.set(
         cacheKey,
         rankedSuggestions,
         1800
@@ -1069,7 +1068,7 @@ export class SearchService implements ISearchService {
   > {
     try {
       const cacheKey = `analytics:${tenantId || "all"}`;
-      const cached = await this.cacheService.get(cacheKey);
+      const cached = await this._cacheService.get(cacheKey);
       if (cached) {
         return { success: true, data: cached as any };
       }
@@ -1114,7 +1113,7 @@ export class SearchService implements ISearchService {
       };
 
       // Cache analytics
-      const cacheSetResult = await this.cacheService.set(
+      const cacheSetResult = await this._cacheService.set(
         cacheKey,
         analytics,
         3600
@@ -1212,10 +1211,10 @@ export class SearchService implements ISearchService {
       }
 
       // Clear tenant-specific cache
-      const searchCacheResult = await this.cacheService.invalidatePattern(
+      const searchCacheResult = await this._cacheService.invalidatePattern(
         `search:*${tenantId}*`
       );
-      const suggestionsCacheResult = await this.cacheService.invalidatePattern(
+      const suggestionsCacheResult = await this._cacheService.invalidatePattern(
         `suggestions:*${tenantId}*`
       );
 
@@ -1392,7 +1391,7 @@ export class SearchService implements ISearchService {
    */
   async healthCheck(): Promise<{ healthy: boolean; error?: string }> {
     try {
-      const cacheHealthy = await this.cacheService.healthCheck();
+      const cacheHealthy = await this._cacheService.healthCheck();
       const indexSize = this.searchIndex.size;
 
       if (!cacheHealthy) {
@@ -1433,29 +1432,29 @@ export class SearchService implements ISearchService {
       const searchDocument: SearchDocument = {
         id,
         type: type as "content" | "media",
-        title: (document["title"] as string) || "",
+        title: (document.title as string) || "",
         body:
-          (document["body"] as string) ||
-          (document["description"] as string) ||
+          (document.body as string) ||
+          (document.description as string) ||
           "",
         excerpt:
-          (document["excerpt"] as string) ||
-          (document["caption"] as string) ||
+          (document.excerpt as string) ||
+          (document.caption as string) ||
           "",
-        alt: (document["alt"] as string) || "",
-        caption: (document["caption"] as string) || "",
-        description: (document["description"] as string) || "",
-        tags: (document["tags"] as string[]) || [],
-        categories: (document["categories"] as string[]) || [],
-        status: (document["status"] as string) || "",
-        mediaType: (document["mediaType"] as string) || "",
-        tenantId: (document["tenantId"] as string) || "",
+        alt: (document.alt as string) || "",
+        caption: (document.caption as string) || "",
+        description: (document.description as string) || "",
+        tags: (document.tags as string[]) || [],
+        categories: (document.categories as string[]) || [],
+        status: (document.status as string) || "",
+        mediaType: (document.mediaType as string) || "",
+        tenantId: (document.tenantId as string) || "",
         authorId:
-          (document["authorId"] as string) ||
-          (document["uploaderId"] as string) ||
+          (document.authorId as string) ||
+          (document.uploaderId as string) ||
           "",
-        createdAt: new Date(document["createdAt"] as string) || new Date(),
-        updatedAt: new Date(document["updatedAt"] as string) || new Date(),
+        createdAt: new Date(document.createdAt as string) || new Date(),
+        updatedAt: new Date(document.updatedAt as string) || new Date(),
         searchableText: "",
         boost: 1.0,
       };

@@ -1,9 +1,7 @@
 import { inject, injectable } from "tsyringe";
+import type { Tenant } from "../../core/database/schema/tenant.schema";
 import { CacheInvalidate } from "../../core/decorators/cache.decorator";
 import { Validate } from "../../core/decorators/validate.decorator";
-import { createTenantSchema, updateTenantSchema } from "./tenant.schemas";
-import { CACHE_KEYS, CACHE_TTL } from "../../shared/constants";
-import type { Tenant } from "../../core/database/schema/tenant.schema";
 import {
   BusinessRuleError,
   ConflictError,
@@ -13,9 +11,11 @@ import {
 import { TenantRepository } from "../../core/repositories/tenant.repository";
 import { UserRepository } from "../../core/repositories/user.repository";
 import type { Result } from "../../core/types/result.types";
+import { CACHE_KEYS, CACHE_TTL } from "../../shared/constants";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
+import { createTenantSchema, updateTenantSchema } from "./tenant.schemas";
 
 /**
  * Multi-tenancy service with tenant isolation and user management
@@ -24,10 +24,10 @@ import { CacheService } from "../cache/cache.service";
 @injectable()
 export class TenantService {
   constructor(
-    @inject("TenantRepository") private tenantRepository: TenantRepository,
-    @inject("UserRepository") private userRepository: UserRepository,
-    @inject("CacheService") private cacheService: CacheService,
-    @inject("AuditService") private auditService: AuditService
+    @inject("TenantRepository") private _tenantRepository: TenantRepository,
+    @inject("UserRepository") private _userRepository: UserRepository,
+    @inject("CacheService") private _cacheService: CacheService,
+    @inject("AuditService") private _auditService: AuditService
   ) {}
 
   /**
@@ -64,7 +64,7 @@ export class TenantService {
       }
 
       // Check if slug is already taken
-      const existingTenant = await this.tenantRepository.findBySlug(slug);
+      const existingTenant = await this._tenantRepository.findBySlug(slug);
       if (existingTenant.success && existingTenant.data) {
         return {
           success: false,
@@ -74,7 +74,7 @@ export class TenantService {
 
       // Check domain uniqueness if provided
       if (data.domain) {
-        const existingDomain = await this.tenantRepository.findByDomain(
+        const existingDomain = await this._tenantRepository.findByDomain(
           data.domain
         );
         if (existingDomain.success && existingDomain.data) {
@@ -87,7 +87,7 @@ export class TenantService {
 
       // Check subdomain uniqueness if provided
       if (data.subdomain) {
-        const existingSubdomain = await this.tenantRepository.findBySubdomain(
+        const existingSubdomain = await this._tenantRepository.findBySubdomain(
           data.subdomain
         );
         if (existingSubdomain.success && existingSubdomain.data) {
@@ -110,13 +110,13 @@ export class TenantService {
         metadata: data.metadata || null,
       } as const;
 
-      const result = await this.tenantRepository.create(tenantData);
+      const result = await this._tenantRepository.create(tenantData);
       if (!result.success) {
         return result;
       }
 
       // Log tenant creation
-      await this.auditService.logTenantEvent({
+      await this._auditService.logTenantEvent({
         tenantId: result.data.id,
         event: "tenant_created",
         details: {
@@ -145,12 +145,12 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `${CACHE_KEYS.TENANT_PREFIX}${id}`;
-      const cachedTenant = await this.cacheService.get<Tenant>(cacheKey);
+      const cachedTenant = await this._cacheService.get<Tenant>(cacheKey);
       if (cachedTenant) {
         return { success: true, data: cachedTenant };
       }
 
-      const result = await this.tenantRepository.findById(id);
+      const result = await this._tenantRepository.findById(id);
       if (!result.success || !result.data) {
         return {
           success: false,
@@ -159,7 +159,7 @@ export class TenantService {
       }
 
       // Cache tenant for configured time
-      await this.cacheService.set(cacheKey, result.data, CACHE_TTL.MEDIUM);
+      await this._cacheService.set(cacheKey, result.data, CACHE_TTL.MEDIUM);
 
       return result as Result<Tenant, NotFoundError>;
     } catch (error) {
@@ -178,12 +178,12 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `tenant:slug:${slug}`;
-      const cachedTenant = await this.cacheService.get<Tenant>(cacheKey);
+      const cachedTenant = await this._cacheService.get<Tenant>(cacheKey);
       if (cachedTenant) {
         return { success: true, data: cachedTenant };
       }
 
-      const result = await this.tenantRepository.findBySlug(slug);
+      const result = await this._tenantRepository.findBySlug(slug);
       if (!result.success || !result.data) {
         return {
           success: false,
@@ -192,7 +192,7 @@ export class TenantService {
       }
 
       // Cache tenant for 10 minutes
-      await this.cacheService.set(cacheKey, result.data, 10 * 60);
+      await this._cacheService.set(cacheKey, result.data, 10 * 60);
 
       return result as Result<Tenant, NotFoundError>;
     } catch (error) {
@@ -228,7 +228,7 @@ export class TenantService {
 
       // Check domain uniqueness if being updated
       if (data.domain && data.domain !== existingTenant.data.domain) {
-        const existingDomain = await this.tenantRepository.findByDomain(
+        const existingDomain = await this._tenantRepository.findByDomain(
           data.domain
         );
         if (existingDomain.success && existingDomain.data) {
@@ -241,7 +241,7 @@ export class TenantService {
 
       // Check subdomain uniqueness if being updated
       if (data.subdomain && data.subdomain !== existingTenant.data.subdomain) {
-        const existingSubdomain = await this.tenantRepository.findBySubdomain(
+        const existingSubdomain = await this._tenantRepository.findBySubdomain(
           data.subdomain
         );
         if (existingSubdomain.success && existingSubdomain.data) {
@@ -253,17 +253,17 @@ export class TenantService {
       }
 
       // Update tenant
-      const result = await this.tenantRepository.update(id, data);
+      const result = await this._tenantRepository.update(id, data);
       if (!result.success) {
         return result;
       }
 
       // Clear cache
-      await this.cacheService.delete(`tenant:${id}`);
-      await this.cacheService.delete(`tenant:slug:${existingTenant.data.slug}`);
+      await this._cacheService.delete(`tenant:${id}`);
+      await this._cacheService.delete(`tenant:slug:${existingTenant.data.slug}`);
 
       // Log tenant update
-      await this.auditService.logTenantEvent({
+      await this._auditService.logTenantEvent({
         tenantId: id,
         event: "tenant_updated",
         details: {
@@ -299,7 +299,7 @@ export class TenantService {
       }
 
       // Check if tenant has active users
-      const userCount = await this.tenantRepository.getUserCount(id);
+      const userCount = await this._tenantRepository.getUserCount(id);
       if (userCount.success && userCount.data > 0) {
         return {
           success: false,
@@ -310,7 +310,7 @@ export class TenantService {
       }
 
       // Deactivate tenant instead of hard delete
-      const result = await this.tenantRepository.update(id, {
+      const result = await this._tenantRepository.update(id, {
         isActive: false,
       });
       if (!result.success) {
@@ -321,11 +321,11 @@ export class TenantService {
       }
 
       // Clear cache
-      await this.cacheService.delete(`tenant:${id}`);
-      await this.cacheService.delete(`tenant:slug:${existingTenant.data.slug}`);
+      await this._cacheService.delete(`tenant:${id}`);
+      await this._cacheService.delete(`tenant:slug:${existingTenant.data.slug}`);
 
       // Log tenant deletion
-      await this.auditService.logTenantEvent({
+      await this._auditService.logTenantEvent({
         tenantId: id,
         event: "tenant_deleted",
         details: {
@@ -395,7 +395,7 @@ export class TenantService {
 
       const finalFilter = search ? { ...filter, ...searchConditions } : filter;
 
-      const result = await this.tenantRepository.findManyPaginated({
+      const result = await this._tenantRepository.findManyPaginated({
         where: finalFilter,
         pagination: { page, limit },
         orderBy: [{ field: "createdAt", direction: "desc" }],
@@ -428,18 +428,18 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `user:${userId}:tenants`;
-      const cachedTenants = await this.cacheService.get<Tenant[]>(cacheKey);
+      const cachedTenants = await this._cacheService.get<Tenant[]>(cacheKey);
       if (cachedTenants) {
         return { success: true, data: cachedTenants };
       }
 
-      const result = await this.tenantRepository.findTenantsForUser(userId);
+      const result = await this._tenantRepository.findTenantsForUser(userId);
       if (!result.success) {
         return result;
       }
 
       // Cache for 5 minutes
-      await this.cacheService.set(cacheKey, result.data, 5 * 60);
+      await this._cacheService.set(cacheKey, result.data, 5 * 60);
 
       return result;
     } catch (error) {
@@ -461,13 +461,13 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `user:${userId}:tenant:${tenantId}:member`;
-      const cachedResult = await this.cacheService.get<boolean>(cacheKey);
+      const cachedResult = await this._cacheService.get<boolean>(cacheKey);
       if (cachedResult !== null) {
         return { success: true, data: cachedResult };
       }
 
       // Check if user exists in tenant
-      const userResult = await this.userRepository.findById(userId);
+      const userResult = await this._userRepository.findById(userId);
       if (!userResult.success || !userResult.data) {
         return { success: true, data: false };
       }
@@ -475,7 +475,7 @@ export class TenantService {
       const isMember = userResult.data.tenantId === tenantId;
 
       // Cache result for 5 minutes
-      await this.cacheService.set(cacheKey, isMember, 5 * 60);
+      await this._cacheService.set(cacheKey, isMember, 5 * 60);
 
       return { success: true, data: isMember };
     } catch (error) {
@@ -507,7 +507,7 @@ export class TenantService {
     try {
       // Check cache first
       const cacheKey = `tenant:${tenantId}:stats`;
-      const cachedStats = await this.cacheService.get<{
+      const cachedStats = await this._cacheService.get<{
         userCount: number;
         contentCount: number;
         mediaCount: number;
@@ -519,9 +519,9 @@ export class TenantService {
 
       // Get statistics
       const [userCount, contentCount, mediaCount] = await Promise.all([
-        this.tenantRepository.getUserCount(tenantId),
-        this.tenantRepository.getContentCount(tenantId),
-        this.tenantRepository.getMediaCount(tenantId),
+        this._tenantRepository.getUserCount(tenantId),
+        this._tenantRepository.getContentCount(tenantId),
+        this._tenantRepository.getMediaCount(tenantId),
       ]);
 
       if (!userCount.success || !contentCount.success || !mediaCount.success) {
@@ -539,7 +539,7 @@ export class TenantService {
       };
 
       // Cache for 10 minutes
-      await this.cacheService.set(cacheKey, stats, 10 * 60);
+      await this._cacheService.set(cacheKey, stats, 10 * 60);
 
       return { success: true, data: stats };
     } catch (error) {
@@ -578,7 +578,7 @@ export class TenantService {
       }
 
       // Log settings update
-      await this.auditService.logTenantEvent({
+      await this._auditService.logTenantEvent({
         tenantId,
         event: "tenant_settings_updated",
         details: {

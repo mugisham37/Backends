@@ -1,15 +1,15 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
 import { TenantController } from "../../../modules/tenant/tenant.controller";
-import { validate } from "../../../shared/middleware/zod-validation";
 import {
   createTenantSchema,
-  updateTenantSchema,
-  tenantQuerySchema,
-  updateTenantSettingsSchema,
   tenantParamsSchema,
+  tenantQuerySchema,
   tenantSlugParamsSchema,
+  updateTenantSchema,
+  updateTenantSettingsSchema,
 } from "../../../modules/tenant/tenant.schemas";
+import { validate } from "../../../shared/middleware/zod-validation";
 
 // Type definitions
 interface TenantQueryParams extends Record<string, unknown> {

@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
-import type { TenantUserRole } from "../db/models/tenant.model.ts";
 import { container } from "tsyringe";
 import { TenantService } from "../../modules/tenant/tenant.service.ts";
+import type { TenantUserRole } from "../db/models/tenant.model.ts";
 import { ApiError } from "../utils/errors.ts";
 import { logger } from "../utils/logger.ts";
 
@@ -21,8 +21,8 @@ export const resolveTenant = async (
     // Check for tenant ID in headers, query, or params
     const tenantId =
       req.headers["x-tenant-id"] ||
-      req.query["tenantId"] ||
-      req.params["tenantId"] ||
+      req.query.tenantId ||
+      req.params.tenantId ||
       req.body.tenantId;
 
     if (!tenantId) {

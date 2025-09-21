@@ -1,7 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { IMediaService } from "../../../modules/media/media.types";
-import { validate } from "../../../shared/middleware/zod-validation";
 import {
   type CdnOptions,
   type ImageTransform,
@@ -12,6 +10,8 @@ import {
   mediaParamsSchema,
   mediaQuerySchema,
 } from "../../../modules/media/media.schemas";
+import type { IMediaService } from "../../../modules/media/media.types";
+import { validate } from "../../../shared/middleware/zod-validation";
 
 /**
  * Media Management REST Routes
@@ -138,13 +138,13 @@ export const mediaRoutes: FastifyPluginAsync = async (
           filename: data.filename,
           mimetype: data.mimetype,
           size: buffer.length,
-          alt: getFieldValue(data.fields?.["alt"]),
-          caption: getFieldValue(data.fields?.["caption"]),
-          tags: data.fields?.["tags"]
-            ? JSON.parse(getFieldValue(data.fields["tags"]) || "[]")
+          alt: getFieldValue(data.fields?.alt),
+          caption: getFieldValue(data.fields?.caption),
+          tags: data.fields?.tags
+            ? JSON.parse(getFieldValue(data.fields.tags) || "[]")
             : undefined,
-          metadata: data.fields?.["metadata"]
-            ? JSON.parse(getFieldValue(data.fields["metadata"]) || "{}")
+          metadata: data.fields?.metadata
+            ? JSON.parse(getFieldValue(data.fields.metadata) || "{}")
             : undefined,
         };
 

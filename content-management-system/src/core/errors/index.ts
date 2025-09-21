@@ -95,3 +95,64 @@ export function extractErrorInfo(error: unknown): {
     isOperational: false,
   };
 }
+
+/**
+ * Create a Fastify error handler with configurable options
+ */
+export function createErrorHandler(
+  options: {
+    logErrors?: boolean;
+    includeStackTrace?: boolean;
+    sanitizeErrors?: boolean;
+  } = {},
+  logger?: any
+) {
+  const {
+    logErrors = true,
+    includeStackTrace = false,
+    sanitizeErrors = true,
+  } = options;
+
+  return async (error: any, request: any, reply: any) => {
+    const errorInfo = extractErrorInfo(error);
+
+    // Log the error if enabled
+    if (logErrors && logger) {
+      logger.error("Request error occurred", {
+        error: errorInfo,
+        request: {
+          method: request.method,
+          url: request.url,
+          headers: sanitizeErrors ? undefined : request.headers,
+        },
+      });
+    }
+
+    // Determine response status code
+    const statusCode = errorInfo.statusCode || error.statusCode || 500;
+
+    // Build error response
+    const errorResponse: any = {
+      error: true,
+      message: errorInfo.message,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Add error code if available
+    if (errorInfo.code) {
+      errorResponse.code = errorInfo.code;
+    }
+
+    // Add stack trace in development
+    if (includeStackTrace && errorInfo.stack) {
+      errorResponse.stack = errorInfo.stack;
+    }
+
+    // Add context if available and not sanitizing
+    if (!sanitizeErrors && errorInfo.context) {
+      errorResponse.context = errorInfo.context;
+    }
+
+    return reply.status(statusCode).send(errorResponse);
+  };
+}

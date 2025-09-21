@@ -1,10 +1,10 @@
-import { eq, and, or, ilike, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import {
-  users,
-  userSessions,
-  type UserSession,
   type NewUserSession,
+  type UserSession,
+  userSessions,
+  users,
 } from "../database/schema/auth.schema.ts";
 import { DatabaseError } from "../errors/database.error.ts";
 import type {

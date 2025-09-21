@@ -1,7 +1,7 @@
 ﻿import type { NextFunction, Request, Response } from "express";
 import { container } from "tsyringe";
-import { WebhookService } from "./webhook.service";
 import { parsePaginationParams } from "../../shared/utils/helpers";
+import { WebhookService } from "./webhook.service";
 
 export class WebhookController {
   private webhookService: WebhookService;
@@ -24,11 +24,11 @@ export class WebhookController {
 
       // Build filter
       const filter: any = {};
-      if (req.query["search"]) filter.search = req.query["search"] as string;
-      if (req.query["event"]) filter.event = req.query["event"] as string;
-      if (req.query["status"]) filter.status = req.query["status"] as string;
-      if (req.query["contentTypeId"])
-        filter.contentTypeId = req.query["contentTypeId"] as string;
+      if (req.query.search) filter.search = req.query.search as string;
+      if (req.query.event) filter.event = req.query.event as string;
+      if (req.query.status) filter.status = req.query.status as string;
+      if (req.query.contentTypeId)
+        filter.contentTypeId = req.query.contentTypeId as string;
 
       // Get webhooks
       const result = await this.webhookService.getAllWebhooks(filter, {
@@ -188,8 +188,8 @@ export class WebhookController {
         });
       }
 
-      const limit = req.query["limit"]
-        ? Number.parseInt(req.query["limit"] as string, 10)
+      const limit = req.query.limit
+        ? Number.parseInt(req.query.limit as string, 10)
         : 10;
       const deliveries = await this.webhookService.getWebhookDeliveries(
         id,

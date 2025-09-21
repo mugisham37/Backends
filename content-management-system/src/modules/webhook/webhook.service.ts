@@ -6,13 +6,13 @@ import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
 import {
-  Webhook,
-  WebhookEvent,
-  WebhookStatus,
   CreateWebhookData,
   UpdateWebhookData,
-  WebhookJobData,
+  Webhook,
   WebhookDelivery,
+  WebhookEvent,
+  WebhookJobData,
+  WebhookStatus,
 } from "./webhook.types.js";
 
 /**
@@ -664,7 +664,7 @@ export class WebhookService {
 
       // Don't allow localhost in production
       if (
-        process.env["NODE_ENV"] === "production" &&
+        process.env.NODE_ENV === "production" &&
         (parsedUrl.hostname === "localhost" ||
           parsedUrl.hostname === "127.0.0.1")
       ) {

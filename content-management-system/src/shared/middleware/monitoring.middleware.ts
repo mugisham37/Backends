@@ -1,5 +1,5 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
 import type { NextFunction, Request, Response } from "express";
+import type { FastifyReply, FastifyRequest } from "fastify";
 
 /**
  * Monitoring middleware for performance tracking and health checks

@@ -1,14 +1,18 @@
 import crypto from "crypto";
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { inject, injectable } from "tsyringe";
-import { apiKeys } from "../../core/database/schema/api-key.schema.ts";
 import type { DrizzleDatabase } from "../../core/database/connection.ts";
+import { apiKeys } from "../../core/database/schema/api-key.schema.ts";
 import { ApiKeyModel } from "../db/models/api-key.model.ts";
 import { logger } from "../utils/logger.ts";
 
 @injectable()
 export class ApiKeyService {
-  constructor(@inject("DrizzleDatabase") private db: DrizzleDatabase) {}
+  constructor(@inject("DrizzleDatabase") private _db: DrizzleDatabase) {}
+
+  private get db() {
+    return this._db;
+  }
 
   /**
    * Validate an API key

@@ -85,9 +85,8 @@ export const contentResolvers = {
         tenantId: context.user.tenantId,
       };
 
-      const result = await context.dataSources.contentService.createContent(
-        contentData
-      );
+      const result =
+        await context.dataSources.contentService.createContent(contentData);
 
       if (!result.success) {
         throw new Error(result.error.message);
@@ -144,9 +143,8 @@ export const contentResolvers = {
         throw new Error("Authentication required");
       }
 
-      const result = await context.dataSources.contentService.publishContent(
-        id
-      );
+      const result =
+        await context.dataSources.contentService.publishContent(id);
 
       if (!result.success) {
         throw new Error(result.error.message);

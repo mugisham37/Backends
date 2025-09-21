@@ -1,17 +1,17 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { inject, injectable } from "tsyringe";
-import { CacheService } from "./cache.service";
+import { RequireAdmin } from "../../core/decorators/auth.decorator";
 import type {
-  SetCacheRequest,
-  GetCacheRequest,
-  DeleteCacheRequest,
   BulkDeleteCacheRequest,
-  FlushCacheRequest,
   CreateSessionRequest,
+  DeleteCacheRequest,
+  FlushCacheRequest,
+  GetCacheRequest,
+  SetCacheRequest,
   UpdateSessionRequest,
 } from "./cache.schemas";
+import { CacheService } from "./cache.service";
 import type { SessionData } from "./cache.types";
-import { RequireAdmin } from "../../core/decorators/auth.decorator";
 
 // Type definitions for Fastify requests
 interface SessionParams {
@@ -29,7 +29,7 @@ interface CacheStatsQuery {
 @injectable()
 @RequireAdmin()
 export class CacheController {
-  constructor(@inject("CacheService") private cacheService: CacheService) {}
+  constructor(@inject("CacheService") private _cacheService: CacheService) {}
 
   /**
    * Get value from cache
@@ -44,7 +44,7 @@ export class CacheController {
       const { key, namespace } = request.query;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const value = await this.cacheService.get(fullKey);
+      const value = await this._cacheService.get(fullKey);
 
       if (value === null) {
         return reply.status(404).send({
@@ -61,7 +61,7 @@ export class CacheController {
           value,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -83,7 +83,7 @@ export class CacheController {
       const { key, value, ttl, namespace } = request.body;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const result = await this.cacheService.set(fullKey, value, ttl);
+      const result = await this._cacheService.set(fullKey, value, ttl);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -100,7 +100,7 @@ export class CacheController {
           message: "Cache value set successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -122,7 +122,7 @@ export class CacheController {
       const { key, namespace } = request.query;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const result = await this.cacheService.delete(fullKey);
+      const result = await this._cacheService.delete(fullKey);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -139,7 +139,7 @@ export class CacheController {
           message: "Cache value deleted successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -161,7 +161,7 @@ export class CacheController {
       const { key, namespace } = request.query;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const exists = await this.cacheService.exists(fullKey);
+      const exists = await this._cacheService.exists(fullKey);
 
       return reply.status(200).send({
         status: "success",
@@ -170,7 +170,7 @@ export class CacheController {
           exists,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -192,7 +192,7 @@ export class CacheController {
       const { key, namespace } = request.query;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const ttl = await this.cacheService.getTTL(fullKey);
+      const ttl = await this._cacheService.getTTL(fullKey);
 
       return reply.status(200).send({
         status: "success",
@@ -207,7 +207,7 @@ export class CacheController {
               : `Key expires in ${ttl} seconds`,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -231,7 +231,7 @@ export class CacheController {
         ? keys.map((key) => `${namespace}:${key}`)
         : keys;
 
-      const values = await this.cacheService.mget(fullKeys);
+      const values = await this._cacheService.mget(fullKeys);
 
       const results = fullKeys.map((key, index) => ({
         key,
@@ -247,7 +247,7 @@ export class CacheController {
           foundKeys: results.filter((r) => r.found).length,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -275,7 +275,7 @@ export class CacheController {
         key: namespace ? `${namespace}:${entry.key}` : entry.key,
       }));
 
-      const result = await this.cacheService.mset(processedEntries);
+      const result = await this._cacheService.mset(processedEntries);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -293,7 +293,7 @@ export class CacheController {
           message: "Multiple cache values set successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -322,7 +322,7 @@ export class CacheController {
       const results = [];
 
       for (const key of fullKeys) {
-        const result = await this.cacheService.delete(key);
+        const result = await this._cacheService.delete(key);
         if (result.success) {
           successCount++;
         } else {
@@ -344,7 +344,7 @@ export class CacheController {
           results,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -366,7 +366,7 @@ export class CacheController {
       const { pattern, namespace } = request.body;
       const fullPattern = namespace ? `${namespace}:${pattern}` : pattern;
 
-      const result = await this.cacheService.invalidatePattern(fullPattern);
+      const result = await this._cacheService.invalidatePattern(fullPattern);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -385,7 +385,7 @@ export class CacheController {
           message: `Invalidated ${result.data} cache entries`,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -423,7 +423,7 @@ export class CacheController {
         const fullPattern = namespace
           ? `${namespace}:${pattern || "*"}`
           : pattern || "*";
-        const result = await this.cacheService.invalidatePattern(fullPattern);
+        const result = await this._cacheService.invalidatePattern(fullPattern);
 
         if (!result.success) {
           return reply.status(400).send({
@@ -442,9 +442,9 @@ export class CacheController {
             message: `Cleared ${result.data} cache entries`,
           },
         });
-      } else {
+      }
         // Clear all cache
-        const result = await this.cacheService.clear();
+        const result = await this._cacheService.clear();
 
         if (!result.success) {
           return reply.status(400).send({
@@ -460,8 +460,7 @@ export class CacheController {
             message: "All cache cleared successfully",
           },
         });
-      }
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -483,7 +482,7 @@ export class CacheController {
       const { key, amount = 1, namespace } = request.body;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const result = await this.cacheService.increment(fullKey, amount);
+      const result = await this._cacheService.increment(fullKey, amount);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -501,7 +500,7 @@ export class CacheController {
           increment: amount,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -523,7 +522,7 @@ export class CacheController {
       const { key, ttl, namespace } = request.body;
       const fullKey = namespace ? `${namespace}:${key}` : key;
 
-      const result = await this.cacheService.expire(fullKey, ttl);
+      const result = await this._cacheService.expire(fullKey, ttl);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -541,7 +540,7 @@ export class CacheController {
           message: `Expiration set to ${ttl} seconds`,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -578,7 +577,7 @@ export class CacheController {
           : new Date(),
       };
 
-      const result = await this.cacheService.createSession(
+      const result = await this._cacheService.createSession(
         sessionId,
         sessionData,
         ttl
@@ -600,7 +599,7 @@ export class CacheController {
           message: "Session created successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -628,7 +627,7 @@ export class CacheController {
         });
       }
 
-      const sessionData = await this.cacheService.getSession(sessionId);
+      const sessionData = await this._cacheService.getSession(sessionId);
 
       if (!sessionData) {
         return reply.status(404).send({
@@ -645,7 +644,7 @@ export class CacheController {
           data: sessionData,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -692,7 +691,7 @@ export class CacheController {
         }
       }
 
-      const result = await this.cacheService.updateSession(
+      const result = await this._cacheService.updateSession(
         sessionId,
         processedData as Partial<SessionData>,
         ttl
@@ -713,7 +712,7 @@ export class CacheController {
           message: "Session updated successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -741,7 +740,7 @@ export class CacheController {
         });
       }
 
-      const result = await this.cacheService.deleteSession(sessionId);
+      const result = await this._cacheService.deleteSession(sessionId);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -758,7 +757,7 @@ export class CacheController {
           message: "Session deleted successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -779,7 +778,7 @@ export class CacheController {
     reply: FastifyReply
   ): Promise<void> => {
     try {
-      const stats = await this.cacheService.getStats();
+      const stats = await this._cacheService.getStats();
 
       return reply.status(200).send({
         status: "success",
@@ -788,7 +787,7 @@ export class CacheController {
           timestamp: new Date().toISOString(),
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",
@@ -805,7 +804,7 @@ export class CacheController {
     reply: FastifyReply
   ): Promise<void> => {
     try {
-      const isHealthy = await this.cacheService.healthCheck();
+      const isHealthy = await this._cacheService.healthCheck();
 
       return reply.status(isHealthy ? 200 : 503).send({
         status: isHealthy ? "success" : "error",
@@ -814,7 +813,7 @@ export class CacheController {
           timestamp: new Date().toISOString(),
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(503).send({
         status: "error",
         message: "Cache health check failed",
@@ -854,7 +853,7 @@ export class CacheController {
         key: namespace ? `${namespace}:${entry.key}` : entry.key,
       }));
 
-      const result = await this.cacheService.warmCache(processedEntries);
+      const result = await this._cacheService.warmCache(processedEntries);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -871,7 +870,7 @@ export class CacheController {
           message: "Cache warmed successfully",
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return reply.status(500).send({
         status: "error",
         message: "Internal server error",

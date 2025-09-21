@@ -45,7 +45,7 @@ export const auditMiddleware = async (
   // Hook into response to log completion
   reply.hijack();
   const originalSend = reply.send.bind(reply);
-  reply.send = function (payload: any) {
+  reply.send = (payload: any) => {
     const responseTime = Date.now() - startTime;
     const statusCode = reply.statusCode;
 
@@ -285,7 +285,7 @@ export const performanceMiddleware = async (
 
   // Hook into the reply to capture end time
   const originalSend = reply.send.bind(reply);
-  reply.send = function (payload: any) {
+  reply.send = (payload: any) => {
     const duration = Date.now() - startTime;
 
     // Log performance metrics asynchronously

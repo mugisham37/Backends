@@ -1,9 +1,9 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { inject, injectable } from "tsyringe";
-import { TenantService } from "./tenant.service";
-import { parsePaginationParams } from "../../shared/utils/helpers";
-import type { User } from "../../core/repositories/user.repository";
 import { Auth } from "../../core/decorators/auth.decorator";
+import type { User } from "../../core/repositories/user.repository";
+import { parsePaginationParams } from "../../shared/utils/helpers";
+import { TenantService } from "./tenant.service";
 
 // Type definitions for Fastify requests
 interface TenantQueryParams extends Record<string, unknown> {
@@ -52,7 +52,7 @@ interface UpdateTenantSettingsBody {
 @injectable()
 @Auth()
 export class TenantController {
-  constructor(@inject("TenantService") private tenantService: TenantService) {}
+  constructor(@inject("TenantService") private _tenantService: TenantService) {}
 
   /**
    * Create a new tenant
@@ -74,7 +74,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.createTenant({
+      const result = await this._tenantService.createTenant({
         name: tenantData.name,
         ...(tenantData.slug && { slug: tenantData.slug }),
         ...(tenantData.description && { description: tenantData.description }),
@@ -142,7 +142,7 @@ export class TenantController {
       }
 
       // Check if user has access to this tenant
-      const memberResult = await this.tenantService.isUserMemberOfTenant(
+      const memberResult = await this._tenantService.isUserMemberOfTenant(
         id,
         user.id
       );
@@ -155,7 +155,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.getTenantById(id);
+      const result = await this._tenantService.getTenantById(id);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -214,7 +214,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.getTenantBySlug(slug);
+      const result = await this._tenantService.getTenantBySlug(slug);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -227,7 +227,7 @@ export class TenantController {
       }
 
       // Check if user has access to this tenant
-      const memberResult = await this.tenantService.isUserMemberOfTenant(
+      const memberResult = await this._tenantService.isUserMemberOfTenant(
         result.data.id,
         user.id
       );
@@ -292,7 +292,7 @@ export class TenantController {
       }
 
       // Check if user has access to this tenant
-      const memberResult = await this.tenantService.isUserMemberOfTenant(
+      const memberResult = await this._tenantService.isUserMemberOfTenant(
         id,
         user.id
       );
@@ -305,7 +305,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.updateTenant(id, updateData);
+      const result = await this._tenantService.updateTenant(id, updateData);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -367,7 +367,7 @@ export class TenantController {
       }
 
       // Check if user has access to this tenant
-      const memberResult = await this.tenantService.isUserMemberOfTenant(
+      const memberResult = await this._tenantService.isUserMemberOfTenant(
         id,
         user.id
       );
@@ -380,7 +380,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.deleteTenant(id);
+      const result = await this._tenantService.deleteTenant(id);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -442,7 +442,7 @@ export class TenantController {
           : undefined,
       };
 
-      const result = await this.tenantService.listTenants(options);
+      const result = await this._tenantService.listTenants(options);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -489,7 +489,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.getUserTenants(user.id);
+      const result = await this._tenantService.getUserTenants(user.id);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -551,7 +551,7 @@ export class TenantController {
       }
 
       // Check if user has access to this tenant
-      const memberResult = await this.tenantService.isUserMemberOfTenant(
+      const memberResult = await this._tenantService.isUserMemberOfTenant(
         id,
         user.id
       );
@@ -564,7 +564,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.getTenantStats(id);
+      const result = await this._tenantService.getTenantStats(id);
 
       if (!result.success) {
         const statusCode = this.getErrorStatusCode(result.error);
@@ -626,7 +626,7 @@ export class TenantController {
       }
 
       // Check if user has access to this tenant
-      const memberResult = await this.tenantService.isUserMemberOfTenant(
+      const memberResult = await this._tenantService.isUserMemberOfTenant(
         id,
         user.id
       );
@@ -639,7 +639,7 @@ export class TenantController {
         });
       }
 
-      const result = await this.tenantService.updateTenantSettings(
+      const result = await this._tenantService.updateTenantSettings(
         id,
         settings
       );

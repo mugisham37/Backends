@@ -1,5 +1,5 @@
-import type { Result } from "../../core/types/result.types";
 import type { BaseError } from "../../core/errors/base.error";
+import type { Result } from "../../core/types/result.types";
 
 export interface Content {
   id: string;

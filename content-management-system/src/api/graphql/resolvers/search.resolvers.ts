@@ -12,9 +12,8 @@ export const searchResolvers = {
         tenantId: context.user.tenantId, // Scope search to user's tenant
       };
 
-      const result = await context.dataSources.searchService.search(
-        searchParams
-      );
+      const result =
+        await context.dataSources.searchService.search(searchParams);
 
       if (!result.success) {
         throw new Error(result.error.message);

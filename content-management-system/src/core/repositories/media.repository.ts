@@ -1,4 +1,4 @@
-import { eq, and, or, ilike, sql, desc } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import { media } from "../database/schema/media.schema.ts";
 import { DatabaseError } from "../errors/database.error.ts";
@@ -549,7 +549,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
    */
   async getRecentMedia(
     tenantId: string,
-    limit: number = 10
+    limit = 10
   ): Promise<Result<Media[], Error>> {
     try {
       const recentMedia = await this.db
@@ -722,7 +722,7 @@ export class MediaRepository extends TenantBaseRepository<Media> {
    */
   async cleanupFailedUploads(
     tenantId: string,
-    olderThanHours: number = 24
+    olderThanHours = 24
   ): Promise<Result<number, Error>> {
     try {
       const cutoffDate = new Date();

@@ -1,5 +1,5 @@
 import pino from "pino";
-import { config } from "../config/index.ts";
+import { config } from "../config/env.config.js";
 import { LOG_LEVELS } from "../constants/index.ts";
 
 /**
@@ -20,17 +20,16 @@ export interface Logger {
  */
 const createPinoLogger = () => {
   const loggerConfig: any = {
-    level: config.logging.level || LOG_LEVELS.INFO,
+    level: config.monitoring?.logLevel || LOG_LEVELS.INFO,
     timestamp: pino.stdTimeFunctions.isoTime,
 
     // Base context for all logs
     base: {
-      service: config.app.name || "cms-api",
-      version:
-        config.app.version || process.env["npm_package_version"] || "1.0.0",
-      environment: config.env,
+      service: "cms-api",
+      version: process.env.npm_package_version || "1.0.0",
+      environment: config.nodeEnv,
       pid: process.pid,
-      hostname: process.env["HOSTNAME"] || "localhost",
+      hostname: process.env.HOSTNAME || "localhost",
     },
 
     // Standard serializers for better log formatting
@@ -56,11 +55,11 @@ const createPinoLogger = () => {
     },
 
     // Silent mode for testing
-    ...(config.logging.silent && { silent: true }),
+    ...(config.monitoring?.logSilent && { silent: true }),
   };
 
   // Pretty print for development
-  if (config.logging.prettyPrint && config.isDevelopment) {
+  if (config.isDevelopment) {
     loggerConfig.transport = {
       target: "pino-pretty",
       options: {

@@ -1,10 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { container } from "tsyringe";
+import { TOKENS } from "../../core/container";
 import { ApiKeyScope } from "../db/models/api-key.model";
 import { ApiKeyService } from "../services/api-key.service";
 import { ApiError } from "../utils/errors";
 import { logger } from "../utils/logger";
-import { TOKENS } from "../../core/container";
 
 export class ApiKeyMiddleware {
   private apiKeyService: ApiKeyService;

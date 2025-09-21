@@ -1,9 +1,9 @@
 import Redis from "ioredis";
 import { injectable } from "tsyringe";
-import { config } from "../../shared/config/index";
 import type { Result } from "../../core/types/result.types";
-import type { CacheStats, SessionData } from "./cache.types";
+import { config } from "../../shared/config/index";
 import { logger } from "../../shared/utils/logger";
+import type { CacheStats, SessionData } from "./cache.types";
 
 /**
  * Caching service with Redis integration

@@ -1,13 +1,13 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type { IAuthService } from "../../../modules/auth/auth.types";
-import { validate } from "../../../shared/middleware/zod-validation";
 import {
   type LoginRequest,
   type RefreshTokenRequest,
   loginSchema,
   refreshTokenSchema,
 } from "../../../modules/auth/auth.schemas";
+import type { IAuthService } from "../../../modules/auth/auth.types";
+import { validate } from "../../../shared/middleware/zod-validation";
 
 /**
  * Authentication REST Routes

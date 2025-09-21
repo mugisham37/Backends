@@ -1,8 +1,8 @@
-import { eq, and, or, ilike, sql, desc } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { injectable } from "tsyringe";
 import {
-  contents,
   contentVersions,
+  contents,
 } from "../database/schema/content.schema.ts";
 import { DatabaseError } from "../errors/database.error.ts";
 import type {
@@ -599,7 +599,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
    */
   async getRecentContent(
     tenantId: string,
-    limit: number = 10
+    limit = 10
   ): Promise<Result<Content[], Error>> {
     try {
       const recentContent = await this.db
@@ -628,7 +628,7 @@ export class ContentRepository extends TenantBaseRepository<Content> {
    */
   async getPopularContent(
     tenantId: string,
-    limit: number = 10
+    limit = 10
   ): Promise<Result<Content[], Error>> {
     try {
       const popularContent = await this.db

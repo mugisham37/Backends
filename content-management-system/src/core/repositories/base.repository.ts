@@ -16,7 +16,7 @@ import type { Result } from "../types/result.types.ts";
  */
 export abstract class BaseRepository<
   T extends Record<string, unknown>,
-  K = string
+  K = string,
 > implements IRepository<T, K>
 {
   protected readonly db = getDatabase();

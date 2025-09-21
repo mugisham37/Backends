@@ -2,11 +2,11 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { container } from "tsyringe";
 import type {
   IAuthService,
-  IUserService,
-  ITenantService,
   IContentService,
   IMediaService,
   ISearchService,
+  ITenantService,
+  IUserService,
 } from "../../core/types/service.types";
 import { type DataLoaders, createDataLoaders } from "./dataloaders";
 
@@ -39,7 +39,7 @@ class SimplePubSub {
     if (!this.subscribers.has(topic)) {
       this.subscribers.set(topic, new Set());
     }
-    this.subscribers.get(topic)!.add(callback);
+    this.subscribers.get(topic)?.add(callback);
 
     return () => {
       this.subscribers.get(topic)?.delete(callback);

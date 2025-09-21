@@ -1,7 +1,7 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { inject, injectable } from "tsyringe";
-import { AuthService } from "./auth.service.ts";
 import { logger } from "../../shared/utils/logger.ts";
+import { AuthService } from "./auth.service.ts";
 import type { LoginCredentials } from "./auth.types.ts";
 import type { CreateUserRequest } from "./user.schemas.ts";
 
@@ -11,7 +11,7 @@ import type { CreateUserRequest } from "./user.schemas.ts";
  */
 @injectable()
 export class AuthController {
-  constructor(@inject("AuthService") private authService: AuthService) {}
+  constructor(@inject("AuthService") private _authService: AuthService) {}
 
   /**
    * Register a new user
@@ -56,7 +56,7 @@ export class AuthController {
         >;
       }
 
-      const result = await this.authService.registerUser(registrationData);
+      const result = await this._authService.registerUser(registrationData);
 
       if (!result.success) {
         logger.warn("Registration failed", {
@@ -127,7 +127,7 @@ export class AuthController {
 
       logger.info("Login attempt", { email: credentials.email });
 
-      const result = await this.authService.authenticate({
+      const result = await this._authService.authenticate({
         ...credentials,
         deviceInfo,
       });
@@ -191,7 +191,7 @@ export class AuthController {
         });
       }
 
-      const result = await this.authService.refreshToken(refreshToken);
+      const result = await this._authService.refreshToken(refreshToken);
 
       if (!result.success) {
         return reply.status(401).send({
@@ -246,7 +246,7 @@ export class AuthController {
         logoutData.refreshToken = refreshToken;
       }
 
-      const result = await this.authService.logout(logoutData);
+      const result = await this._authService.logout(logoutData);
 
       if (!result.success) {
         return reply.status(400).send({
@@ -289,7 +289,7 @@ export class AuthController {
         });
       }
 
-      const result = await this.authService.getUserProfile(user.id);
+      const result = await this._authService.getUserProfile(user.id);
 
       if (!result.success) {
         return reply.status(404).send({
@@ -336,7 +336,7 @@ export class AuthController {
         });
       }
 
-      const result = await this.authService.changePassword({
+      const result = await this._authService.changePassword({
         userId: user.id,
         currentPassword,
         newPassword,
@@ -374,7 +374,7 @@ export class AuthController {
     try {
       const { email } = request.body;
 
-      await this.authService.initiateForgotPassword(email);
+      await this._authService.initiateForgotPassword(email);
 
       // Always return success to prevent email enumeration
       return reply.status(200).send({
@@ -402,7 +402,7 @@ export class AuthController {
     try {
       const { token, newPassword } = request.body;
 
-      const result = await this.authService.resetPassword(token, newPassword);
+      const result = await this._authService.resetPassword(token, newPassword);
 
       if (!result.success) {
         return reply.status(400).send({

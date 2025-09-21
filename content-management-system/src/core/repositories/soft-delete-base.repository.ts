@@ -15,7 +15,7 @@ import { BaseRepository } from "./base.repository.ts";
  */
 export abstract class SoftDeleteBaseRepository<
     T extends SoftDeleteEntity,
-    K = string
+    K = string,
   >
   extends BaseRepository<T, K>
   implements ISoftDeleteRepository<T, K>

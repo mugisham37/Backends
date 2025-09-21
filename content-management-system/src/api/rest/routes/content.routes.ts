@@ -1,12 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { container } from "tsyringe";
-import type {
-  IContentService,
-  CreateContentData,
-  UpdateContentData,
-  ContentStatus,
-} from "../../../modules/content/content.types";
-import { validate } from "../../../shared/middleware/zod-validation";
 import {
   type ContentParams,
   type ContentQueryParams,
@@ -19,6 +12,13 @@ import {
   createContentSchema,
   updateContentSchema,
 } from "../../../modules/content/content.schemas";
+import type {
+  ContentStatus,
+  CreateContentData,
+  IContentService,
+  UpdateContentData,
+} from "../../../modules/content/content.types";
+import { validate } from "../../../shared/middleware/zod-validation";
 
 /**
  * Content Management REST Routes

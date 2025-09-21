@@ -1,18 +1,14 @@
 import type { Config } from "drizzle-kit";
-import dotenv from "dotenv";
+import { config } from "./src/shared/config/env.config";
 
-// Load environment variables
-dotenv.config();
-
-export default {
-  schema: "./src/core/database/schema/*.schema.ts",
+export default ({
+  schema: "./src/core/database/schema/*.ts",
   out: "./src/core/database/migrations",
   driver: "pg",
   dbCredentials: {
-    connectionString:
-      process.env.DATABASE_URL ||
-      "postgresql://postgres:password@localhost:5432/cms_dev",
+    connectionString: config.database.url,
   },
-  verbose: process.env.NODE_ENV === "development",
+  verbose: config.isDevelopment,
   strict: true,
-} satisfies Config;
+  breakpoints: true,
+} satisfies Config);

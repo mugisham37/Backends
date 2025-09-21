@@ -1,13 +1,13 @@
 import { inject, injectable } from "tsyringe";
-import { MediaRepository as CoreMediaRepository } from "../../core/repositories/media.repository";
 import type {
   Media,
-  NewMedia,
   MediaFolder,
   MediaTransformation,
+  NewMedia,
 } from "../../core/database/schema/media.schema";
-import type { Result } from "../../core/types/result.types";
+import { MediaRepository as CoreMediaRepository } from "../../core/repositories/media.repository";
 import type { PaginatedResult } from "../../core/types/database.types";
+import type { Result } from "../../core/types/result.types";
 
 /**
  * Media repository service wrapper
@@ -16,7 +16,7 @@ import type { PaginatedResult } from "../../core/types/database.types";
 @injectable()
 export class MediaRepository {
   constructor(
-    @inject("CoreMediaRepository") private coreRepository: CoreMediaRepository
+    @inject("CoreMediaRepository") private _coreRepository: CoreMediaRepository
   ) {}
 
   /**
@@ -43,7 +43,7 @@ export class MediaRepository {
         metadata: data.metadata ?? null,
       };
 
-      const result = await this.coreRepository.create(mediaData as any);
+      const result = await this._coreRepository.create(mediaData as any);
       return result;
     } catch (error) {
       return {
@@ -62,7 +62,7 @@ export class MediaRepository {
     tenantId: string
   ): Promise<Result<Media | null, Error>> {
     try {
-      const result = await this.coreRepository.findByHash(tenantId, hash);
+      const result = await this._coreRepository.findByHash(tenantId, hash);
       return result;
     } catch (error) {
       return {
@@ -83,7 +83,7 @@ export class MediaRepository {
     tenantId: string
   ): Promise<Result<Media | null, Error>> {
     try {
-      const result = await this.coreRepository.findByIdInTenant(id, tenantId);
+      const result = await this._coreRepository.findByIdInTenant(id, tenantId);
       return result;
     } catch (error) {
       return {
@@ -103,7 +103,7 @@ export class MediaRepository {
     pagination: { page: number; limit: number };
   }): Promise<Result<PaginatedResult<Media>, Error>> {
     try {
-      const result = await this.coreRepository.findManyPaginated({
+      const result = await this._coreRepository.findManyPaginated({
         where: options.where,
         pagination: {
           page: options.pagination.page,
@@ -129,7 +129,7 @@ export class MediaRepository {
     data: Partial<Media>
   ): Promise<Result<Media, Error>> {
     try {
-      const result = await this.coreRepository.update(id, data);
+      const result = await this._coreRepository.update(id, data);
       return result;
     } catch (error) {
       return {
@@ -145,7 +145,7 @@ export class MediaRepository {
    */
   async delete(id: string): Promise<Result<void, Error>> {
     try {
-      const result = await this.coreRepository.delete(id);
+      const result = await this._coreRepository.delete(id);
       return result;
     } catch (error) {
       return {

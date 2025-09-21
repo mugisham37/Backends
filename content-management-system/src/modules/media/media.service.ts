@@ -2,7 +2,6 @@ import crypto from "crypto";
 import path from "path";
 import fs from "fs/promises";
 import { inject, injectable } from "tsyringe";
-import { config } from "../../shared/config";
 import type {
   Media,
   MediaFolder,
@@ -17,12 +16,13 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../core/errors";
-import { MediaRepository } from "./media.repository";
 import type { Result } from "../../core/types/result.types";
+import { config } from "../../shared/config";
 import { logger } from "../../shared/utils/logger";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
 import { WebhookService } from "../webhook/webhook.service";
+import { MediaRepository } from "./media.repository";
 
 /**
  * File upload and management service with CDN integration

@@ -40,8 +40,8 @@ export function registerInfrastructure(): void {
     };
 
     // Only add password if it's defined
-    if (config.redis["password"]) {
-      redisOptions["password"] = config.redis["password"];
+    if (config.redis.password) {
+      redisOptions.password = config.redis.password;
     }
 
     return new Redis(config.redis.uri, redisOptions);

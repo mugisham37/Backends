@@ -193,7 +193,7 @@ export class QueryOptimizer {
       if (!countResult) {
         throw new Error("Failed to get count result");
       }
-      const total = Number(countResult["count"]);
+      const total = Number(countResult.count);
 
       // Get paginated data
       const data = await baseQuery.limit(limit).offset(offset);
@@ -421,8 +421,8 @@ export class ConnectionPoolOptimizer {
       `);
 
       return {
-        activeConnections: Number(result[0]?.["active_connections"] || 0),
-        maxConnections: Number(result[0]?.["max_connections"] || 100),
+        activeConnections: Number(result[0]?.active_connections || 0),
+        maxConnections: Number(result[0]?.max_connections || 100),
         idleConnections: 0, // Would be calculated from actual pool
       };
     } catch (error) {

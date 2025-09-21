@@ -1,8 +1,8 @@
-import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { config } from "../../shared/config/index";
+import { config } from "../../shared/config/env.config.js";
 import { dbLogger } from "../../shared/utils/logger";
 import { ConnectionPoolOptimizer, QueryOptimizer } from "./query-optimizer";
 
@@ -27,7 +27,7 @@ const connectionMetrics = {
  * Get expected load based on environment
  */
 const getExpectedLoad = (): "low" | "medium" | "high" => {
-  const env = process.env["NODE_ENV"];
+  const env = process.env.NODE_ENV;
   if (env === "production") return "high";
   if (env === "staging") return "medium";
   return "low";
@@ -154,24 +154,30 @@ export const initializeDatabase = async (): Promise<void> => {
  */
 const setupConnectionMonitoring = (): void => {
   // Monitor connection health every 5 minutes
-  setInterval(async () => {
-    try {
-      const healthResult = await checkDatabaseHealth();
-      if (!healthResult.healthy) {
-        dbLogger.error("Database health check failed");
+  setInterval(
+    async () => {
+      try {
+        const healthResult = await checkDatabaseHealth();
+        if (!healthResult.healthy) {
+          dbLogger.error("Database health check failed");
+          connectionMetrics.errors++;
+        }
+        connectionMetrics.lastHealthCheck = new Date();
+      } catch (error) {
+        dbLogger.error("Error during health check:", error);
         connectionMetrics.errors++;
       }
-      connectionMetrics.lastHealthCheck = new Date();
-    } catch (error) {
-      dbLogger.error("Error during health check:", error);
-      connectionMetrics.errors++;
-    }
-  }, 5 * 60 * 1000); // 5 minutes
+    },
+    5 * 60 * 1000
+  ); // 5 minutes
 
   // Log connection metrics every hour
-  setInterval(() => {
-    logConnectionMetrics();
-  }, 60 * 60 * 1000); // 1 hour
+  setInterval(
+    () => {
+      logConnectionMetrics();
+    },
+    60 * 60 * 1000
+  ); // 1 hour
 };
 
 /**

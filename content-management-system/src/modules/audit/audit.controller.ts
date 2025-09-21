@@ -1,7 +1,7 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { container } from "tsyringe";
-import { AuditService } from "./audit.service";
 import { parsePaginationParams } from "../../shared/utils/helpers";
+import { AuditService } from "./audit.service";
 
 interface AuditQueryParams {
   action?: string;
@@ -56,18 +56,16 @@ export class AuditController {
       const filter: any = {};
       const query = request.query as Record<string, unknown>;
 
-      if (query["action"]) filter.action = query["action"] as string;
-      if (query["entityType"])
-        filter.entityType = query["entityType"] as string;
-      if (query["entityId"]) filter.entityId = query["entityId"] as string;
-      if (query["userId"]) filter.userId = query["userId"] as string;
-      if (query["userEmail"]) filter.userEmail = query["userEmail"] as string;
+      if (query.action) filter.action = query.action as string;
+      if (query.entityType) filter.entityType = query.entityType as string;
+      if (query.entityId) filter.entityId = query.entityId as string;
+      if (query.userId) filter.userId = query.userId as string;
+      if (query.userEmail) filter.userEmail = query.userEmail as string;
 
       // Handle date range
-      if (query["startDate"])
-        filter.startDate = new Date(query["startDate"] as string);
-      if (query["endDate"])
-        filter.endDate = new Date(query["endDate"] as string);
+      if (query.startDate)
+        filter.startDate = new Date(query.startDate as string);
+      if (query.endDate) filter.endDate = new Date(query.endDate as string);
 
       // Get audit logs
       const result = await this.auditService.getAuditLogs(filter);
@@ -264,7 +262,7 @@ export class AuditController {
       }
 
       const olderThanDate = new Date(olderThan);
-      if (isNaN(olderThanDate.getTime())) {
+      if (Number.isNaN(olderThanDate.getTime())) {
         return reply.status(400).send({
           status: "error",
           message: "Invalid olderThan date format",

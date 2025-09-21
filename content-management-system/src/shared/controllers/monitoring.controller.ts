@@ -1,4 +1,4 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { injectable } from "tsyringe";
 import { RequireAdmin } from "../../core/decorators/auth.decorator";
 
@@ -66,8 +66,8 @@ export class MonitoringController {
         status: "healthy",
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        version: process.env["npm_package_version"] || "1.0.0",
-        environment: process.env["NODE_ENV"] || "development",
+        version: process.env.npm_package_version || "1.0.0",
+        environment: process.env.NODE_ENV || "development",
         services: {
           database: "up", // TODO: Implement actual database health check
           redis: "up", // TODO: Implement actual Redis health check
@@ -237,8 +237,8 @@ export class MonitoringController {
         health: {
           status: "healthy",
           uptime: process.uptime(),
-          version: process.env["npm_package_version"] || "1.0.0",
-          environment: process.env["NODE_ENV"] || "development",
+          version: process.env.npm_package_version || "1.0.0",
+          environment: process.env.NODE_ENV || "development",
         },
         performance: {
           requestCount: 0, // TODO: Implement actual metrics

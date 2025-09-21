@@ -1,11 +1,11 @@
-import type { FastifyRequest, FastifyReply } from "fastify";
 import type { NextFunction, Request, Response } from "express";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import jwt from "jsonwebtoken";
 import { container } from "tsyringe";
-import { config } from "../config";
-import { UserRepository } from "../../core/repositories/user.repository";
-import { ApiKeyService } from "../services/api-key.service";
 import { TOKENS } from "../../core/container";
+import { UserRepository } from "../../core/repositories/user.repository";
+import { config } from "../config";
+import { ApiKeyService } from "../services/api-key.service";
 import { ApiError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -16,7 +16,7 @@ import { logger } from "../utils/logger";
 
 // Interfaces for authentication
 export interface AuthenticatedRequest extends FastifyRequest {
-  user?: {
+  authUser?: {
     id: string;
     email: string;
     role: string;
@@ -63,7 +63,7 @@ export const fastifyAuthMiddleware = async (
   try {
     const token = authHeader.substring(7);
     const secretKey =
-      process.env["JWT_SECRET"] ||
+      process.env.JWT_SECRET ||
       config.jwt?.secret ||
       "default-secret-key-change-in-production";
     const decoded = jwt.verify(token, secretKey) as JWTPayload;
@@ -77,7 +77,7 @@ export const fastifyAuthMiddleware = async (
 
       if (userResult.success && userResult.data) {
         // Attach validated user information to request
-        (request as AuthenticatedRequest).user = {
+        (request as AuthenticatedRequest).authUser = {
           id: decoded.sub,
           email: decoded.email,
           role: decoded.role,
@@ -98,7 +98,7 @@ export const fastifyAuthMiddleware = async (
       logger.warn("Database validation failed, proceeding with token data", {
         error: dbError,
       });
-      (request as AuthenticatedRequest).user = {
+      (request as AuthenticatedRequest).authUser = {
         id: decoded.sub,
         email: decoded.email,
         role: decoded.role,
@@ -108,7 +108,7 @@ export const fastifyAuthMiddleware = async (
   } catch (error) {
     logger.warn("Authentication failed", {
       error: error instanceof Error ? error.message : "Unknown error",
-      token: request.headers.authorization?.substring(0, 20) + "...",
+      token: `${request.headers.authorization?.substring(0, 20)}...`,
     });
 
     if (error instanceof jwt.TokenExpiredError) {
@@ -135,12 +135,12 @@ export const fastifyOptionalAuthMiddleware = async (
     try {
       const token = authHeader.substring(7);
       const secretKey =
-        process.env["JWT_SECRET"] ||
+        process.env.JWT_SECRET ||
         config.jwt?.secret ||
         "default-secret-key-change-in-production";
       const decoded = jwt.verify(token, secretKey) as JWTPayload;
 
-      (request as AuthenticatedRequest).user = {
+      (request as AuthenticatedRequest).authUser = {
         id: decoded.sub,
         email: decoded.email,
         role: decoded.role,
@@ -222,7 +222,7 @@ export const fastifyRequireAuth = async (
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> => {
-  if (!(request as AuthenticatedRequest).user) {
+  if (!(request as AuthenticatedRequest).authUser) {
     reply.code(401).send({
       error: "Unauthorized",
       message: "Authentication required",
@@ -259,7 +259,7 @@ export const fastifyRequireRoles = (roles: string[]) => {
     request: FastifyRequest,
     reply: FastifyReply
   ): Promise<void> => {
-    const user = (request as AuthenticatedRequest).user;
+    const user = (request as AuthenticatedRequest).authUser;
 
     if (!user) {
       reply.code(401).send({
@@ -309,7 +309,7 @@ export const requireApiKey = async (
       };
 
       next();
-    } catch (error) {
+    } catch (_error) {
       return next(ApiError.unauthorized("Invalid API key"));
     }
   } catch (error) {
@@ -348,7 +348,7 @@ export const fastifyRequireApiKey = async (
         scopes: validApiKey.scopes,
         ...(validApiKey.tenantId && { tenantId: validApiKey.tenantId }),
       };
-    } catch (error) {
+    } catch (_error) {
       reply.code(401).send({
         error: "Unauthorized",
         message: "Invalid API key",
@@ -381,7 +381,7 @@ export const fastifyFlexibleAuth = async (
     try {
       await fastifyAuthMiddleware(request, reply);
       return;
-    } catch (error) {
+    } catch (_error) {
       // JWT failed, try API key if available
     }
   }
@@ -391,7 +391,7 @@ export const fastifyFlexibleAuth = async (
     try {
       await fastifyRequireApiKey(request, reply);
       return;
-    } catch (error) {
+    } catch (_error) {
       // API key failed
     }
   }
