@@ -119,6 +119,17 @@ export class OrderRepository extends BaseRepository<
       .orderBy(desc(orders.createdAt));
   }
 
+  // Find orders by customer ID (userId or customerId)
+  async findByCustomerId(customerId: string): Promise<Order[]> {
+    return this.db
+      .select()
+      .from(orders)
+      .where(
+        or(eq(orders.userId, customerId), eq(orders.customerId, customerId))
+      )
+      .orderBy(desc(orders.createdAt));
+  }
+
   // Find orders by vendor ID
   async findByVendorId(
     vendorId: string,
@@ -139,6 +150,8 @@ export class OrderRepository extends BaseRepository<
         id: orders.id,
         orderNumber: orders.orderNumber,
         userId: orders.userId,
+        customerId: orders.customerId,
+        vendorId: orders.vendorId,
         customerEmail: orders.customerEmail,
         customerPhone: orders.customerPhone,
         status: orders.status,
@@ -222,6 +235,8 @@ export class OrderRepository extends BaseRepository<
 
     return {
       ...orderResult[0],
+      vendorId: orderResult[0].vendorId,
+      customerId: orderResult[0].customerId,
       user: orderResult[0].user || undefined,
       items: itemsResult,
       payments: paymentsResult,

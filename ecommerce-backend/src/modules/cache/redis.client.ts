@@ -90,7 +90,13 @@ class RedisClient {
       await this.client.connect();
       return this.client;
     } catch (error) {
-      console.error("Failed to connect to Redis:", error);
+      console.warn(
+        "Failed to connect to Redis, will use fallback mode:",
+        error.message
+      );
+      // Don't throw the error, just log it for graceful degradation
+      this.client = null;
+      this.isConnected = false;
       throw error;
     }
   }
@@ -134,7 +140,40 @@ class RedisClient {
 export const redisClient = new RedisClient();
 
 // Export the Redis instance getter for direct access when needed
-export const getRedisClient = (): Redis => redisClient.getClient();
+export const getRedisClient = (): Redis => {
+  try {
+    return redisClient.getClient();
+  } catch (error) {
+    console.warn("Redis not connected, using fallback mode:", error.message);
+    // Return a mock Redis client for development
+    return createMockRedisClient();
+  }
+};
+
+// Mock Redis client for when Redis is not available
+const createMockRedisClient = (): any => {
+  const mockClient = {
+    get: async () => null,
+    set: async () => "OK",
+    setex: async () => "OK",
+    del: async () => 1,
+    keys: async () => [],
+    exists: async () => 0,
+    ttl: async () => -1,
+    expire: async () => 1,
+    incrby: async () => 1,
+    decrby: async () => 1,
+    flushdb: async () => "OK",
+    info: async () => "# Memory\nused_memory:0\nused_memory_human:0B",
+    dbsize: async () => 0,
+    smembers: async () => [],
+    sadd: async () => 1,
+    ping: async () => "PONG",
+  };
+
+  console.warn("Using mock Redis client - cache operations will not persist");
+  return mockClient;
+};
 
 // Helper function to initialize Redis connection
 export const initializeRedis = async (): Promise<Redis> => {

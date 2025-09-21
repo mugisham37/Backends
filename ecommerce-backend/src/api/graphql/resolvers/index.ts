@@ -11,6 +11,7 @@ import { productResolvers } from "./product.resolver.js";
 import { orderResolvers } from "./order.resolver.js";
 import { analyticsResolvers } from "./analytics.resolver.js";
 import { webhookResolvers } from "./webhook.resolver.js";
+import { paymentResolvers } from "./payment.resolver.js";
 import { GraphQLContext } from "../context.js";
 
 // Custom scalar resolvers
@@ -153,6 +154,7 @@ export const resolvers = {
     ...orderResolvers.Query,
     ...analyticsResolvers.Query,
     ...webhookResolvers.Query,
+    ...paymentResolvers.Query,
   },
   Mutation: {
     ...baseResolvers.Mutation,
@@ -162,6 +164,7 @@ export const resolvers = {
     ...orderResolvers.Mutation,
     ...analyticsResolvers.Mutation,
     ...webhookResolvers.Mutation,
+    ...paymentResolvers.Mutation,
   },
   Subscription: {
     ...baseResolvers.Subscription,
@@ -169,6 +172,7 @@ export const resolvers = {
     ...vendorResolvers.Subscription,
     ...productResolvers.Subscription,
     ...orderResolvers.Subscription,
+    ...paymentResolvers.Subscription,
   },
   // Type resolvers
   User: userResolvers.User,
@@ -177,7 +181,11 @@ export const resolvers = {
   Order: orderResolvers.Order,
   OrderItem: orderResolvers.OrderItem,
   Category: productResolvers.Category,
-  Payment: orderResolvers.Payment,
+  Payment: paymentResolvers.Payment,
+  PaymentTransaction: paymentResolvers.PaymentTransaction,
+  PaymentRefund: paymentResolvers.PaymentRefund,
+  PaymentDispute: paymentResolvers.PaymentDispute,
+  PaymentWebhook: paymentResolvers.PaymentWebhook,
   AnalyticsEvent: analyticsResolvers.AnalyticsEvent,
   BusinessMetric: analyticsResolvers.BusinessMetric,
   UserBehavior: analyticsResolvers.UserBehavior,

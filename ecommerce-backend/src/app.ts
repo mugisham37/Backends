@@ -13,6 +13,7 @@ import { logger } from "./shared/utils/logger";
 import { getDatabase, initializeDatabaseSystem } from "./core/database/index";
 import { container, registerServices } from "./core/container/index";
 import { sql } from "drizzle-orm";
+import "./shared/types/fastify.d.js";
 
 // Import plugins
 import securityPlugin from "./shared/plugins/security.plugin";
@@ -394,10 +395,3 @@ export const createApp = async (): Promise<FastifyInstance> => {
     throw error;
   }
 };
-
-// Additional type declarations for request extensions
-declare module "fastify" {
-  interface FastifyRequest {
-    startTime?: number;
-  }
-}

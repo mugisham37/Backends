@@ -53,6 +53,8 @@ export const orders = pgTable("orders", {
 
   // Customer information
   userId: uuid("user_id"), // References users.id (null for guest orders)
+  customerId: uuid("customer_id"), // Alias for userId for consistency
+  vendorId: uuid("vendor_id"), // Primary vendor for this order
   customerEmail: varchar("customer_email", { length: 255 }).notNull(),
   customerPhone: varchar("customer_phone", { length: 20 }),
 

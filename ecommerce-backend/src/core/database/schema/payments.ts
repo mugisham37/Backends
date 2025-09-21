@@ -76,6 +76,7 @@ export const payments = pgTable("payments", {
 
   // Order relationship
   orderId: uuid("order_id").notNull(), // References orders.id
+  vendorId: uuid("vendor_id").notNull(), // References vendors.id
 
   // Payment identification
   paymentNumber: varchar("payment_number", { length: 50 }).notNull().unique(),

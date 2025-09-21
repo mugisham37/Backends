@@ -68,7 +68,10 @@
     "noopen",
     "HSTS",
     "Backorders",
-    "ilike"
+    "ilike",
+    "rences",
+    "notifi",
+    "cooldown"
   ],
   "ignorePaths": ["node_modules/**", "dist/**", "coverage/**", "*.min.js", "package-lock.json"],
   "ignoreWords": ["MUGISHA"]

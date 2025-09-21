@@ -30,6 +30,7 @@ export interface EventTrackingInput {
   sessionId?: string;
   visitorId?: string;
   properties?: Record<string, any>;
+  metadata?: Record<string, any>;
   value?: number;
   quantity?: number;
   userAgent?: string;

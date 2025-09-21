@@ -23,6 +23,7 @@ import { WebhookRepository } from "../repositories/webhook.repository";
 import { ProductService } from "../../modules/ecommerce/products/product.service";
 import { VendorService } from "../../modules/ecommerce/vendors/vendor.service";
 import { OrderService } from "../../modules/ecommerce/orders/order.service";
+import { PaymentService } from "../../modules/ecommerce/payments/payment.service";
 import { AuthService } from "../../modules/auth/auth.service";
 import { JWTService } from "../../modules/auth/jwt.service";
 import { NotificationService } from "../../modules/notifications/notification.service";
@@ -118,6 +119,17 @@ export function registerServices(): void {
       "userRepository",
       "notificationService",
       "webhookService",
+      "analyticsService",
+      "cacheService",
+    ],
+  });
+
+  container.registerClass("paymentService", PaymentService, {
+    dependencies: [
+      "paymentRepository",
+      "orderRepository",
+      "userRepository",
+      "notificationService",
       "analyticsService",
       "cacheService",
     ],

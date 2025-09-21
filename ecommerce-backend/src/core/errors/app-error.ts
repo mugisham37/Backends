@@ -5,6 +5,7 @@
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly code: string;
+  public readonly type: string;
   public readonly details?: any;
   public readonly isOperational: boolean;
   public readonly timestamp: Date;
@@ -22,6 +23,7 @@ export class AppError extends Error {
     this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.code = code || this.getDefaultCode();
+    this.type = this.code; // type is alias for code for compatibility
     this.details = details;
     this.isOperational = true;
     this.timestamp = new Date();

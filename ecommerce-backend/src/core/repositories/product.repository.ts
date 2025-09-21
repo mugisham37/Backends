@@ -232,6 +232,17 @@ export class ProductRepository extends BaseRepository<
     };
   }
 
+  // Find a specific product variant by ID
+  async findVariantById(variantId: string) {
+    const result = await this.db
+      .select()
+      .from(productVariants)
+      .where(eq(productVariants.id, variantId))
+      .limit(1);
+
+    return result[0] || null;
+  }
+
   // Search products with filters
   async findWithFilters(filters: ProductFilters): Promise<Product[]> {
     let query = this.db.select().from(products);

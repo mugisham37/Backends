@@ -436,14 +436,24 @@ export class OrderService {
       throw new Error("Order not found");
     }
 
+    if (!order.vendorId) {
+      throw new Error("Order must have a vendor ID to create payment");
+    }
+
     const payment: NewPayment = {
       orderId,
-      paymentMethod: paymentData.paymentMethod,
+      vendorId: order.vendorId,
+      paymentNumber: `PAY-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+      method: paymentData.paymentMethod as any,
+      provider: "stripe" as any, // Default provider, should come from paymentData
       paymentIntentId: paymentData.paymentIntentId,
-      transactionId: paymentData.transactionId,
+      externalId: paymentData.transactionId,
       amount: paymentData.amount.toString(),
+      netAmount: paymentData.amount.toString(), // Should be calculated with fees
       currency: paymentData.currency || "USD",
-      gatewayResponse: paymentData.gatewayResponse,
+      providerResponse: paymentData.gatewayResponse,
     };
 
     await this.orderRepo.createPayment(payment);

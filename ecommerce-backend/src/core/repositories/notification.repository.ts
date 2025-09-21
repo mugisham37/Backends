@@ -1,6 +1,6 @@
 /**
  * Notification Repository
- * Handles database operations for notifications and preferences
+ * Handles database operations for notifications and user preferences
  */
 
 import { eq, and, desc, count, sql } from "drizzle-orm";
@@ -72,23 +72,19 @@ export class NotificationRepository {
       conditions.push(sql`${notifications.createdAt} <= ${filters.dateTo}`);
     }
 
-    // Build the query
-    let query = this.db
+    // Build query with pagination
+    const limit = pagination.limit || 10;
+    const offset = pagination.offset || 0;
+
+    const results = await this.db
       .select()
       .from(notifications)
       .where(and(...conditions))
-      .orderBy(desc(notifications.createdAt));
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-    // Apply pagination
-    if (pagination.limit) {
-      query = query.limit(pagination.limit);
-    }
-
-    if (pagination.offset) {
-      query = query.offset(pagination.offset);
-    }
-
-    return await query;
+    return results;
   }
 
   /**

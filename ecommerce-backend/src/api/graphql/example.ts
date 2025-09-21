@@ -57,7 +57,7 @@ export const createIntegratedServer = async (port: number = 3000) => {
 
     try {
       // Close WebSocket server
-      await cleanup();
+      await cleanup.dispose();
       wsServer.close();
 
       // Close Fastify server

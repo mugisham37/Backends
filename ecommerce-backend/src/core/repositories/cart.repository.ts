@@ -280,7 +280,8 @@ export class CartRepository extends BaseRepository<Cart, NewCart> {
 
     if (existingItem[0]) {
       // Update quantity of existing item
-      const newQuantity = existingItem[0].quantity + itemData.quantity;
+      const itemQuantity = itemData.quantity ?? 1;
+      const newQuantity = existingItem[0].quantity + itemQuantity;
       const newSubtotal = parseFloat(itemData.price) * newQuantity;
 
       const updatedItem = await this.db
@@ -298,17 +299,29 @@ export class CartRepository extends BaseRepository<Cart, NewCart> {
     }
 
     // Create new cart item
+    const itemQuantity = itemData.quantity ?? 1;
     const newItem = await this.db
       .insert(cartItems)
       .values({
         cartId,
         ...itemData,
-        subtotal: (parseFloat(itemData.price) * itemData.quantity).toString(),
+        quantity: itemQuantity,
+        subtotal: (parseFloat(itemData.price) * itemQuantity).toString(),
       })
       .returning();
 
     await this.updateCartTotals(cartId);
     return newItem[0];
+  }
+
+  async findCartItemById(itemId: string): Promise<CartItem | null> {
+    const result = await this.db
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.id, itemId))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   async updateCartItem(
@@ -448,8 +461,31 @@ export class CartRepository extends BaseRepository<Cart, NewCart> {
       productImage: savedItem[0].productImage,
       price: savedItem[0].price,
       quantity: savedItem[0].quantity,
+      subtotal: (
+        parseFloat(savedItem[0].price) * savedItem[0].quantity
+      ).toString(),
       selectedAttributes: savedItem[0].selectedAttributes,
-      productSnapshot: savedItem[0].productSnapshot,
+      productSnapshot:
+        savedItem[0].productSnapshot &&
+        typeof savedItem[0].productSnapshot === "object" &&
+        "name" in savedItem[0].productSnapshot
+          ? (savedItem[0].productSnapshot as {
+              name: string;
+              description?: string;
+              image?: string;
+              attributes?: { [key: string]: any };
+              vendor?: {
+                id: string;
+                name: string;
+                businessName: string;
+              };
+              availability?: {
+                inStock: boolean;
+                quantity: number;
+                lowStockThreshold: number;
+              };
+            })
+          : undefined,
     };
 
     const restoredItem = await this.addItemToCart(
@@ -481,9 +517,9 @@ export class CartRepository extends BaseRepository<Cart, NewCart> {
     const cart = await this.findById(cartId);
     if (!cart) return;
 
-    const taxAmount = parseFloat(cart.taxAmount);
-    const shippingAmount = parseFloat(cart.shippingAmount);
-    const discountAmount = parseFloat(cart.discountAmount);
+    const taxAmount = parseFloat(cart.taxAmount || "0");
+    const shippingAmount = parseFloat(cart.shippingAmount || "0");
+    const discountAmount = parseFloat(cart.discountAmount || "0");
     const total = subtotal + taxAmount + shippingAmount - discountAmount;
 
     // Update cart

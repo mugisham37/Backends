@@ -348,13 +348,23 @@ export const orderResolvers = {
         }
 
         // This would integrate with payment gateway
+        const paymentNumber = `PAY-${Date.now()}-${Math.floor(
+          Math.random() * 1000
+        )
+          .toString()
+          .padStart(3, "0")}`;
+
         const payment = await context.repositories.payment.create({
           orderId,
-          paymentMethod: input.paymentMethod,
+          vendorId: order.vendorId || "00000000-0000-0000-0000-000000000000", // Default vendor ID if none
+          paymentNumber,
+          method: input.paymentMethod,
+          provider: "stripe", // Default provider
           paymentIntentId: input.paymentIntentId,
-          amount: input.amount,
+          amount: input.amount.toString(),
+          netAmount: input.amount.toString(), // Simplified, should calculate fees
           currency: order.currency,
-          status: "paid", // Would be set based on gateway response
+          status: "succeeded", // Would be set based on gateway response
           processedAt: new Date(),
         });
 

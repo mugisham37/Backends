@@ -7,14 +7,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { AppError } from "../../core/errors/app-error.js";
 import { JWTService } from "../../modules/auth/jwt.service.js";
 import type { User } from "../../core/database/schema/users.js";
-
-// Extend FastifyRequest to include user
-declare module "fastify" {
-  interface FastifyRequest {
-    user?: Omit<User, "password">;
-    userId?: string;
-  }
-}
+import "../types/fastify.d.js";
 
 export interface AuthenticatedRequest extends FastifyRequest {
   user: Omit<User, "password">;
@@ -177,10 +170,8 @@ export const getUserIdFromParams = (request: FastifyRequest): string => {
 };
 
 /**
- * Type guard to check if request is authenticated
+ * Helper function to check if a request is authenticated
  */
-export const isAuthenticatedRequest = (
-  request: FastifyRequest
-): request is AuthenticatedRequest => {
-  return !!request.user && !!request.userId;
+export const isAuthenticatedRequest = (request: FastifyRequest): boolean => {
+  return !!(request.user && request.userId);
 };

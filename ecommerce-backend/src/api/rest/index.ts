@@ -18,6 +18,7 @@ import { healthRoutes } from "./routes/health.routes";
 import { notificationRoutes } from "./routes/notification.routes";
 import { analyticsRoutes } from "./routes/analytics.routes";
 import { webhookRoutes } from "./routes/webhook.routes";
+import { paymentRoutes } from "./routes/payment.routes";
 import {
   ResponseBuilder,
   HTTP_STATUS,
@@ -68,6 +69,7 @@ export async function restApiPlugin(
               vendors: `${baseUrl}/vendors`,
               products: `${baseUrl}/products`,
               orders: `${baseUrl}/orders`,
+              payments: `${baseUrl}/payments`,
               notifications: `${baseUrl}/notifications`,
             },
             features: [
@@ -96,6 +98,7 @@ export async function restApiPlugin(
   await fastify.register(vendorRoutes, { prefix: "/vendors" });
   await fastify.register(productRoutes, { prefix: "/products" });
   await fastify.register(orderRoutes, { prefix: "/orders" });
+  await fastify.register(paymentRoutes, { prefix: "/payments" });
   await fastify.register(healthRoutes, { prefix: "/health" });
   await fastify.register(notificationRoutes, { prefix: "/notifications" });
   await fastify.register(analyticsRoutes, { prefix: "/analytics" });

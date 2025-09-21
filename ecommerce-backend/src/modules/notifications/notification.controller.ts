@@ -3,7 +3,7 @@
  * Handles HTTP endpoints for notification management and preferences
  */
 
-import { Request, Response } from "express";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { RealtimeNotificationService } from "./realtime-notification.service.js";
 import { AppError } from "../../core/errors/app-error.js";
@@ -132,9 +132,12 @@ export class NotificationController {
   /**
    * Get user notifications with filtering and pagination
    */
-  async getNotifications(req: Request, res: Response): Promise<void> {
+  async getNotifications(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       if (!userId) {
         throw new AppError("User not authenticated", 401, "UNAUTHORIZED");
       }
@@ -157,7 +160,7 @@ export class NotificationController {
         }
       );
 
-      res.json({
+      reply.code(200).send({
         success: true,
         data: notifications,
         pagination: {
@@ -168,7 +171,7 @@ export class NotificationController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        reply.code(400).send({
           success: false,
           error: {
             message: "Validation failed",
@@ -176,7 +179,7 @@ export class NotificationController {
           },
         });
       } else if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -184,7 +187,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -197,22 +200,25 @@ export class NotificationController {
   /**
    * Get notification statistics for the user
    */
-  async getNotificationStats(req: Request, res: Response): Promise<void> {
+  async getNotificationStats(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       if (!userId) {
         throw new AppError("User not authenticated", 401, "UNAUTHORIZED");
       }
 
       const stats = await this.notificationService.getNotificationStats(userId);
 
-      res.json({
+      reply.code(200).send({
         success: true,
         data: stats,
       });
     } catch (error) {
       if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -220,7 +226,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -233,9 +239,9 @@ export class NotificationController {
   /**
    * Mark notifications as read
    */
-  async markAsRead(req: Request, res: Response): Promise<void> {
+  async markAsRead(req: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       if (!userId) {
         throw new AppError("User not authenticated", 401, "UNAUTHORIZED");
       }
@@ -257,13 +263,13 @@ export class NotificationController {
         result = { count };
       }
 
-      res.json({
+      reply.code(200).send({
         success: true,
         data: result,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        reply.code(400).send({
           success: false,
           error: {
             message: "Validation failed",
@@ -271,7 +277,7 @@ export class NotificationController {
           },
         });
       } else if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -279,7 +285,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -292,9 +298,12 @@ export class NotificationController {
   /**
    * Get user notification preferences
    */
-  async getPreferences(req: Request, res: Response): Promise<void> {
+  async getPreferences(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       if (!userId) {
         throw new AppError("User not authenticated", 401, "UNAUTHORIZED");
       }
@@ -305,13 +314,13 @@ export class NotificationController {
         {}
       );
 
-      res.json({
+      reply.code(200).send({
         success: true,
         data: preferences,
       });
     } catch (error) {
       if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -319,7 +328,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -332,9 +341,12 @@ export class NotificationController {
   /**
    * Update user notification preferences
    */
-  async updatePreferences(req: Request, res: Response): Promise<void> {
+  async updatePreferences(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       if (!userId) {
         throw new AppError("User not authenticated", 401, "UNAUTHORIZED");
       }
@@ -346,13 +358,13 @@ export class NotificationController {
         preferences
       );
 
-      res.json({
+      reply.code(200).send({
         success: true,
         data: updated,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        reply.code(400).send({
           success: false,
           error: {
             message: "Validation failed",
@@ -360,7 +372,7 @@ export class NotificationController {
           },
         });
       } else if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -368,7 +380,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -381,9 +393,12 @@ export class NotificationController {
   /**
    * Send a notification (admin only)
    */
-  async sendNotification(req: Request, res: Response): Promise<void> {
+  async sendNotification(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
-      const userRole = req.user?.role;
+      const userRole = (req as any).user?.role;
       if (!userRole || !["admin", "moderator"].includes(userRole)) {
         throw new AppError("Insufficient permissions", 403, "FORBIDDEN");
       }
@@ -391,7 +406,7 @@ export class NotificationController {
       const payload = sendNotificationSchema.parse(req.body);
 
       // If userId not provided, use the authenticated user's ID
-      const targetUserId = payload.userId || req.user?.id;
+      const targetUserId = payload.userId || (req as any).user?.id;
       if (!targetUserId) {
         throw new AppError(
           "Target user ID is required",
@@ -405,13 +420,13 @@ export class NotificationController {
         userId: targetUserId,
       });
 
-      res.status(201).json({
+      reply.code(201).send({
         success: true,
         data: result,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        reply.code(400).send({
           success: false,
           error: {
             message: "Validation failed",
@@ -419,7 +434,7 @@ export class NotificationController {
           },
         });
       } else if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -427,7 +442,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -440,9 +455,12 @@ export class NotificationController {
   /**
    * Send bulk notifications (admin only)
    */
-  async sendBulkNotification(req: Request, res: Response): Promise<void> {
+  async sendBulkNotification(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
-      const userRole = req.user?.role;
+      const userRole = (req as any).user?.role;
       if (!userRole || !["admin", "moderator"].includes(userRole)) {
         throw new AppError("Insufficient permissions", 403, "FORBIDDEN");
       }
@@ -458,7 +476,7 @@ export class NotificationController {
       ).length;
       const failureCount = results.length - successCount;
 
-      res.status(201).json({
+      reply.code(201).send({
         success: true,
         data: {
           results,
@@ -471,7 +489,7 @@ export class NotificationController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        reply.code(400).send({
           success: false,
           error: {
             message: "Validation failed",
@@ -479,7 +497,7 @@ export class NotificationController {
           },
         });
       } else if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -487,7 +505,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",
@@ -500,7 +518,10 @@ export class NotificationController {
   /**
    * Test notification endpoint (development only)
    */
-  async testNotification(req: Request, res: Response): Promise<void> {
+  async testNotification(
+    req: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     try {
       if (process.env.NODE_ENV === "production") {
         throw new AppError(
@@ -510,7 +531,7 @@ export class NotificationController {
         );
       }
 
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
       if (!userId) {
         throw new AppError("User not authenticated", 401, "UNAUTHORIZED");
       }
@@ -530,13 +551,13 @@ export class NotificationController {
         tags: ["test", "development"],
       });
 
-      res.json({
+      reply.code(200).send({
         success: true,
         data: result,
       });
     } catch (error) {
       if (error instanceof AppError) {
-        res.status(error.statusCode).json({
+        reply.code(error.statusCode).send({
           success: false,
           error: {
             message: error.message,
@@ -544,7 +565,7 @@ export class NotificationController {
           },
         });
       } else {
-        res.status(500).json({
+        reply.code(500).send({
           success: false,
           error: {
             message: "Internal server error",

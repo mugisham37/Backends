@@ -26,6 +26,7 @@ export class CacheService {
   };
 
   constructor() {
+    // This will now use the fallback mock client if Redis is not available
     this.redis = getRedisClient();
   }
 

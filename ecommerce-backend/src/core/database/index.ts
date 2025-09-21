@@ -33,22 +33,20 @@ import { initializeDatabase, closeDatabase } from "./connection.js";
 import { databaseOptimizer } from "./optimization.js";
 import { dbPerformanceMonitor } from "./performance-monitor.js";
 
-// Optimized repositories
+// Base repository
 export {
-  OptimizedBaseRepository,
-  type PaginationOptions,
-  type SortOptions,
-  type FilterOptions,
+  BaseRepository,
+  type IBaseRepository,
   type QueryOptions,
   type PaginatedResult,
-} from "../repositories/optimized-base.repository.js";
+} from "../repositories/base.repository.js";
 
 export {
-  OptimizedProductRepository,
+  ProductRepository,
   type ProductFilters,
-  type ProductWithRelations,
-  type ProductSearchResult,
-} from "../repositories/optimized-product.repository.js";
+  type CreateProductData,
+  type UpdateProductData,
+} from "../repositories/product.repository.js";
 
 // Query monitoring decorators
 export {

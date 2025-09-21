@@ -290,3 +290,6 @@ export type ErrorCategory =
 export type ErrorSeverity =
   (typeof ERROR_SEVERITY)[keyof typeof ERROR_SEVERITY];
 export type HttpStatusCode = (typeof HTTP_STATUS)[keyof typeof HTTP_STATUS];
+
+// Legacy alias for compatibility
+export const ErrorTypes = ERROR_CODES;

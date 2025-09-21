@@ -18,8 +18,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   DB_MAX_CONNECTIONS: z.string().transform(Number).default("20"),
 
-  // Redis
-  REDIS_URL: z.string().url(),
+  // Redis (optional for development)
+  REDIS_URL: z.string().url().optional(),
   REDIS_MAX_RETRIES: z.string().transform(Number).default("3"),
 
   // JWT

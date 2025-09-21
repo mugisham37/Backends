@@ -223,6 +223,7 @@ export class CartService {
       price: price.toString(),
       compareAtPrice: compareAtPrice?.toString(),
       quantity: input.quantity,
+      subtotal: (price * input.quantity).toString(),
       selectedAttributes: input.selectedAttributes,
       customizations: input.customizations,
       notes: input.notes,
@@ -264,32 +265,22 @@ export class CartService {
     updates: UpdateCartItemInput
   ): Promise<CartItemOutput> {
     // Get current cart item
-    const currentItem = await this.cartRepo.db
-      .select()
-      .from(this.cartRepo.db.schema.cartItems)
-      .where(this.cartRepo.db.eq(this.cartRepo.db.schema.cartItems.id, itemId))
-      .limit(1);
+    const currentItem = await this.cartRepo.findCartItemById(itemId);
 
-    if (!currentItem[0]) {
+    if (!currentItem) {
       throw this.createError(
         CartErrorCodes.ITEM_NOT_FOUND,
         "Cart item not found"
       );
     }
 
-    const item = currentItem[0];
-
     // If quantity is being updated, validate stock
     if (updates.quantity !== undefined) {
       await this.validateProductForCart(
-        item.productId,
-        item.variantId,
+        currentItem.productId,
+        currentItem.variantId || undefined,
         updates.quantity
       );
-
-      // Update subtotal if quantity or price changed
-      const newSubtotal = parseFloat(item.price) * updates.quantity;
-      updates.subtotal = newSubtotal.toString();
     }
 
     // Update cart item
@@ -299,10 +290,10 @@ export class CartService {
     }
 
     // Clear cache and track analytics
-    await this.clearCartCache(item.cartId);
+    await this.clearCartCache(currentItem.cartId);
     await this.trackCartEvent(
       "item_updated",
-      { id: item.cartId },
+      { id: currentItem.cartId },
       {
         itemId,
         updates,
@@ -311,8 +302,8 @@ export class CartService {
 
     // Get product details for formatting
     const { product, variant, vendor } = await this.getProductDetails(
-      item.productId,
-      item.variantId
+      currentItem.productId,
+      currentItem.variantId || undefined
     );
 
     return this.formatCartItemOutput(updatedItem, product, variant, vendor);
@@ -320,32 +311,27 @@ export class CartService {
 
   async removeCartItem(itemId: string): Promise<boolean> {
     // Get cart item first to track analytics
-    const currentItem = await this.cartRepo.db
-      .select()
-      .from(this.cartRepo.db.schema.cartItems)
-      .where(this.cartRepo.db.eq(this.cartRepo.db.schema.cartItems.id, itemId))
-      .limit(1);
+    const currentItem = await this.cartRepo.findCartItemById(itemId);
 
-    if (!currentItem[0]) {
+    if (!currentItem) {
       throw this.createError(
         CartErrorCodes.ITEM_NOT_FOUND,
         "Cart item not found"
       );
     }
 
-    const item = currentItem[0];
     const success = await this.cartRepo.removeCartItem(itemId);
 
     if (success) {
       // Clear cache and track analytics
-      await this.clearCartCache(item.cartId);
+      await this.clearCartCache(currentItem.cartId);
       await this.trackCartEvent(
         "item_removed",
-        { id: item.cartId },
+        { id: currentItem.cartId },
         {
           itemId,
-          productId: item.productId,
-          quantity: item.quantity,
+          productId: currentItem.productId,
+          quantity: currentItem.quantity,
         }
       );
     }
@@ -404,7 +390,7 @@ export class CartService {
     // Get product details for formatting
     const { product, variant, vendor } = await this.getProductDetails(
       restoredItem.productId,
-      restoredItem.variantId
+      restoredItem.variantId || undefined
     );
 
     return this.formatCartItemOutput(restoredItem, product, variant, vendor);
@@ -454,7 +440,7 @@ export class CartService {
     const updatedCart = await this.cartRepo.update(cartId, {
       appliedCoupons: newAppliedCoupons,
       discountAmount: (
-        parseFloat(cart.discountAmount) + couponDiscount.amount
+        parseFloat(cart.discountAmount || "0") + couponDiscount.amount
       ).toString(),
     });
 
@@ -503,7 +489,7 @@ export class CartService {
       (_, index) => index !== couponIndex
     );
     const newDiscountAmount =
-      parseFloat(cart.discountAmount) - removedCoupon.discountAmount;
+      parseFloat(cart.discountAmount || "0") - removedCoupon.discountAmount;
 
     const updatedCart = await this.cartRepo.update(cartId, {
       appliedCoupons: newAppliedCoupons,
@@ -553,7 +539,24 @@ export class CartService {
   async getCartAnalytics(
     filters: CartListFilters = {}
   ): Promise<CartAnalytics> {
-    const summary = await this.cartRepo.getCartSummary(filters);
+    // Convert CartListFilters to CartFilters for repository compatibility
+    const repoFilters = {
+      userId: filters.userId,
+      sessionId: filters.sessionId,
+      status: Array.isArray(filters.status)
+        ? filters.status[0]
+        : filters.status,
+      type: Array.isArray(filters.type) ? filters.type[0] : filters.type,
+      hasItems: filters.hasItems,
+      minTotal: filters.valueRange?.min,
+      maxTotal: filters.valueRange?.max,
+      createdAfter: filters.dateRange?.start,
+      createdBefore: filters.dateRange?.end,
+      lastActivityAfter: filters.lastActivityRange?.start,
+      lastActivityBefore: filters.lastActivityRange?.end,
+    };
+
+    const summary = await this.cartRepo.getCartSummary(repoFilters);
 
     // Calculate additional metrics
     const conversionRate =
@@ -675,7 +678,7 @@ export class CartService {
     // Check stock if tracking quantity
     if (product.trackQuantity) {
       const availableQuantity = variant ? variant.quantity : product.quantity;
-      if (availableQuantity < quantity) {
+      if (availableQuantity !== null && availableQuantity < quantity) {
         throw this.createError(
           CartErrorCodes.INSUFFICIENT_STOCK,
           `Only ${availableQuantity} items available`
@@ -704,7 +707,7 @@ export class CartService {
   ): Promise<{ amount: number; type: "percentage" | "fixed" }> {
     // Simplified coupon validation - in real system, use coupon service
     // For now, just return a mock 10% discount
-    const subtotal = parseFloat(cart.subtotal);
+    const subtotal = parseFloat(cart.subtotal || "0");
 
     if (couponCode === "SAVE10") {
       return { amount: subtotal * 0.1, type: "percentage" };
@@ -728,7 +731,7 @@ export class CartService {
     for (const item of cartWithItems.items) {
       const { product, variant, vendor } = await this.getProductDetails(
         item.productId,
-        item.variantId
+        item.variantId || undefined
       );
       formattedItems.push(
         this.formatCartItemOutput(item, product, variant, vendor)
@@ -750,37 +753,37 @@ export class CartService {
     const summary: CartSummaryOutput = {
       itemCount: cartWithItems.itemCount,
       totalQuantity: cartWithItems.totalQuantity,
-      subtotal: cartWithItems.subtotal,
-      taxAmount: cartWithItems.taxAmount,
-      discountAmount: cartWithItems.discountAmount,
-      shippingAmount: cartWithItems.shippingAmount,
-      total: cartWithItems.total,
-      currency: cartWithItems.currency,
+      subtotal: cartWithItems.subtotal || "0.00",
+      taxAmount: cartWithItems.taxAmount || "0.00",
+      discountAmount: cartWithItems.discountAmount || "0.00",
+      shippingAmount: cartWithItems.shippingAmount || "0.00",
+      total: cartWithItems.total || "0.00",
+      currency: cartWithItems.currency || "USD",
       appliedCoupons: cartWithItems.appliedCoupons || [],
       vendorBreakdown,
     };
 
     return {
       id: cartWithItems.id,
-      userId: cartWithItems.userId,
-      sessionId: cartWithItems.sessionId,
+      userId: cartWithItems.userId || undefined,
+      sessionId: cartWithItems.sessionId || undefined,
       type: cartWithItems.type,
       status: cartWithItems.status,
-      currency: cartWithItems.currency,
-      customerEmail: cartWithItems.customerEmail,
-      customerPhone: cartWithItems.customerPhone,
-      shippingAddress: cartWithItems.shippingAddress,
-      shippingMethod: cartWithItems.shippingMethod,
-      shippingRate: cartWithItems.shippingRate,
+      currency: cartWithItems.currency || "USD",
+      customerEmail: cartWithItems.customerEmail || undefined,
+      customerPhone: cartWithItems.customerPhone || undefined,
+      shippingAddress: cartWithItems.shippingAddress || undefined,
+      shippingMethod: cartWithItems.shippingMethod || undefined,
+      shippingRate: cartWithItems.shippingRate || undefined,
       summary,
       items: formattedItems,
       savedItems: formattedSavedItems,
-      notes: cartWithItems.notes,
-      metadata: cartWithItems.metadata,
-      convertedOrderId: cartWithItems.convertedOrderId,
-      convertedAt: cartWithItems.convertedAt,
-      expiresAt: cartWithItems.expiresAt,
-      lastActivityAt: cartWithItems.lastActivityAt,
+      notes: cartWithItems.notes || undefined,
+      metadata: cartWithItems.metadata || undefined,
+      convertedOrderId: cartWithItems.convertedOrderId || undefined,
+      convertedAt: cartWithItems.convertedAt || undefined,
+      expiresAt: cartWithItems.expiresAt || undefined,
+      lastActivityAt: cartWithItems.lastActivityAt || new Date(),
       createdAt: cartWithItems.createdAt,
       updatedAt: cartWithItems.updatedAt,
     };
@@ -796,20 +799,20 @@ export class CartService {
       id: item.id,
       cartId: item.cartId,
       productId: item.productId,
-      variantId: item.variantId,
+      variantId: item.variantId || undefined,
       vendorId: item.vendorId,
       productName: item.productName,
-      productSlug: item.productSlug,
-      productSku: item.productSku,
-      variantTitle: item.variantTitle,
-      productImage: item.productImage,
+      productSlug: item.productSlug || undefined,
+      productSku: item.productSku || undefined,
+      variantTitle: item.variantTitle || undefined,
+      productImage: item.productImage || undefined,
       price: item.price,
-      compareAtPrice: item.compareAtPrice,
+      compareAtPrice: item.compareAtPrice || undefined,
       quantity: item.quantity,
       subtotal: item.subtotal,
-      selectedAttributes: item.selectedAttributes,
-      customizations: item.customizations,
-      notes: item.notes,
+      selectedAttributes: item.selectedAttributes || undefined,
+      customizations: item.customizations || undefined,
+      notes: item.notes || undefined,
       product: product
         ? {
             name: product.name,

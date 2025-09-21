@@ -37,7 +37,9 @@ import {
   NewPaymentWebhook,
   PaymentDispute,
   NewPaymentDispute,
-  paymentStatusEnum,
+  paymentsStatusEnum,
+  paymentProviderEnum,
+  paymentMethodEnum,
 } from "../database/schema/payments";
 import { orders } from "../database/schema/orders";
 import type { Database } from "../database/connection";
@@ -45,9 +47,9 @@ import type { Database } from "../database/connection";
 // Payment specific filter interfaces
 export interface PaymentFilters {
   orderId?: string;
-  status?: string[];
-  method?: string[];
-  provider?: string[];
+  status?: (typeof paymentsStatusEnum.enumValues)[number][];
+  method?: (typeof paymentMethodEnum.enumValues)[number][];
+  provider?: (typeof paymentProviderEnum.enumValues)[number][];
   amountRange?: {
     min: number;
     max: number;
@@ -117,7 +119,7 @@ export class PaymentRepository extends BaseRepository<Payment, NewPayment> {
 
   async findByExternalId(
     externalId: string,
-    provider?: string
+    provider?: (typeof paymentProviderEnum.enumValues)[number]
   ): Promise<Payment | null> {
     const conditions = [eq(payments.externalId, externalId)];
 
@@ -215,7 +217,7 @@ export class PaymentRepository extends BaseRepository<Payment, NewPayment> {
 
   async updatePaymentStatus(
     paymentId: string,
-    status: string,
+    status: (typeof paymentsStatusEnum.enumValues)[number],
     metadata?: any
   ): Promise<Payment | null> {
     const updateData: any = {
@@ -317,7 +319,7 @@ export class PaymentRepository extends BaseRepository<Payment, NewPayment> {
 
   async updateRefundStatus(
     refundId: string,
-    status: string,
+    status: (typeof paymentsStatusEnum.enumValues)[number],
     metadata?: any
   ): Promise<PaymentRefund | null> {
     const updateData: any = {
@@ -408,7 +410,7 @@ export class PaymentRepository extends BaseRepository<Payment, NewPayment> {
 
   async findWebhookByEventId(
     eventId: string,
-    provider: string
+    provider: (typeof paymentProviderEnum.enumValues)[number]
   ): Promise<PaymentWebhook | null> {
     const result = await this.db
       .select()

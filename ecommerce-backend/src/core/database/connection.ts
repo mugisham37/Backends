@@ -28,6 +28,19 @@ export function getDatabase(): Database {
   return db;
 }
 
+// Initialize database function
+export async function initializeDatabase(): Promise<Database> {
+  // Test the connection
+  try {
+    await client`SELECT 1`;
+    console.log("Database connection initialized successfully");
+    return db;
+  } catch (error) {
+    console.error("Failed to initialize database connection:", error);
+    throw error;
+  }
+}
+
 // Graceful shutdown
 export async function closeDatabase(): Promise<void> {
   await client.end();

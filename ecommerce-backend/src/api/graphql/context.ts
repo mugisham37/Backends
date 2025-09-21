@@ -5,21 +5,34 @@
 
 import { BaseContext } from "@apollo/server";
 import { Database } from "../../core/database/connection.js";
-import { getService } from "../../core/container/index.js";
+import { getService, container } from "../../core/container/index.js";
 import type { UserRepository } from "../../core/repositories/user.repository.js";
 import type { VendorRepository } from "../../core/repositories/vendor.repository.js";
 import type { ProductRepository } from "../../core/repositories/product.repository.js";
 import type { OrderRepository } from "../../core/repositories/order.repository.js";
 import type { PaymentRepository } from "../../core/repositories/payment.repository.js";
+import type { PaymentService } from "../../modules/ecommerce/payments/payment.service.js";
 import { User } from "../../core/database/schema/index.js";
 import { verifyJWT } from "../../shared/utils/jwt.utils.js";
 import { UserLoader } from "./dataloaders/user.loader.js";
 import { VendorLoader } from "./dataloaders/vendor.loader.js";
 import { ProductLoader } from "./dataloaders/product.loader.js";
 
+export interface GraphQLContextContainer {
+  get(serviceName: "paymentService"): PaymentService;
+  get(serviceName: "orderRepository"): OrderRepository;
+  get(serviceName: "vendorRepository"): VendorRepository;
+  get(serviceName: "paymentRepository"): PaymentRepository;
+  get<T>(serviceName: string): T;
+  resolve<T>(serviceName: string): T;
+}
+
 export interface GraphQLContext extends BaseContext {
   // Database connection
   db: Database;
+
+  // Service container for dependency injection
+  container: GraphQLContextContainer;
 
   // Repositories (data sources)
   repositories: {
@@ -112,6 +125,23 @@ export const createContext = async ({
 
   return {
     db,
+    container: {
+      get: <T>(serviceName: string): T => {
+        switch (serviceName) {
+          case "paymentService":
+            return container.resolve<PaymentService>(serviceName) as T;
+          case "orderRepository":
+            return container.resolve<OrderRepository>(serviceName) as T;
+          case "vendorRepository":
+            return container.resolve<VendorRepository>(serviceName) as T;
+          case "paymentRepository":
+            return container.resolve<PaymentRepository>(serviceName) as T;
+          default:
+            return container.resolve<T>(serviceName);
+        }
+      },
+      resolve: <T>(serviceName: string): T => container.resolve<T>(serviceName),
+    },
     repositories,
     loaders,
     user: user || undefined,
