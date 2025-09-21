@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { injectable } from "tsyringe";
-import { RequireAdmin } from "../../core/decorators/auth.decorator";
+import { RequireAdmin } from "../core/decorators/auth.decorator"
 
 export interface SystemMetrics {
   cpu: {

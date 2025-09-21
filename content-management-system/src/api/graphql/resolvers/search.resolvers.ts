@@ -12,19 +12,26 @@ export const searchResolvers = {
         tenantId: context.user.tenantId, // Scope search to user's tenant
       };
 
-      const result =
-        await context.dataSources.searchService.search(searchParams);
+      const result = await context.dataSources.searchService.search(
+        searchParams
+      );
 
       if (!result.success) {
         throw new Error(result.error.message);
       }
 
+      // Calculate pagination info
+      const page = input.page || 1;
+      const limit = input.limit || 20;
+      const total = result.data.total;
+      const hasMore = page * limit < total;
+
       return {
-        items: result.data.items,
-        total: result.data.total,
-        page: input.page || 1,
-        limit: input.limit || 20,
-        hasMore: result.data.hasMore,
+        items: result.data.hits,
+        total,
+        page,
+        limit,
+        hasMore,
       };
     },
   },

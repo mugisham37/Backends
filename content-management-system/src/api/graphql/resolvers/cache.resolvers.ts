@@ -16,7 +16,7 @@ export const cacheResolvers = {
     cacheStats: async (
       _parent: any,
       args: { detailed?: boolean },
-      context: GraphQLContext
+      _context: GraphQLContext
     ) => {
       const cacheController =
         container.resolve<CacheController>("CacheController");
@@ -36,7 +36,7 @@ export const cacheResolvers = {
     /**
      * Get cache health status
      */
-    cacheHealth: async (_parent: any, _args: any, context: GraphQLContext) => {
+    cacheHealth: async (_parent: any, _args: any, _context: GraphQLContext) => {
       const cacheController =
         container.resolve<CacheController>("CacheController");
 
@@ -55,7 +55,7 @@ export const cacheResolvers = {
     session: async (
       _parent: any,
       args: { sessionId: string },
-      context: GraphQLContext
+      _context: GraphQLContext
     ) => {
       const cacheController =
         container.resolve<CacheController>("CacheController");
@@ -77,7 +77,7 @@ export const cacheResolvers = {
     cacheValue: async (
       _parent: any,
       args: { key: string; namespace?: string },
-      context: GraphQLContext
+      _context: GraphQLContext
     ) => {
       const cacheController =
         container.resolve<CacheController>("CacheController");
