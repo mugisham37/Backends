@@ -6,7 +6,6 @@
 import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
-import { logger } from "../utils/logger";
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(process.cwd(), ".env") });
@@ -129,16 +128,19 @@ const envSchema = z.object({
 const parseEnvironment = () => {
   try {
     const env = envSchema.parse(process.env);
-    logger.info("✅ Environment variables validated successfully");
+    console.log("✅ Environment variables validated successfully");
     return env;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.error("❌ Environment validation failed:");
+      console.error("❌ Environment validation failed:");
       error.errors.forEach((err) => {
-        logger.error(`  - ${err.path.join(".")}: ${err.message}`);
+        console.error(`  - ${err.path.join(".")}: ${err.message}`);
       });
     } else {
-      logger.error("❌ Unexpected error during environment validation:", error);
+      console.error(
+        "❌ Unexpected error during environment validation:",
+        error
+      );
     }
     process.exit(1);
   }
@@ -336,7 +338,7 @@ export const validateConfig = () => {
     }
 
     if (!config.database.ssl) {
-      logger.warn("⚠️ Database SSL is disabled in production");
+      console.warn("⚠️ Database SSL is disabled in production");
     }
   }
 
@@ -346,12 +348,12 @@ export const validateConfig = () => {
   }
 
   if (errors.length > 0) {
-    logger.error("❌ Configuration validation failed:");
-    errors.forEach((error) => logger.error(`  - ${error}`));
+    console.error("❌ Configuration validation failed:");
+    errors.forEach((error) => console.error(`  - ${error}`));
     process.exit(1);
   }
 
-  logger.info("✅ Configuration validation passed");
+  console.log("✅ Configuration validation passed");
 };
 
 /**

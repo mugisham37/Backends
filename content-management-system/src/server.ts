@@ -4,6 +4,7 @@
  * graceful shutdown, process management, and environment-specific optimizations
  */
 
+import "reflect-metadata";
 import type { FastifyInstance } from "fastify";
 import { createApp } from "./app.js";
 import { config, getConfigSummary } from "./shared/config/env.config.js";

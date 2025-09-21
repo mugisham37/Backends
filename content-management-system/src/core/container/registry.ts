@@ -60,19 +60,19 @@ export function registerRepositories(): void {
   const repositories = [
     {
       token: TOKENS.UserRepository,
-      path: "../../modules/auth/auth.repository",
+      path: "../../core/repositories/user.repository",
     },
     {
       token: TOKENS.TenantRepository,
-      path: "../../modules/tenant/tenant.repository",
+      path: "../../core/repositories/tenant.repository",
     },
     {
       token: TOKENS.ContentRepository,
-      path: "../../modules/content/content.repository",
+      path: "../../core/repositories/content.repository",
     },
     {
       token: TOKENS.MediaRepository,
-      path: "../../modules/media/media.repository",
+      path: "../../core/repositories/media.repository",
     },
   ];
 
