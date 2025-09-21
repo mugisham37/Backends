@@ -1,13 +1,13 @@
 import { eq, and, or, ilike, sql, desc } from "drizzle-orm";
 import { injectable } from "tsyringe";
-import { media } from "../database/schema/media.schema.js";
-import { DatabaseError } from "../errors/database.error.js";
+import { media } from "../database/schema/media.schema.ts";
+import { DatabaseError } from "../errors/database.error.ts";
 import type {
   FilterOptions,
   PaginatedResult,
-} from "../types/database.types.js";
-import type { Result } from "../types/result.types.js";
-import { TenantBaseRepository } from "./tenant-base.repository.js";
+} from "../types/database.types.ts";
+import type { Result } from "../types/result.types.ts";
+import { TenantBaseRepository } from "./tenant-base.repository.ts";
 
 /**
  * Media entity type

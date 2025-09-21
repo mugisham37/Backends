@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
-import { HTTP_STATUS } from "../constants";
-import { ApiError } from "../utils/errors";
-import { logger } from "../utils/logger";
+import { HTTP_STATUS } from "../constants/index.ts";
+import { ApiError } from "../utils/errors.ts";
+import { logger } from "../utils/logger.ts";
 
 export const errorHandler = (
   err: Error,

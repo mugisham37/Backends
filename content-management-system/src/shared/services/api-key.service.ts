@@ -1,10 +1,10 @@
 import crypto from "crypto";
 import { eq, and } from "drizzle-orm";
 import { inject, injectable } from "tsyringe";
-import { apiKeys } from "../../core/database/schema/api-key.schema";
-import type { DrizzleDatabase } from "../../core/database/connection";
-import { ApiKeyModel } from "../db/models/api-key.model";
-import { logger } from "../utils/logger";
+import { apiKeys } from "../../core/database/schema/api-key.schema.ts";
+import type { DrizzleDatabase } from "../../core/database/connection.ts";
+import { ApiKeyModel } from "../db/models/api-key.model.ts";
+import { logger } from "../utils/logger.ts";
 
 @injectable()
 export class ApiKeyService {

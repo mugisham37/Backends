@@ -6,8 +6,8 @@ import {
   getConnectionPool,
   initializeDatabase,
   closeDatabase,
-} from "../src/core/database/connection.js";
-import { logger } from "../src/utils/logger.js";
+} from "../src/core/database/connection.ts";
+import { logger } from "../src/utils/logger.ts";
 
 /**
  * Performance optimization script

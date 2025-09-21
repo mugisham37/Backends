@@ -1,9 +1,9 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { inject, injectable } from "tsyringe";
-import { AuthService } from "./auth.service.js";
-import { logger } from "../../shared/utils/logger.js";
-import type { LoginCredentials } from "./auth.types.js";
-import type { CreateUserRequest } from "./user.schemas.js";
+import { AuthService } from "./auth.service.ts";
+import { logger } from "../../shared/utils/logger.ts";
+import type { LoginCredentials } from "./auth.types.ts";
+import type { CreateUserRequest } from "./user.schemas.ts";
 
 /**
  * Authentication controller for Fastify

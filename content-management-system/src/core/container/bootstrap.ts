@@ -75,7 +75,7 @@ export class ApplicationBootstrap {
     try {
       // Register services based on environment
       if (config.env === "test") {
-        registerTestServices();
+        await registerTestServices();
       } else {
         registerAllServices();
       }

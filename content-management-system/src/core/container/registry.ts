@@ -14,7 +14,6 @@ import { db } from "../database/connection";
 
 // Import Redis client (will be created when needed)
 import Redis from "ioredis";
-import { vi } from "vitest";
 
 /**
  * Register core infrastructure services
@@ -215,8 +214,11 @@ export function registerAllServices(): void {
 /**
  * Register services for testing environment
  */
-export function registerTestServices(): void {
+export async function registerTestServices(): Promise<void> {
   logger.info("Registering test services...");
+
+  // Dynamic import of vitest to avoid loading it in production
+  const { vi } = await import("vitest");
 
   // Reset container first
   containerConfig.reset();

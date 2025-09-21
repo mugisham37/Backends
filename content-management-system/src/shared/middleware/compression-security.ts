@@ -3,8 +3,8 @@ import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { config } from "../config/index.js";
-import { logger } from "../utils/logger.js";
+import { config } from "../config/index.ts";
+import { logger } from "../utils/logger.ts";
 
 /**
  * Compression and Security Headers Plugin

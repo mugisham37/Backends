@@ -2,8 +2,8 @@
 import type { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import Redis from "ioredis";
-import { config } from "../config";
-import { logger } from "../utils/logger";
+import { config } from "../config/index.ts";
+import { logger } from "../utils/logger.ts";
 
 // Redis client for rate limiting
 let redisClient: Redis | null = null;

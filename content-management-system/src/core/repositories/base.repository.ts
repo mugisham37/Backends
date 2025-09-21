@@ -1,14 +1,14 @@
 import { SQL, and, asc, count, desc, eq, or, sql } from "drizzle-orm";
 import { PgTable, TableConfig } from "drizzle-orm/pg-core";
-import { getDatabase } from "../database/connection.js";
-import { DatabaseError } from "../errors/database.error.js";
+import { getDatabase } from "../database/connection.ts";
+import { DatabaseError } from "../errors/database.error.ts";
 import type {
   FilterOptions,
   IRepository,
   PaginatedResult,
   SortOptions,
-} from "../types/database.types.js";
-import type { Result } from "../types/result.types.js";
+} from "../types/database.types.ts";
+import type { Result } from "../types/result.types.ts";
 
 /**
  * Base repository implementation with Drizzle ORM
@@ -16,7 +16,7 @@ import type { Result } from "../types/result.types.js";
  */
 export abstract class BaseRepository<
   T extends Record<string, unknown>,
-  K = string,
+  K = string
 > implements IRepository<T, K>
 {
   protected readonly db = getDatabase();

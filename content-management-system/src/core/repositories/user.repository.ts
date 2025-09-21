@@ -5,14 +5,14 @@ import {
   userSessions,
   type UserSession,
   type NewUserSession,
-} from "../database/schema/auth.schema.js";
-import { DatabaseError } from "../errors/database.error.js";
+} from "../database/schema/auth.schema.ts";
+import { DatabaseError } from "../errors/database.error.ts";
 import type {
   FilterOptions,
   PaginatedResult,
-} from "../types/database.types.js";
-import type { Result } from "../types/result.types.js";
-import { TenantBaseRepository } from "./tenant-base.repository.js";
+} from "../types/database.types.ts";
+import type { Result } from "../types/result.types.ts";
+import { TenantBaseRepository } from "./tenant-base.repository.ts";
 
 /**
  * User entity type

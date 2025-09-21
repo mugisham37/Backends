@@ -1,8 +1,8 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { dbLogger } from "../../shared/utils/logger.js";
-import { getConnectionPool, getDatabase } from "./connection.js";
+import { dbLogger } from "../../shared/utils/logger.ts";
+import { getConnectionPool, getDatabase } from "./connection";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

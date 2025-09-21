@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { REGEX_PATTERNS, VALIDATION_RULES } from "../constants";
+import { REGEX_PATTERNS, VALIDATION_RULES } from "../constants/index.ts";
 
 /**
  * Common Zod validation schemas used across the application

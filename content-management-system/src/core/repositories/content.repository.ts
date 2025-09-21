@@ -3,14 +3,14 @@ import { injectable } from "tsyringe";
 import {
   contents,
   contentVersions,
-} from "../database/schema/content.schema.js";
-import { DatabaseError } from "../errors/database.error.js";
+} from "../database/schema/content.schema.ts";
+import { DatabaseError } from "../errors/database.error.ts";
 import type {
   FilterOptions,
   PaginatedResult,
-} from "../types/database.types.js";
-import type { Result } from "../types/result.types.js";
-import { TenantBaseRepository } from "./tenant-base.repository.js";
+} from "../types/database.types.ts";
+import type { Result } from "../types/result.types.ts";
+import { TenantBaseRepository } from "./tenant-base.repository.ts";
 
 /**
  * Content entity type

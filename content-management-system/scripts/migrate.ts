@@ -9,8 +9,8 @@ import {
   resetDatabase,
   checkMigrationStatus,
   validateSchema,
-} from "../src/core/database/migrator.js";
-import { dbLogger } from "../src/utils/logger.js";
+} from "../src/core/database/migrator.ts";
+import { dbLogger } from "../src/utils/logger.ts";
 
 /**
  * Migration CLI commands

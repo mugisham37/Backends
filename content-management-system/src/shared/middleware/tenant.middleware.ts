@@ -1,9 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import type { TenantUserRole } from "../db/models/tenant.model";
+import type { TenantUserRole } from "../db/models/tenant.model.ts";
 import { container } from "tsyringe";
-import { TenantService } from "../../modules/tenant/tenant.service";
-import { ApiError } from "../utils/errors";
-import { logger } from "../utils/logger";
+import { TenantService } from "../../modules/tenant/tenant.service.ts";
+import { ApiError } from "../utils/errors.ts";
+import { logger } from "../utils/logger.ts";
 
 // Get tenant service from container
 const getTenantService = () => container.resolve(TenantService);

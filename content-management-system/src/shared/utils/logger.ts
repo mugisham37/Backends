@@ -1,6 +1,6 @@
 import pino from "pino";
-import { config } from "../config";
-import { LOG_LEVELS } from "../constants";
+import { config } from "../config/index.ts";
+import { LOG_LEVELS } from "../constants/index.ts";
 
 /**
  * Perfect Logger Interface - Comprehensive logging capabilities

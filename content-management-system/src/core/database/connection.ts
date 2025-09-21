@@ -2,9 +2,9 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { config } from "../../shared/config/index.js";
-import { dbLogger } from "../../shared/utils/logger.js";
-import { ConnectionPoolOptimizer, QueryOptimizer } from "./query-optimizer.js";
+import { config } from "../../shared/config/index";
+import { dbLogger } from "../../shared/utils/logger";
+import { ConnectionPoolOptimizer, QueryOptimizer } from "./query-optimizer";
 
 // Export the DrizzleDatabase type for other modules
 export type DrizzleDatabase = PostgresJsDatabase<Record<string, never>>;
@@ -209,6 +209,7 @@ const optimizeQueries = async (): Promise<void> => {
             FROM tenants 
             WHERE is_active = true 
             ORDER BY created_at DESC
+            LIMIT 10
           `);
         },
         ttl: 600, // 10 minutes
@@ -221,6 +222,7 @@ const optimizeQueries = async (): Promise<void> => {
             SELECT DISTINCT role 
             FROM users 
             WHERE is_active = true
+            LIMIT 20
           `);
         },
         ttl: 1800, // 30 minutes
@@ -229,7 +231,24 @@ const optimizeQueries = async (): Promise<void> => {
 
     dbLogger.info("Query optimization and cache warmup completed");
   } catch (error) {
-    dbLogger.error("Error during query optimization:", error);
+    // Log the warmup error but don't fail the entire initialization
+    dbLogger.warn("Query optimization warmup failed (this is non-critical):", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // If the error is due to missing tables/columns, we should still continue
+    // This allows the app to start even if cache warmup fails
+    if (
+      error instanceof Error &&
+      (error.message.includes("relation") ||
+        error.message.includes("column") ||
+        error.message.includes("does not exist"))
+    ) {
+      dbLogger.info(
+        "Skipping cache warmup due to schema mismatch - this is expected for new installations"
+      );
+    }
   }
 };
 
@@ -401,30 +420,21 @@ export const executeBatchQuery = async <T, K>(
   );
 };
 
-// Graceful shutdown handlers
-const gracefulShutdown = async (signal: string) => {
-  dbLogger.info(`Received ${signal}, closing database connection...`);
+/**
+ * Graceful database shutdown (internal use only)
+ * This is called by the main application's shutdown handlers
+ */
+export const gracefulDatabaseShutdown = async (): Promise<void> => {
+  dbLogger.info("Gracefully shutting down database connection...");
   try {
     await closeDatabase();
-    process.exit(0);
+    dbLogger.info("Database shutdown completed successfully");
   } catch (error) {
-    dbLogger.error("Error during graceful shutdown:", error);
-    process.exit(1);
+    dbLogger.error("Error during database shutdown:", error);
+    throw error;
   }
 };
 
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-
-// Handle uncaught exceptions
-process.on("uncaughtException", async (error) => {
-  dbLogger.error("Uncaught exception:", error);
-  await closeDatabase();
-  process.exit(1);
-});
-
-process.on("unhandledRejection", async (reason) => {
-  dbLogger.error("Unhandled rejection:", reason);
-  await closeDatabase();
-  process.exit(1);
-});
+// NOTE: Process event handlers have been removed from this module
+// The main application (server.ts) handles all process events and calls
+// gracefulDatabaseShutdown() as needed to avoid conflicts.

@@ -1,5 +1,5 @@
 import type { ZodSchema } from "zod";
-import { ValidationError } from "../errors/validation.error.js";
+import { ValidationError } from "../errors/validation.error.ts";
 
 /**
  * Validation decorator for service methods

@@ -1,14 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
-import { DatabaseError } from "../errors/database.error.js";
+import { DatabaseError } from "../errors/database.error.ts";
 import type {
   FilterOptions,
   ITenantRepository,
   PaginatedResult,
   TenantEntity,
-} from "../types/database.types.js";
-import type { Result } from "../types/result.types.js";
-import { BaseRepository } from "./base.repository.js";
+} from "../types/database.types.ts";
+import type { Result } from "../types/result.types.ts";
+import { BaseRepository } from "./base.repository.ts";
 
 /**
  * Base repository for tenant-scoped entities

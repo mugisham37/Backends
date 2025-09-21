@@ -1,16 +1,16 @@
 import { eq, ilike, or, and, sql } from "drizzle-orm";
 import { injectable } from "tsyringe";
-import { tenants } from "../database/schema/tenant.schema.js";
-import { users } from "../database/schema/auth.schema.js";
-import { contents } from "../database/schema/content.schema.js";
-import { media } from "../database/schema/media.schema.js";
-import { DatabaseError } from "../errors/database.error.js";
+import { tenants } from "../database/schema/tenant.schema.ts";
+import { users } from "../database/schema/auth.schema.ts";
+import { contents } from "../database/schema/content.schema.ts";
+import { media } from "../database/schema/media.schema.ts";
+import { DatabaseError } from "../errors/database.error.ts";
 import type {
   FilterOptions,
   PaginatedResult,
-} from "../types/database.types.js";
-import type { Result } from "../types/result.types.js";
-import { BaseRepository } from "./base.repository.js";
+} from "../types/database.types.ts";
+import type { Result } from "../types/result.types.ts";
+import { BaseRepository } from "./base.repository.ts";
 
 /**
  * Tenant entity type

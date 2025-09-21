@@ -1,4 +1,4 @@
-import { HTTP_STATUS } from "../constants";
+import { HTTP_STATUS } from "../constants/index.ts";
 
 export class ApiError extends Error {
   statusCode: number;

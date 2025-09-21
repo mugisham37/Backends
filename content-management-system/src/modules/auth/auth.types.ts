@@ -1,4 +1,4 @@
-import type { User } from "../../core/database/schema/auth.schema.js";
+import type { User } from "../../core/database/schema/auth.schema.ts";
 import type { Result } from "../../core/types/result.types";
 
 export interface LoginCredentials {

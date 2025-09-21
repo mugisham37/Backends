@@ -1,6 +1,7 @@
+import "reflect-metadata";
 import { createApp } from "./app";
 import { config } from "./shared/config";
-import { closeDatabase } from "./core/database/connection";
+import { gracefulDatabaseShutdown } from "./core/database/connection";
 import { logger } from "./shared/utils/logger";
 
 /**
@@ -169,7 +170,7 @@ class Server {
     // Close database connections
     logger.info("🗄️ Closing database connections...");
     cleanupTasks.push(
-      closeDatabase()
+      gracefulDatabaseShutdown()
         .then(() => {
           logger.info("✅ Database connections closed");
         })

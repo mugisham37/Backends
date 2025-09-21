@@ -6,13 +6,15 @@
  */
 
 import { DependencyContainer, container } from "tsyringe";
-import { vi } from "vitest";
-import { TOKENS } from "./index.js";
+import { TOKENS } from "./index.ts";
 
 /**
  * Create a test container with mock services
  */
-export function createTestContainer(): DependencyContainer {
+export async function createTestContainer(): Promise<DependencyContainer> {
+  // Dynamic import to avoid loading vitest in production
+  const { vi } = await import("vitest");
+
   // Create a child container for testing
   const testContainer = container.createChildContainer();
 
@@ -52,23 +54,29 @@ export const testMockFactory = {
   /**
    * Create a mock database instance
    */
-  createMockDatabase: () => ({
-    select: vi.fn(),
-    insert: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    transaction: vi.fn(),
-  }),
+  createMockDatabase: async () => {
+    const { vi } = await import("vitest");
+    return {
+      select: vi.fn(),
+      insert: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      transaction: vi.fn(),
+    };
+  },
 
   /**
    * Create a mock Redis instance
    */
-  createMockRedis: () => ({
-    get: vi.fn(),
-    set: vi.fn(),
-    del: vi.fn(),
-    exists: vi.fn(),
-    expire: vi.fn(),
-    quit: vi.fn(),
-  }),
+  createMockRedis: async () => {
+    const { vi } = await import("vitest");
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+      del: vi.fn(),
+      exists: vi.fn(),
+      expire: vi.fn(),
+      quit: vi.fn(),
+    };
+  },
 };

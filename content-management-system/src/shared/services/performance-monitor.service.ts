@@ -1,4 +1,4 @@
-import type { Result } from "../../core/types/result.types";
+import type { Result } from "../../core/types/result.types.ts";
 
 export interface PerformanceMetrics {
   requestCount: number;

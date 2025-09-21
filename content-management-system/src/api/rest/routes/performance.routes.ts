@@ -3,10 +3,10 @@ import { container } from "tsyringe";
 import {
   executeOptimizedQuery,
   getConnectionStats,
-} from "../../../core/database/connection.js";
-import { CacheService } from "../../../modules/cache/cache.service.js";
+} from "../../../core/database/connection.ts";
+import { CacheService } from "../../../modules/cache/cache.service.ts";
 import { PerformanceMonitorService } from "../../../shared/services/performance-monitor.service";
-import { logger } from "../../../shared/utils/logger.js";
+import { logger } from "../../../shared/utils/logger.ts";
 
 /**
  * Performance monitoring and optimization routes

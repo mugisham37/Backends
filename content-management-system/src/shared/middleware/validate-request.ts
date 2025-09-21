@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { ApiError } from "../utils/errors";
+import { ApiError } from "../utils/errors.ts";
 
 // Simple Joi-like interface for backward compatibility
 interface ValidationSchema {
